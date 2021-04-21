@@ -1,0 +1,7 @@
+FILE_PREFIX,PLOT_ALGORITHM,SUBPLOT_TYPE,I_KEYS,J_KEYS,A_KEYS,R_KEYS,D_KEYS,C_KEYS,S_KEYS,T_KEYS,LABELS_ON,INCLUDE_ALL,SHARE_SCALE,Y_AXIS_LABEL
+graph1,statistics_cs_plots_i_subplots,line,-1,-1,ALL,-1,ALL,ALL,cumulative_mines_started;production_ore,-1,0;1;0;0;0;0,0;0;0;0;0;0,TRUE,-1
+graph2,statistics_cs_plots_i_subplots,scatter,-1,0,ALL,-1,ALL,A;B;C;D,production_commodity;cumulative_mines_started,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
+graph3,statistics_cs_plots_i_subplots,stacked,-1,0,ALL,ALL,ALL,A;B;C;D,production_commodity;cumulative_mines_started,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
+graph4,statistics_ij_plots_c_subplots,line,-1,0,ALL,ALL,ALL,A;B;C;D,production_commodity,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
+graph5,statistics_ij_plots_c_subplots,scatter,-1,0,ALL,-1,ALL,A;B;C;D,production_commodity,-1,0;0;0;0;1;1,0;1;0;0;0;0,TRUE,-1
+graph6,statistics_ij_plots_c_subplots,stacked,-1,0,ALL,-1,ALL,A;B;C;D,production_commodity,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
