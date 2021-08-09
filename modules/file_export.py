@@ -49,7 +49,6 @@ def export_projects(output_path, project_list):
                         p.status_initial, p.value, p.discovery_year,
                         p.start_year, p.end_year, p.brownfield['tonnage'],
                         p.brownfield['grade'], p.aggregation])
-            #w.writerow(p.report())
     output_file.close()
 
 
@@ -172,4 +171,3 @@ def export_statistics_flat(path, stats_flat_dict, time_range):
                     dict_to_write.update({t: time_dict[t]})
             w.writerow(dict_to_write)
 
-        

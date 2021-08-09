@@ -38,6 +38,8 @@ initialise()
 scenario()
 _main_()
 
+# TODO: Add copywrite statement
+# TODO: Add file structure
 
 """
 
@@ -73,11 +75,13 @@ def initialise():
     OUTPUT_FOLDER_INPUT_COPY = (OUTPUT_FOLDER + r'\_input_files')
     OUTPUT_FOLDER_STATISTICS = (OUTPUT_FOLDER + r'\_statistics')
     OUTPUT_FOLDER_GRAPHS = (OUTPUT_FOLDER + r'\_graphs')
+    LOG = (OUTPUT_FOLDER + r'\\log.txt')
+
+    # Make directories to store model outputs
     mkdir(OUTPUT_FOLDER)
     mkdir(OUTPUT_FOLDER_INPUT_COPY)
     mkdir(OUTPUT_FOLDER_STATISTICS)
     mkdir(OUTPUT_FOLDER_GRAPHS)
-    LOG = (OUTPUT_FOLDER + r'\\log.txt')
 
     # Model version details for log and file writing
     VERSION_NUMBER = (str(0.996))
@@ -109,8 +113,6 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
 
     year_start = parameters['year_start'][i]
     year_end = parameters['year_end'][i]
-    #stats.update({parameters['scenario_name'][i]: {}})
-
 
     # As import_projects can have stochastic elements, need to use the scenario specific seed.
     random.seed(parameters['random_seed'][i])
@@ -236,7 +238,7 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
         year_set = set(range(year_start, year_end+1))
         
         for a_r_d_c_s_key, time_dict in imported_historic.items():
-            # Update stats to include historic values present in input_historic.csv
+            # Update stats to include any historic values present in input_historic.csv
             # P13
             stats[(parameters['scenario_name'][i],j,)+(a_r_d_c_s_key)].update(time_dict)
             year_set.update(time_dict.keys())
@@ -249,10 +251,10 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
         # P14
         # W1
         # Define file export paths
-        output_path_projects = output_folder_scenario + '\\' + str(j) + '-Projects'+'.csv'
+        output_path_projects = output_folder_scenario + '\\' + str(j) + '-Projects.csv'
         output_path_production_ore = output_folder_scenario + '\\' + str(j) + '-Production_Ore.csv'
-        output_path_expansion = output_folder_scenario + '\\' + str(j) + '-Expansion'+'.csv'
-        output_path_demand = output_folder_scenario + '\\' + str(j) + '-Demand'+'.csv'
+        output_path_expansion = output_folder_scenario + '\\' + str(j) + '-Expansion.csv'
+        output_path_demand = output_folder_scenario + '\\' + str(j) + '-Demand.csv'
 
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))

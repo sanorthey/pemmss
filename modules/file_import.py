@@ -189,11 +189,11 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 recovery = float(row['RECOVERY'])
             if row['PRODUCTION_CAPACITY'] == "":
                 no_production_capacity += 1
-                production_capacity = f['taylor_a'][index] * remaining_resource ** f['taylor_b'][index]
-                if production_capacity < f['taylor_min'][index]:
-                    production_capacity = f['taylor_min'][index]
-                elif production_capacity > f['taylor_max'][index]:
-                    production_capacity = f['taylor_max'][index]
+                production_capacity = deposit.capacity_generate(remaining_resource,
+                                                                f['taylor_a'][index],
+                                                                f['taylor_b'][index],
+                                                                f['taylor_min'][index],
+                                                                f['taylor_max'][index])
             else:
                 production_capacity = float(row['PRODUCTION_CAPACITY'])
             if row['STATUS'] == "":
@@ -405,7 +405,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
     """
     import_exploration_production_factors()
     Imports parameters from input_exploration_production_factors.csv located in the working directory.
-    Output is a dictionary, imported_exploration['key'][i], where 'key' is the deposit type [i].
+    Output is a dictionary, imported_factors['key'][i], where 'key' is the deposit type [i].
     """
     imported_factors = {'index': [], 'weighting': [], 'region': [], 'deposit_type': [], 'commodity_primary': [],
                         'grade_model': [], 'grade_a': [], 'grade_b': [], 'grade_c': [], 'grade_d': [],
@@ -561,7 +561,7 @@ def import_graphs(path, copy_path=None, log_path=None):
     """
     import_graphs(()
     Imports graph generation parameters from input_graphs.csv located at 'path'.
-    Typical path is \WORKING DIRECTORY\input_files\input_graphs.csv
+    Typical path is \WORKING DIRECTORY\input_files\
     Ouputs is a list of dictionaries, imported_graphs[{}, {}...]
     
         KEYS            |   ACCEPTABLE INPUT VALUES

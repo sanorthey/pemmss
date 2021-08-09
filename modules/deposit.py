@@ -9,6 +9,7 @@ Module with data structures and functions for handling deposit data
         .supply()
         .resource_expansion()
 
+  # Functions for discovering and defining resources
   resource_discovery()
   grade_generate()
   coproduct_grade_generate()
@@ -28,9 +29,9 @@ from modules.file_export import export_log
 class Mine:
     """ Mine Class.
     Used to track the current state of each mining project overtime.
-    (id_number, name, deposit_type, commodity, remaining_resource, grade,
+    (id_number, name, region, deposit_type, commodity, remaining_resource, grade,
      recovery, production_capacity, status, value,
-     discovery_year, start_year, brownfield, value_threshold)
+     discovery_year, start_year, brownfield, value_threshold, aggregation)
 
     **** Variables ****
     Mine.id_number | Unique deposit identifying number
@@ -209,6 +210,8 @@ class Mine:
             return self.value_threshold
         elif variable == 'aggregation':
             return self.aggregation
+        elif variable == 'key_set':
+            return self.key_set
         else:
             print('Attempted to get variable ' + str(variable) +
                   'from Mine class object that does not exist.')
@@ -396,6 +399,7 @@ class Mine:
         Consider adding resource_dilution() model for grade dilution
         """
         # FIXME: Get brownfield factors out of the input correctly.
+        # FIXME: Add resource_dilution() model
         # FIXME: Check brownfield factors from project file or from deposit type / region file.
         self.expansion[year] = self.remaining_resource * self.brownfield['tonnage']
         self.remaining_resource += self.expansion[year]
@@ -408,7 +412,7 @@ def resource_discovery(f, current_year, is_background, id_number):
     """
     resource_discovery()
     Randomly generates a new mineral deposit, based upon the parameter table 'f' outlined in the file
-    input_exploration_production_factors.csv
+        input_exploration_production_factors.csv
     f | resource_exploration_production factors data structure {key: [,,,]}
     is_background == True | Background greenfield discovery, start year forward dated
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
@@ -442,11 +446,7 @@ def resource_discovery(f, current_year, is_background, id_number):
     recovery = f['default_recovery'][index]
 
     # Estimate supply capacity, check that within min and max
-    capacity = f['taylor_a'][index] * tonnage ** f['taylor_b'][index]
-    if capacity < f['taylor_min'][index]:
-        capacity = f['taylor_min'][index]
-    elif capacity > f['taylor_max'][index]:
-        capacity = f['taylor_max'][index]
+    capacity = capacity_generate(tonnage, f['taylor_a'][index], f['taylor_b'][index], f['taylor_min'][index], f['taylor_max'][index])
 
     # Generate Value
     generated_value = value_generate(f['value_model'][index], tonnage, grade, recovery, value_factors)
@@ -472,7 +472,8 @@ def resource_discovery(f, current_year, is_background, id_number):
             if c != '':
                 g = coproduct_grade_generate(new_project, f, index, x)
                 r = f['coproduct_default_recovery'][index][x]
-                new_project.add_commodity(c, g, r, 0)
+                trigger = f['coproduct_supply_trigger']
+                new_project.add_commodity(c, g, r, trigger)
     return new_project
 
 
@@ -548,7 +549,7 @@ def coproduct_grade_generate(project, factors, factors_index, commodity_index):
 def tonnage_generate(size_model, factors, grade):
     """
     tonnage_generate()
-    Returns a resource tonnage, generated in accordance with defined grade distributions.
+    Returns a resource tonnage, generated in accordance with defined distributions.
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
     tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
     tonnage distribution, 4. User-defined tonnage distribution
@@ -601,6 +602,20 @@ def value_generate(model, size, ore_grade, mine_recovery, value_factor):
         # regions and deposit types in the input_exploration_production_factors.csv input file.
         user_defined = size + ore_grade + mine_recovery + value_factor['a'] * value_factor['b'] * value_factor['c'] * value_factor['d']
         return user_defined
+
+def capacity_generate(resource_tonnage, a, b, min, max):
+    """
+    Generates production capacity based upon the taylor rule factors in input_exploration_production_factors.csv
+
+    """
+    production_capacity = a * resource_tonnage ** b
+    if production_capacity < min:
+        production_capacity = min
+    elif production_capacity > max:
+        production_capacity = max
+
+    return production_capacity
+
 
 
 def update_exploration_production_factors(factors, updates):
