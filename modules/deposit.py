@@ -472,7 +472,7 @@ def resource_discovery(f, current_year, is_background, id_number):
             if c != '':
                 g = coproduct_grade_generate(new_project, f, index, x)
                 r = f['coproduct_default_recovery'][index][x]
-                trigger = f['coproduct_supply_trigger']
+                trigger = f['coproduct_supply_trigger'][index][x]
                 new_project.add_commodity(c, g, r, trigger)
     return new_project
 
