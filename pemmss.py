@@ -71,7 +71,7 @@ def initialise():
     # Set-up file management constants
     CWD = getcwd()
     INPUT_FOLDER = (CWD + r'\input_files')
-    OUTPUT_FOLDER = (CWD + r'\OUTPUTS_' + RUN_TIME)
+    OUTPUT_FOLDER = (CWD + r'\output_files\\' + RUN_TIME)
     OUTPUT_FOLDER_INPUT_COPY = (OUTPUT_FOLDER + r'\_input_files')
     OUTPUT_FOLDER_STATISTICS = (OUTPUT_FOLDER + r'\_statistics')
     OUTPUT_FOLDER_GRAPHS = (OUTPUT_FOLDER + r'\_graphs')
