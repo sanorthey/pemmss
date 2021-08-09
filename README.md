@@ -9,7 +9,7 @@ For further information email:
 This scenario model evaluates the rates of mine development, mineral exploration
 and co-product recovery required to meet primary demand over-time.
 
-TODO: Copywrite / license
+FIXME: Copywrite / license
 TODO: Citation
 TODO: Functionality
 TODO: How to use

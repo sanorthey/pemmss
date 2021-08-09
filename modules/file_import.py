@@ -14,7 +14,10 @@ Module with routines for importing PEMMSS model parameters and data files.
     import_historic()
     import_statistics_flat()
     import_statistics_flat_filter()
-    
+
+    TODO: 1. Add copyright statement
+    TODO: 2. Add cross-references to the journal article
+    TODO: 3. Update this docstring after all other todos removed
 """
 
 # Import standard packages
@@ -41,7 +44,8 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
         input_demand.csv
         input_graphs.csv
     Files will be copied to copy_path_folder if specified.
-    Returns file structures within a tuple.    
+    Returns file structures within a tuple.
+    TODO: Update docstrings to include full input / output descriptions
     """
     
     parameters = import_parameters(path, copy_path=copy_path_folder, log_path=log_file)
@@ -67,6 +71,9 @@ def import_parameters(path, copy_path=None, log_path=None):
     Imports parameters from input_parameters.csv located in the path directory.
     Output is a dictionary, imported_parameters['key'][i], where i is each scenario run.
     Copies input_parameters if copy_path directory specified.
+
+    TODO: Add input argument description to docstrings
+    TODO: Describe input file format, see import_postprocessing
     """
     imported_parameters = {'scenario_name': [], 'year_start': [], 'year_end': [], 'iterations': [],
                            'brownfield_exploration_on': [], 'greenfield_exploration_on': [],
@@ -102,6 +109,10 @@ def import_projects(f, path, copy_path=None, log_path=None):
     Output is a list of Mine() objects
     Missing variables are infilled using a variety of approaches,
     based upon parameters defined in input_exploration_production_factors.csv.
+    TODO: Add random region generation (incl. check for deposit type)
+    TODO: Add random deposit type generation (incl. check for region)
+    TODO: Update log text
+    TODO: Describe input file format, see import_postprocessing
     """
     # Tracking of missing values in input_projects.csv debugging purposes
     # and to track automated input generation processes.
@@ -285,6 +296,8 @@ def import_project_coproducts(exp_factors, path, projects, generate_all, copy_pa
     import_project_coproducts(path):
     Imports and adds coproduct parameters to projects from input_project_coproducts.csv located in the working directory.
     generate_all | If 1, update projects only listed in input_project_coproducts.csv. If 0, also update all other projects with data from exploration_production_factors.csv.
+    TODO: Update docstrings
+    TODO: Describe input file format, see import_postprocessing
     """
 
     with open(path+r'\\input_project_coproducts.csv', mode='r') as input_file:
@@ -406,6 +419,9 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
     import_exploration_production_factors()
     Imports parameters from input_exploration_production_factors.csv located in the working directory.
     Output is a dictionary, imported_factors['key'][i], where 'key' is the deposit type [i].
+    TODO: Update docstrings
+    TODO: Return variables described incorrectly.
+    TODO: Describe input file format, see import_postprocessing
     """
     imported_factors = {'index': [], 'weighting': [], 'region': [], 'deposit_type': [], 'commodity_primary': [],
                         'grade_model': [], 'grade_a': [], 'grade_b': [], 'grade_c': [], 'grade_d': [],
@@ -478,6 +494,9 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
     Import parameter overrides for each point in time from input_exploration_production_factors_timeseries.csv
     Output is two dictionaries (project updates, exploration_production_factors updates)
         of structure {year: {'region': {'deposit_type': {'variable': {'commodity': value}}}}}
+    TODO: Update docstrings
+    TODO: add input argument file structure description
+    TODO: DDescribe input file format, see import_postprocessing
     """
     project_updates = {}
     exploration_production_factors_updates = {}
@@ -502,6 +521,8 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
 def timeseries_dictionary_merge_row(dictionary, row):
     """
     Merges a new row into an existing timeseries factor update dictionary.
+    TODO: Describe use case -- currently used by file_import.import_exploration_production_factors.timeseries()
+    TODO: Update docstrings
     """
     for key in row.keys():
         if key not in ('UPDATE_PROJECTS', 'UPDATE_EXPLORATION_PRODUCTION_FACTORS', 'REGION',
@@ -526,6 +547,8 @@ def import_demand(path, copy_path=None, log_path=None):
     import_demand()
     Imports parameters from input_demand.csv located in the working directory.
     Outputs is a dictionary, imported_demand{scenario_name: {commodity: {'balance_supply': 1 or 0,'intermediate_recovery': 0 to 1, 'demand_threshold': 0 to 1, 'demand_carry': float(), year: commodity demand}}}
+    TODO: Update docstrings to include functionality, inputs and correct path description
+    TODO: Describe input file format, see import_postprocessing
     """
     print('Importing input_demand.csv')
     imported_demand = {}
@@ -570,6 +593,7 @@ def import_graphs(path, copy_path=None, log_path=None):
         subplot_type    |   line, scatter, stacked
         i_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
         j_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
+        a_keys          |
         r_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
         d_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
         c_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
@@ -579,6 +603,10 @@ def import_graphs(path, copy_path=None, log_path=None):
         include_all     |   x;x;x;x;x;x   where x = 0 (off) and x = 1 (on)
         share_scale     |   True or False (can be 1 or 0 and will automatically convert to boolean True or False)
         y_axis_label    |   -1 (will generate all keys) or a string
+    TODO: Add docstring description of copy_path and log_path
+    TODO: Add a_keys description to docstring
+    TODO: Check labels format
+    TODO: Describe input file format, see import_postprocessing
     """
     print('Importing input_graphs.csv')
     imported_graphs = []
@@ -654,6 +682,7 @@ def import_postprocessing(path, copy_path=None, log_path=None):
          
     Header row should be capitalised in input file. Output dictionary has lowercase keys.
 
+    TODO: Docstrings, describe STATISTIC input and matching to statistics data structure.
     """
     imported_postprocessing = {}
 
@@ -682,6 +711,8 @@ def import_historic(path, copy_path=None, log_path=None):
     Imports from input_historic located in the path directory.
     Returns a shallow nested dictionary {(a,r,d,c,s): {time: values}}
     Copies input_historic.csv if copy_path directory specified.
+
+    TODO: Describe input file format, see import_postprocessing
     """
     imported_historic = import_statistics_flat(path + r'\\input_historic.csv', custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC'])
     
@@ -702,6 +733,8 @@ def import_statistics_flat(path, log_path=None, custom_keys=False):
                 | For input_historic.csv use:
                 | custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
     Returns a shallow nested dictionary {(i,j,a,r,d,c,s): {time: values}}
+    TODO: Describe input file format, see import_postprocessing
+    TODO: Refactor to import_statistics_flat
     """
     print('Importing statistics.csv')
         
@@ -739,6 +772,8 @@ def import_statistics_flat_filter(path, stats_included, log_path=None):
     stats_included is a list of statistics to include
     Returns a nested dictionary {s:{(i,j,a,r,d,c,s): {time: values}}} and the time keys.
     ## top level {s} is a default dictionary
+    TODO: Describe input file format, see import_postprocessing
+    TODO: Refactor to import_statistics_filter()
     """
     
     imported_statistics = defaultdict(dict)

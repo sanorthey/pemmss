@@ -17,6 +17,11 @@ Module with data structures and functions for handling deposit data
   value_generate()
   update_exploration_production_factors()
 
+# TODO: 1. Add copyright to docstring
+# TODO: 2. Modify docstring to include description of modulee use and application.
+# TODO: 3. Add cross-references to journal article
+# TODO: 4. Check this docstring after all other todos removed
+
 """
 
 # Import standard packages
@@ -75,6 +80,10 @@ class Mine:
     Mine.resource_expansion
     Mine.export()
     Mine.stats_update()
+
+    #TODO: Mine.commodity - add description of 1 and 0 values reflecting whether demand driver or not.
+    #TODO: Check description of all variables, include variable type / structure
+
     """
     __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'recovery',
@@ -135,6 +144,9 @@ class Mine:
         Adds a commodity to Mine.
         is_primary_product = 1 then mine will be triggered by commodity demand
         is_primary_product = 0 then mine won't be triggered by commodity demand
+
+        # TODO: Update docstrings to explain input variables
+        # TODO: Update docstrings to explain updated variables
         """
         self.commodity.update({add_commodity: int(is_primary_product)})
         self.grade.update({add_commodity: float(add_grade)})
@@ -155,6 +167,9 @@ class Mine:
         Mine.get(variable, get_commodity=None)
         variable is a string
         returns the instance variable associated with the passed string
+
+        #TODO: Descrine input arguments more fully
+        #TODO: Modify docstring to include how get_commodity alters return variable
         """
         if variable == 'id_number':
             return self.id_number
@@ -221,6 +236,8 @@ class Mine:
         Mine.report()
         Returns a tuple containing non-time dependent variables for the export_projects function.
         Return ()
+
+        #TODO: Delete, not used
         """
         return (self.id_number, self.name, self.region, self.deposit_type,
                         self.commodity, self.initial_resource, self.remaining_resource,
@@ -236,6 +253,8 @@ class Mine:
         Mine.update_key_dict(key_dict, i, j)
         Appends self to a (i,j,a,r,d,c) keyed dictionary.
         key_dict = {(i,j,a,r,d,c): [self, mine1, mine2, ...]}
+
+        #TODO: Improve docstring to more clearly show input and return variable
         """
 
         # Include (i,j) in every self.key_set key (a,r,d,c)
@@ -278,6 +297,7 @@ class Mine:
         Mine.update(ext_factors)
         Updates a mine's variables if it matches the deposit type and region.
         update_factors = {region: {deposit_type: {variable: {commodity: value}}}}
+        # TODO: Add list to the docstring describing variables that can be altered by the algorithm.
         """
         # Check if region and deposit type pair is present in update_factors
         if self.region in update_factors.keys():
@@ -329,6 +349,9 @@ class Mine:
         Returns the mine's intermediate commodity production rates, accounting for ore produced, grade and mine recovery factor.
         Updates Mine.status, Mine.start_year and Mine.end_year.
         # FIXME - check return statements and update doc strings
+        # FIXME: Correct docstring to include return supply status
+        # TODO: Modify docstring to include input argument descriptions
+        # TODO: Modify docstring to include demanded commodity check description
         """
         if self.value < self.value_threshold:
             # Deposit is not valuable enough to mine.
@@ -417,6 +440,8 @@ def resource_discovery(f, current_year, is_background, id_number):
     is_background == True | Background greenfield discovery, start year forward dated
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
     id_number | Unique ID for the generated Mine class instance, must be an integer
+
+    TODO: Add returned object to docstring
     """
 
     # Randomly generate a new deposit type based upon weightings
@@ -489,7 +514,11 @@ def grade_generate(grade_model, factors):
         b = sigma, standard deviation
         c = multiplier
         d = max grade
-
+    TODO: Describe inputs for all grade models
+    TODO: Check lognormal distribution function and grade-dependent tonnage
+    TODO: Ensure parameter definition consistent with coproduct_grade_generate
+    TODO: Add grade model for multiple of an input variable
+    TODO: Refactor grade_model to strings e.g. "fixed", "lognormal", etc.
     """
     if grade_model == 1:
         # Fixed grade distribution
@@ -524,6 +553,9 @@ def coproduct_grade_generate(project, factors, factors_index, commodity_index):
     factors['coproduct_c'][factor_index][commodity_index]
     factors['coproduct_d'][factor_index][commodity_index]
     )
+    TODO: Remove hard coding of grade models, make call to grade_generate
+    TODO: Create lognormal-tonnage dependent grade distribution model.
+    TODO: Fix docstrings
     """
     try:
         coproduct_grade_model = int(factors['coproduct_grade_model'][factors_index][commodity_index])
@@ -553,6 +585,9 @@ def tonnage_generate(size_model, factors, grade):
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
     tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
     tonnage distribution, 4. User-defined tonnage distribution
+    TODO: Check lognormal-grade dependent tonnage distribution
+    TODO: Define variable inputs for each model in comments.
+    TODO: change size_model inputs to strings, e.g. "fixed", "lognormal", etc.
     """
     # Generate primary resource tonnage based upon a distribution relationship.
     if size_model == 1:
@@ -578,7 +613,10 @@ def tonnage_generate(size_model, factors, grade):
 def value_generate(model, size, ore_grade, mine_recovery, value_factor):
     """
     Generates value based upon the value model selected in the input_parameters.csv
-    
+
+    TODO: Create a basic commodity price / revenue model.
+    TODO: Generalise grade and recovery models for multiple commodity systems
+    TODO: Update docstrings
     """
     if model == 1:
         # Fixed
@@ -606,7 +644,8 @@ def value_generate(model, size, ore_grade, mine_recovery, value_factor):
 def capacity_generate(resource_tonnage, a, b, min, max):
     """
     Generates production capacity based upon the taylor rule factors in input_exploration_production_factors.csv
-
+    TODO: Update docstrings to include input argument description
+    TODO: Update docstrings to include return variable description
     """
     production_capacity = a * resource_tonnage ** b
     if production_capacity < min:
@@ -623,6 +662,9 @@ def update_exploration_production_factors(factors, updates):
     factors | a dictionary containing lists of exploration_production_factor variables
     updates | a nested dictionary of structure {region: {deposit_type: {variable: {commodity: value}}}}
     Ignores any production variables.
+    TODO: Update docstrings to include description of functionality and return variables
+    TODO: Decide whether to add in functionality for selective changes to a commodities values. Currently can still update all commodities at once.
+
     """
     for r in updates:
         for d in updates[r]:

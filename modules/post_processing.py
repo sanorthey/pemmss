@@ -9,6 +9,10 @@ Module with routines for post_processing of results data.
     post_processing_old()
     merge_scenarios()
 
+TODO: 1. Add copywrite statement
+TODO: 2. Finish writing and testing module functionality
+TODO: 3. Add cross-refernces to the journal article
+TODO: 4. Check docstrings after functionality finalised
 """
 
 # Import standard packages
@@ -24,6 +28,11 @@ from modules.file_export import export_log, export_statistics_flat
 from modules.file_import import import_statistics_flat_filter, import_statistics_flat
 
 def generate_figures(statistics, graphs, output_folder):
+    """
+    TODO: Write docstrings
+    TODO: Add figure types
+    """
+
     figs = 0
     g_statistics = {}
     for g in graphs:
@@ -46,6 +55,9 @@ def generate_plot_keys(statistics, keys_0, keys_1, index_0, index_1):
     keys_1     |
     index_0    | (i,j,a,r,d,c,s)
     index_1    | (i,j,a,r,d,c,s)
+    TODO: Update docstrings
+    TODO: Check functionality
+    TODO: Check use case
     """
     
     
@@ -128,6 +140,7 @@ def statistics_ij_plots_c_subplots(statistics, path, g):
     share_scale = True
     y_axis_label = 0 ## Can set to 0 for auto-generation.
     statistics_ij_plots_c_subplots(statistics,output_folder,i_keys,j_keys,r_keys,d_keys,c_keys,s_keys,t_keys,labels_on,include_all,plot_type,share_scale,y_axis_label)
+    TODO: Update docstrings to better match arguments
     """
 
     file_prefix, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys, labels_on, include_all, subplot_type, share_scale, y_axis_label = (
@@ -142,7 +155,7 @@ def statistics_ij_plots_c_subplots(statistics, path, g):
     #        for j in statistics[i].keys():
     #            if j not in j_keys:
     #                j_keys.append(j)
-    
+    # FIXME: Check if above required
     
     # Autogenerate i_keys and j_keys where required.
     if type(i_keys) != list:
@@ -231,6 +244,7 @@ def statistics_cs_plots_i_subplots(statistics, path, g):
     share_scale = True
     y_axis_label = -1 # Can set to a string (e.g.'label') or 0 for auto-generation.
     statistics_cs_plots_i_subplots(statistics,output_folder,i_keys,j_keys,a_keys,r_keys,d_keys,c_keys,s_keys,t_keys,labels_on,include_all,plot_type,share_scale,y_axis_label)
+    TODO: Update docstrings to better match input arguments.
     """
     file_prefix, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys, labels_on, include_all, subplot_type, share_scale, y_axis_label = (
         g['file_prefix'], g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys'],
@@ -268,7 +282,8 @@ def plot_subplot_generator(output_filename, title, x, y, l, subtitles, iterator,
     """
     Returns a plot with an arbitrary number of subplots.
     plot_type can equal 'stacked', 'scatter', 'line'
-    iterator must be ordered to generate horizontal then vertical. ## CHECK THIS.
+    iterator must be ordered to generate horizontal then vertical. TODO: CHECK THIS.
+    TODO: Update docstrings
     """
     # Create an iterator for the subplots (e.g. commodity keys)
     subplot = iter(iterator)
@@ -316,7 +331,10 @@ def post_processing_old(imported_postprocessing, scenario_folders, output_stats_
     imported_postprocessing = 
     scenario_folders = 
     output_stats_folder = 
-    ## FIXME: finish documentation    
+    TODO: Check whether used
+    TODO: Delete if not used
+    TODO: Update docstrings if used
+    TODO: Refactor if used
     """
 
     stats_list = []
@@ -340,7 +358,8 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
     imported_postprocessing =
     scenario_folders =
     output_stats_folder =
-    ## FIXME: finish documentation
+
+    TODO: Update docstrings
     """
 
     updated_postprocessing = imported_postprocessing

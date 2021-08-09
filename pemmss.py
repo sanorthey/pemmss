@@ -38,9 +38,10 @@ initialise()
 scenario()
 _main_()
 
-# TODO: Add copywrite statement
-# TODO: Add file structure
-
+# TODO: 1. Add copywrite statement
+# TODO: 2. Add file structure
+# TODO: 3. Change argument passing to via dictionary
+# TODO: 4. Update this docstring after all module todos are completed.
 """
 
 # Import standard packages
@@ -64,6 +65,9 @@ import modules.post_processing as post_processing
 def initialise():
     """
     # P1
+
+    TODO: Change to returning a dictionary
+    TODO: Add simple docstring
     """
     # Initialise and Import Data
     RUN_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -107,6 +111,10 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
     """
     Generate a scenario based upon the 
     # P2
+
+    TODO: Update docstring
+    TODO: Change to inputting a dictionary
+    TODO: Check and test P6 - background greenfield discovery loop
     """
 
     ### Scenario Specific Data
@@ -282,12 +290,21 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
     return output_folder_scenario
 
 def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs):
+    """
+    # P15
+    # P16
+
+    FIXME: Write docstrings
+    FIXME: Fix figure generation loop
+    """
+
     # Filter and merge scenario and iteration statistics
     # P15
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
     # Generate figures
     # P16
     # FIXME: generate_figures based upon filtered statistics
+
     #for s in statistics_files:
     #    post_processing.generate_figures(statistics_files[s]['path'], imported_graphs, output_graphs_folder)
 
@@ -301,6 +318,8 @@ if __name__ == '__main__':
     P2 - Execute scenario modelling concurrently amongst pooled cpu processes
     P13 - Check for pooled process errors and exceptions
     P14 - Post-processing of scenario output files to produce summary graphs
+    
+    # FIXME: Refactor CONSTANTS variable to a dictionary
     """
     t0 = (time())
     

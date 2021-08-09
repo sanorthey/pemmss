@@ -8,7 +8,11 @@ Module with routines for exporting PEMMSS model results and data files.
   export_demand()
   export_statistics()
   export_statistics_flat()
-  
+
+  TODO: 1. Add copyright to docstring
+  TODO: 2. Add cross-references to journal article
+  TODO: 3. Check this docstring after all other todos removed
+
 """
 
 # Import standard packages
@@ -33,6 +37,8 @@ def export_log(entry, output_path='log.txt', print_on=0):
 def export_projects(output_path, project_list):
     """
     Exports project data to a csv file.
+
+    TODO: Improve docstrings
     """
     with open(output_path, 'w+', newline='') as output_file:
         w = csv.writer(output_file, delimiter=',')
@@ -56,6 +62,9 @@ def export_list_of_dictionary(path, list_of_dictionary, header='None', id_key='N
     """
     Exports a csv file with a header row,
     with subsequent rows for each dictionary contained in a list of dictionaries.
+
+    # TODO: improve docstrings
+    # TODO: describe id_key functionality
     """
     # Exports values to a csv from a dictionary for a defined list of keys.
     # Writes keys as a header row.
@@ -100,6 +109,8 @@ def export_project_dictionary(path, project_list, variable, header='None', id_ke
                            Useful for exporting data for quick aggregation (e.g. by deposit_type).
     commodity [optional] | Use to specify a commodity sub-dictionary
                            (e.g. for Mine.production_intermediate[commodity], Mine.grade[commodity])
+
+    TODO: Update docstrings
     """
     list_of_dictionary = []
     for p in project_list:
@@ -126,6 +137,7 @@ def export_demand(output_path, demand):
                                                 'demand_threshold': 0 to 1,
                                                 'demand_carry': float(),
                                                 year: commodity demand}}}
+    TODO: Update docstrings
     """
     header = ['commodity']
     for c in demand:
@@ -147,6 +159,8 @@ def export_statistics_flat(path, stats_flat_dict, time_range):
     exp_stats = {(i,j,a,r,d,c,s):{t:}}
     header = ([i,j,a,r,d,c,s], [t1,t2,t3,etc.])
     i.e. header[0] = key     |    header[1] = time keys
+    TODO: update docstrings to describe variable naming
+    TODO: refactor to file_export.export_statistics()
     """
     if os.path.isfile(path) == 0:
         existing = 0
