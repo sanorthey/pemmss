@@ -9,7 +9,7 @@ For further information email:
 This scenario model evaluates the rates of mine development, mineral exploration
 and co-product recovery required to meet primary demand over-time.
 
---- Cross-references to Journal Article ---
+--- Journal article cross-references ---
 # P1 - Initialisation, Import scenario description and calibration data
 # P2 - Scenario Loop
 # P3 - Iteration Loop
@@ -41,7 +41,8 @@ _main_()
 # TODO: 1. Add copywrite statement
 # TODO: 2. Add file structure
 # TODO: 3. Change argument passing to via dictionary
-# TODO: 4. Update this docstring after all module todos are completed.
+# TODO: 4. Update PEMMSS_flowcharts.drawio incl. correct output path and input file copies. Update cross-refs.
+# TODO: 3. Update this docstring after all module todos are completed.
 """
 
 # Import standard packages
@@ -64,10 +65,35 @@ import modules.post_processing as post_processing
 
 def initialise():
     """
-    # P1
+    Generates the model run output directories, creates the log file and imports and copies non-stochastic input files.
+    Returns a tuple containing input data for passing to scenario().
 
-    TODO: Change to returning a dictionary
-    TODO: Add simple docstring
+    Files read:
+    input_files\input_demand.csv
+    input_files\input_exploration_production_factors.csv
+    input_files\input_exploration_production_factors_timeseries.csv
+    input_files\input_graphs.csv
+    input_files\input_historic.csv
+    input_files\input_parameters.csv
+    input_files\input_postprocessing.csv
+
+    Files & directories written:
+    output_files\[RUN_TIME]\
+    output_files\[RUN_TIME]\_input_files\
+    output_files\[RUN_TIME]\_input_files\input_demand.csv
+    output_files\[RUN_TIME]\_input_files\input_exploration_production_factors.csv
+    output_files\[RUN_TIME]\_input_files\input_exploration_production_factors_timeseries.csv
+    output_files\[RUN_TIME]\_input_files\input_graphs.csv
+    output_files\[RUN_TIME]\_input_files\input_historic.csv
+    output_files\[RUN_TIME]\_input_files\input_parameters.csv
+    output_files\[RUN_TIME]\_input_files\input_postprocessing.csv
+    output_files\[RUN_TIME]\_statistics\
+    output_files\[RUN_TIME]\_graphs\
+    output_files\[RUN_TIME]\log.txt
+
+    --- Journal article cross-references ---
+    P1, R1
+
     """
     # Initialise and Import Data
     RUN_TIME = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -88,8 +114,8 @@ def initialise():
     mkdir(OUTPUT_FOLDER_GRAPHS)
 
     # Model version details for log and file writing
-    VERSION_NUMBER = (str(0.996))
-    VERSION_DATE = '2021-04-21'
+    VERSION_NUMBER = (str(0.9981))
+    VERSION_DATE = '2021-08-13
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS)\n" +
                    "Version " + VERSION_NUMBER + ", " + VERSION_DATE + " \n" +
@@ -109,11 +135,31 @@ def initialise():
 
 def scenario(parameters, imported_factors, timeseries_project_updates, timeseries_exploration_production_factors_updates, imported_demand, imported_graphs, imported_postprocessing, input_folder, output_folder, output_folder_input_copy, output_folder_statistics, output_folder_graphs, imported_historic, log, i):
     """
-    Generate a scenario based upon the 
-    # P2
+    Executes multiple iterations of the scenario run, creates scenario specific output folders and files,
+    imports project specific data and then loops through all time periods where it generates background greenfield
+    discoveries, sorts the production schedule of deposits, balances commodity supply and demand, generates demanded
+    greenfield discoveries, adjusts subsequent years demand by a factor of over/undersupply and generates brownfield
+    expansion of deposits. Then final scenario, iteration, project data and results are exported to .csv files.
+    Returns the path to the scenario specific output folder.
 
-    TODO: Update docstring
-    TODO: Change to inputting a dictionary
+    Files read:
+    input_files\input_projects.csv
+    input_files\input_project_coproducts.csv
+
+    Files & directories written:
+    output_files\[RUN_TIME]\_input_files\input_projects.csv
+    output_files\[RUN_TIME]\_input_files\input_project_coproducts.csv
+    output_files\[RUN_TIME]\log.txt
+    output_files\[RUN_TIME]input_files\exploration_production
+    output_files\[RUN_TIME]\[scenario_name]\_statistics.csv
+    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Projects.csv
+    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Production_Ore.csv
+    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Expansion.csv
+    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Demand.csv
+    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Production_Intermediate_[commodity].csv
+
+    --- Journal article cross-references ---
+    P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, R2, W1
     TODO: Check and test P6 - background greenfield discovery loop
     """
 
@@ -136,6 +182,7 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
         jt0 = (time())
         factors = deepcopy(imported_factors)
         demand = deepcopy(imported_demand[parameters['scenario_name'][i]])
+        # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
         projects = file_import.import_projects(factors, input_folder, copy_path=output_folder_input_copy)
         projects = file_import.import_project_coproducts(factors, input_folder, projects, parameters['generate_all_coproducts'][i], copy_path=output_folder_input_copy)
         log_message.append('\nScenario '+str(parameters['scenario_name'][i])+' Iteration '+str(j))
@@ -244,7 +291,7 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
             stats.update(results.generate_statistics(key, project_list, range(year_start, year_end+1), demand))
             
         year_set = set(range(year_start, year_end+1))
-        
+
         for a_r_d_c_s_key, time_dict in imported_historic.items():
             # Update stats to include any historic values present in input_historic.csv
             # P13
@@ -319,10 +366,10 @@ if __name__ == '__main__':
     P13 - Check for pooled process errors and exceptions
     P14 - Post-processing of scenario output files to produce summary graphs
     
-    # FIXME: Refactor CONSTANTS variable to a dictionary
+    FIXME: Refactor CONSTANTS variable to a dictionary
     """
     t0 = (time())
-    
+
     # P1 - Import input files
     CONSTANTS = initialise()
     scenario_folder_objects = []
@@ -331,13 +378,13 @@ if __name__ == '__main__':
     # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
     with Pool(cpu_count()-1) as pool:
         for i, scenario_name in enumerate(CONSTANTS[0]['scenario_name']):
-            scenario_folder_objects.append(pool.apply_async(scenario, CONSTANTS + (i,)))  # Contains P3 to P12
+            scenario_folder_objects.append(pool.apply_async(scenario, CONSTANTS + (i,)))  # R2, W1 and P3 to P14
             print('Scenario '+scenario_name+' initialised.')
         print('\nScenarios being modelled.')
         pool.close()
         pool.join()
 
-    # P13 - Check for pooled process errors and exceptions
+    # Check for pooled process errors and exceptions
     for o in scenario_folder_objects:
         # Get returned values from AsyncResult objects.
         # .get() will also raise any pooled process errors and exceptions. 
