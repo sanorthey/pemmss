@@ -231,22 +231,7 @@ class Mine:
             print('Attempted to get variable ' + str(variable) +
                   'from Mine class object that does not exist.')
 
-    def report(self):
-        """
-        Mine.report()
-        Returns a tuple containing non-time dependent variables for the export_projects function.
-        Return ()
 
-        #TODO: Delete, not used
-        """
-        return (self.id_number, self.name, self.region, self.deposit_type,
-                        self.commodity, self.initial_resource, self.remaining_resource,
-                        self.grade, self.recovery, self.production_capacity, self.status,
-                        self.status_initial, self.value, self.discovery_year,
-                        self.start_year, self.end_year, self.brownfield['tonnage'],
-                        self.brownfield['grade'], self.aggregation)
-
-        
 
     def update_key_dict(self, key_dict, i, j):
         """
