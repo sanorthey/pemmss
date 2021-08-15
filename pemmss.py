@@ -115,7 +115,7 @@ def initialise():
 
     # Model version details for log and file writing
     VERSION_NUMBER = (str(0.9981))
-    VERSION_DATE = '2021-08-13
+    VERSION_DATE = '2021-08-13'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS)\n" +
                    "Version " + VERSION_NUMBER + ", " + VERSION_DATE + " \n" +
@@ -201,9 +201,8 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
             # Background greenfield discovery
             # P6
             if parameters['greenfield_background'][i] > 0:
-                # FIXME: check this for loop
                 for gb in range(parameters['greenfield_background'][i]):
-                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects)+1))
+                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects)))
 
             # Priority Ranking Algorithm
             # P7
