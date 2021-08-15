@@ -33,33 +33,34 @@ from modules.file_export import export_log
 
 class Mine:
     """ Mine Class.
-    Used to track the current state of each mining project overtime.
-    (id_number, name, region, deposit_type, commodity, remaining_resource, grade,
-     recovery, production_capacity, status, value,
-     discovery_year, start_year, brownfield, value_threshold, aggregation)
+    Used to initialise and track the current state of each mining project overtime.
+    Mine(id_number, name, region, deposit_type, commodity, remaining_resource, grade,
+    recovery, production_capacity, status, value, discovery_year, start_year,
+    brownfield, value_threshold, aggregation)
 
     **** Variables ****
     Mine.id_number | Unique deposit identifying number
     Mine.name | Name of the deposit
     Mine.region | Region containing the deposit
-    Mine.deposit_type | Primary deposit formation process
-    Mine.commodity | Dictionary of commodities in the project
+    Mine.deposit_type | Primary deposit type
+    Mine.commodity | Dictionary of commodities in the project {commodity: balanced}
+                   | Where balanced = 1 indicates demand for this commodity can trigger mine supply
+                   | Where balanced = 0 indicates demand for this commodity cannot trigger mine supply
     Mine.remaining_resource | Size of the remaining mineral resource, ore basis
-    Mine.grade | Grade of primary commodity.
-    Mine.recovery | Recovery rate of primary commodity
-    Mine.production_capacity | Max rate of extraction per period, ore basis
+    Mine.grade | Dictionary of commodity ore grades. Ratio of total ore mass. {commodity: grade}
+    Mine.recovery | Dictionary of commodity recoveries. Ratio of total ore content. {commodity: recovery}
+    Mine.production_capacity | Maximum extraction rate per period, ore basis.
     Mine.status | Already Produced in Time Period = 2
                   Developed = 1
                   Undeveloped = 0
                   Depleted = -1
                   Not valuable enough to mine = -2
-                  #FIXME: Check the status definitions
-    Mine.value | Relative marginal value for sequencing mine extraction.
+    Mine.value | Relative marginal value for sequencing mine supply.
     Mine.discovery_year | Year of deposit generation
     Mine.start_year | Year of first mine production
-    Mine.production_ore | Dictionary of production from start_year
+    Mine.production_ore | Dictionary of ore production from start_year {t: ore production}
     Mine.production_intermediate | Nested dictionary of intermediate commodity production from start_year {commodity: {t: value}}
-    Mine.expansion | Dictionary of brownfield expansion from start_year
+    Mine.expansion | Dictionary of brownfield expansion from start_year {t: ore expansion}
     Mine.brownfield | Dictionary of brownfield expansion factors. 'grade', 'tonnage'
     Mine.end_year   | Year of resource depletion
     Mine.value_threshold | Value that must be exceeded for the mine to produce
@@ -70,20 +71,16 @@ class Mine:
                          'user_input_inactive_delayed_start'
                          'generated_background'
                          'generated_demanded'
-    Mine.key_set
+    Mine.key_set | Set of tuple key combinations with 'ALL' wildcard for fast filtering
+                 | {(aggregation, region, deposit_type, commodity)}
 
     **** Functions ****
-    Mine.add_commodity(add_commodity,add_grade,add_recovery,is_primary_product)
+    Mine.add_commodity(add_commodity,add_grade,add_recovery,is_balanced)
     Mine.get(variable,get_commodity)
+    Mine.update_key_dict(key_dict,i,j)
     Mine.update_by_region_deposit_type(update_factors)
-    Mine.supply(ext_demand,year,ext_commodity)
-    Mine.resource_expansion
-    Mine.export()
-    Mine.stats_update()
-
-    #TODO: Mine.commodity - add description of 1 and 0 values reflecting whether demand driver or not.
-    #TODO: Check description of all variables, include variable type / structure
-
+    Mine.supply(ext_demand,year,ext_demand_commodity)
+    Mine.resource_expansion(year)
     """
     __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'recovery',
@@ -102,7 +99,7 @@ class Mine:
         self.region = region
         self.deposit_type = deposit_type
         self.commodity = {}
-        self.commodity = {commodity: 1}
+        self.commodity = {commodity: 1} # All Mine objects should have at least one balanced commodity.
         self.remaining_resource = remaining_resource
         self.initial_resource = remaining_resource
         self.grade = {commodity: grade}
@@ -138,17 +135,16 @@ class Mine:
                         (aggregation, region, deposit_type, commodity)
                         }
 
-    def add_commodity(self, add_commodity, add_grade, add_recovery, is_primary_product):
+    def add_commodity(self, add_commodity, add_grade, add_recovery, is_balanced):
         """
-        Mine.add_commodity(add_commodity, add_grade, add_recovery, is_primary_product)
-        Adds a commodity to Mine.
-        is_primary_product = 1 then mine will be triggered by commodity demand
-        is_primary_product = 0 then mine won't be triggered by commodity demand
+        Mine.add_commodity(add_commodity, add_grade, add_recovery, is_balanced)
+        Adds a commodity to a Mine objects commodity, grade, recovery, production_intermediate and key_set variables
+        Can also be used to update variables for a Mine's existing commodity
 
-        # TODO: Update docstrings to explain input variables
-        # TODO: Update docstrings to explain updated variables
+        is_balanced = 1 then mine supply will be triggered by this commodity's demand
+        is_balanced = 0 then mine supply won't be triggered by this commodity's demand
         """
-        self.commodity.update({add_commodity: int(is_primary_product)})
+        self.commodity.update({add_commodity: int(is_balanced)})
         self.grade.update({add_commodity: float(add_grade)})
         self.recovery.update({add_commodity: float(add_recovery)})
         self.production_intermediate.update({add_commodity: {}})
@@ -165,11 +161,9 @@ class Mine:
     def get(self, variable, get_commodity=None):
         """
         Mine.get(variable, get_commodity=None)
-        variable is a string
-        returns the instance variable associated with the passed string
+        Returns a Mine object variable corresponding to an input string
 
-        #TODO: Descrine input arguments more fully
-        #TODO: Modify docstring to include how get_commodity alters return variable
+        get_commodity can be used to return commodity specific dictionary values
         """
         if variable == 'id_number':
             return self.id_number
@@ -229,7 +223,7 @@ class Mine:
             return self.key_set
         else:
             print('Attempted to get variable ' + str(variable) +
-                  'from Mine class object that does not exist.')
+                  'that does not exist from Mine class object.')
 
 
 
@@ -237,9 +231,7 @@ class Mine:
         """
         Mine.update_key_dict(key_dict, i, j)
         Appends self to a (i,j,a,r,d,c) keyed dictionary.
-        key_dict = {(i,j,a,r,d,c): [self, mine1, mine2, ...]}
-
-        #TODO: Improve docstring to more clearly show input and return variable
+        Returns updated key_dict = {(i,j,a,r,d,c): [self, mine1, mine2, ...]}
         """
 
         # Include (i,j) in every self.key_set key (a,r,d,c)
@@ -261,7 +253,7 @@ class Mine:
             will assign these instance keys to 'ALL'.
             So this requires 'ALL' values to be present in the key_set to work.
             # Possibly not needed anymore...
-        TODO: Consider removing. Doesn't seem to be used within anything.
+        TODO: Consider removing after updating graph functionality. Doesn't seem to be used within anything.
         """
         if check_aggregation and check_region and check_deposit_type:
             if (self.aggregation, self.region, self.deposit_type, self.commodity) in key_set:
@@ -277,12 +269,28 @@ class Mine:
             if (self_key_set[0], self_key_set[1], self_key_set[2]) in key_set:
                 return self
 
+
     def update_by_region_deposit_type(self, update_factors):
         """
         Mine.update(ext_factors)
-        Updates a mine's variables if it matches the deposit type and region.
-        update_factors = {region: {deposit_type: {variable: {commodity: value}}}}
-        # TODO: Add list to the docstring describing variables that can be altered by the algorithm.
+        Updates a mine variable if it matches the deposit type and region.
+        update_factors = {region: {deposit_type: {variable: value OR {commodity: value}}}}
+
+        Variables that can be updated:
+        Mine.production_capacity
+        Mine.status
+        Mine.value
+        Mine.discovery_year
+        Mine.start_year
+        Mine.grade
+        Mine.recovery
+        Mine.end_year
+        Mine.value_threshold
+        Mine.aggregation
+
+        Note: Cannot be used to add a new commodity. Use Mine.add_commodity() for this
+        or insert '0' values for a commodity in the input files, then update later on.
+
         """
         # Check if region and deposit type pair is present in update_factors
         if self.region in update_factors.keys():
@@ -302,9 +310,6 @@ class Mine:
                     self.start_year = int(variable[''])
                 elif variable == 'grade':
                     # Unpack commodity structure
-                    # Note does not have the capacity to add a new commodity.
-                    # This could be achieved by inserting '0' grade values for
-                    # a commodity in the input files, then updating later on.
                     for c in variable:
                         if c in self.grade:
                             self.grade[c] = float(variable[c])
@@ -323,20 +328,36 @@ class Mine:
                 elif variable == 'aggregation':
                     self.aggregation = variable['']
 
+
     def supply(self, ext_demand, year, ext_demand_commodity):
         """
-        Mine.supply(supply_requirement)
-        Determines a mine's annual ore production rate based upon resource and supply capacity constraints.
-        Converts commodity demand into ore demand based upon Mine.grade and Mine.recovery.
-        Depletes the remaining resource based upon the production rate.
-        Saves the mine's ore production rate to self.production_ore[year]
-        Saves the mine's intermediate commodity production rates to self.production_intermediate[commodity][year]
-        Returns the mine's intermediate commodity production rates, accounting for ore produced, grade and mine recovery factor.
-        Updates Mine.status, Mine.start_year and Mine.end_year.
-        # FIXME - check return statements and update doc strings
-        # FIXME: Correct docstring to include return supply status
-        # TODO: Modify docstring to include input argument descriptions
-        # TODO: Modify docstring to include demanded commodity check description
+        Mine.supply(ext_demand, year, ext_demand_commodity)
+        Checks mine's ability to supply and determines ore production based upon resource and supply capacity constraints.
+        Converts external commodity demand into ore demand based upon Mine.grade and Mine.recovery.
+        If supply is triggered, all Mine commodities will be supplied.
+
+        ext_demand | mass of commodity demand
+        year | time period for the production
+        ext_demanded_commodity | demanded commodity
+
+        *** Supply Criteria ***
+        Does the mine's value exceed the value threshold?
+        Does the mine produce the demanded commodity?
+        Does demand for this commodity trigger this mine's supply?
+        Does the mine have a start year and has this been passed?
+        Has the mine already produced during this time period?
+
+        *** Updates ***
+        Mine.end_year
+        Mine.production_ore[year]
+        Mine.production_intermediate[c][t]
+        Mine.remaining_resource
+        Mine.start_year
+        Mine.status
+
+        Returns | 0 if mine did not supply
+                | 1 if mine did supply
+
         """
         if self.value < self.value_threshold:
             # Deposit is not valuable enough to mine.
@@ -404,10 +425,11 @@ class Mine:
     def resource_expansion(self, year):
         """
         Mine.resource_expansion(year)
-        Consider adding resource_dilution() model for grade dilution
+        Increases the remaining_resource of the deposit based on the brownfield tonnage factor.
+
         """
         # FIXME: Get brownfield factors out of the input correctly.
-        # FIXME: Add resource_dilution() model
+        # FIXME: Add resource_dilution() model for grade dilution
         # FIXME: Check brownfield factors from project file or from deposit type / region file.
         self.expansion[year] = self.remaining_resource * self.brownfield['tonnage']
         self.remaining_resource += self.expansion[year]
@@ -426,7 +448,7 @@ def resource_discovery(f, current_year, is_background, id_number):
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
     id_number | Unique ID for the generated Mine class instance, must be an integer
 
-    TODO: Add returned object to docstring
+    Returns a new Mine object
     """
 
     # Randomly generate a new deposit type based upon weightings
@@ -492,14 +514,16 @@ def grade_generate(grade_model, factors):
     grade_generate()
     Returns a mass ratio of commodity mass to total mass of the ore deposit, generated in accordance with defined grade
     distributions.
-    'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
-    grade_model : 1. Fixed grade distribution, 2. Lognormal grade distribution, 3. User-defined grade distribution
-    grade_model = 2:
+    'factors' input must be a dictionary with 'grade_model', 'a', 'b', 'c' and 'd' defined.
+    grade_model = 1: Fixed grade distribution
+        a = grade
+    grade_model = 2: Lognormal grade distribution
         a = mu, mean
         b = sigma, standard deviation
         c = multiplier
         d = max grade
-    TODO: Describe inputs for all grade models
+    grade_model = 3: Placeholder for user-defined grade distribution
+
     TODO: Check lognormal distribution function and grade-dependent tonnage
     TODO: Ensure parameter definition consistent with coproduct_grade_generate
     TODO: Add grade model for multiple of an input variable
@@ -538,6 +562,8 @@ def coproduct_grade_generate(project, factors, factors_index, commodity_index):
     factors['coproduct_c'][factor_index][commodity_index]
     factors['coproduct_d'][factor_index][commodity_index]
     )
+
+
     TODO: Remove hard coding of grade models, make call to grade_generate
     TODO: Create lognormal-tonnage dependent grade distribution model.
     TODO: Fix docstrings
@@ -565,7 +591,6 @@ def coproduct_grade_generate(project, factors, factors_index, commodity_index):
 
 def tonnage_generate(size_model, factors, grade):
     """
-    tonnage_generate()
     Returns a resource tonnage, generated in accordance with defined distributions.
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
     tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
@@ -573,6 +598,7 @@ def tonnage_generate(size_model, factors, grade):
     TODO: Check lognormal-grade dependent tonnage distribution
     TODO: Define variable inputs for each model in comments.
     TODO: change size_model inputs to strings, e.g. "fixed", "lognormal", etc.
+    TODO: Refactor tonnage models to strings
     """
     # Generate primary resource tonnage based upon a distribution relationship.
     if size_model == 1:
@@ -601,6 +627,7 @@ def value_generate(model, size, ore_grade, mine_recovery, value_factor):
 
     TODO: Create a basic commodity price / revenue model.
     TODO: Generalise grade and recovery models for multiple commodity systems
+    TODO: Refactor model to strings
     TODO: Update docstrings
     """
     if model == 1:
@@ -628,9 +655,8 @@ def value_generate(model, size, ore_grade, mine_recovery, value_factor):
 
 def capacity_generate(resource_tonnage, a, b, min, max):
     """
-    Generates production capacity based upon the taylor rule factors in input_exploration_production_factors.csv
-    TODO: Update docstrings to include input argument description
-    TODO: Update docstrings to include return variable description
+    Returns a production capacity based upon the taylor rule factors in input_exploration_production_factors.csv
+    production_capacity = a * resource_tonnage ** b, constrained to between min and max
     """
     production_capacity = a * resource_tonnage ** b
     if production_capacity < min:
@@ -641,15 +667,15 @@ def capacity_generate(resource_tonnage, a, b, min, max):
     return production_capacity
 
 
-
 def update_exploration_production_factors(factors, updates):
     """
+    Updates the exploration_production_factors data structure
     factors | a dictionary containing lists of exploration_production_factor variables
     updates | a nested dictionary of structure {region: {deposit_type: {variable: {commodity: value}}}}
-    Ignores any production variables.
-    TODO: Update docstrings to include description of functionality and return variables
-    TODO: Decide whether to add in functionality for selective changes to a commodities values. Currently can still update all commodities at once.
 
+    returns updated factors
+
+    Note: Ignores any production variables. # Can't remember the purpose of this comment, but keeping just in case.
     """
     for r in updates:
         for d in updates[r]:
