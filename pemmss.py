@@ -160,7 +160,6 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
 
     --- Journal article cross-references ---
     P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, R2, W1
-    TODO: Check and test P6 - background greenfield discovery loop
     """
 
     ### Scenario Specific Data
@@ -268,7 +267,6 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
                     if project.status == 1:
                         project.resource_expansion(year_current)
 
-
         jt1 = (time())
         log_message.append('\nIteration execution duration '+str((jt1-jt0))+' seconds.')
         
@@ -316,8 +314,10 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None')
         file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None')
         for c in demand:
-            output_path_production_intermediate = output_folder_scenario + '\\' + ''+str(j) + '-Production_Intermediate_'+str(c)+'.csv'
+            output_path_production_intermediate = output_folder_scenario + '\\' +str(j) + '-Production_Intermediate_'+str(c)+'.csv'
             file_export.export_project_dictionary(output_path_production_intermediate, projects, 'production_intermediate', header='None', id_key='id_number', commodity=c)
+            output_path_expansion_contained = output_folder_scenario + '\\' + str(j) + '-Expansion_Contained_'+str(c)+'.csv'
+            file_export.export_project_dictionary(output_path_expansion_contained, projects, 'expansion_contained', header='None', id_key='id_number', commodity=c)
 
         # Export original demand
         file_export.export_demand(output_path_demand, demand)

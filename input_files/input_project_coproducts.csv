@@ -1,16 +1,16 @@
-P_ID_NUMBER,NAME,REGION,DEPOSIT_TYPE,COPRODUCT_COMMODITY,COPRODUCT_GRADE,COPRODUCT_RECOVERY,SUPPLY_TRIGGER
-3,Deposit_3,Africa,AB_mixed,B,0.01,0.8,1
-4,Deposit_4,Africa,AB_mixed,B,0.01,0.8,1
-13,Deposit_13,Asia,AB_mixed,B,0.01,,1
-14,Deposit_14,Asia,AB_mixed,B,0.01,,1
-23,Deposit_23,Europe,AB_mixed,B,,,1
-24,Deposit_24,Europe,AB_mixed,B,,,1
-33,Deposit_33,North America,AB_mixed,B,0.02,0.6,1
-34,Deposit_34,North America,AB_mixed,B,0.02,0.6,1
-43,Deposit_43,South America,AB_mixed,B,0.01,0.6,1
-44,Deposit_44,South America,AB_mixed,B,0.01,0.6,1
-5,Deposit_5,Africa,B_concentrated,A,0.02,1,0
-6,Deposit_6,Africa,B_concentrated,A,0.02,1,0
-7,Deposit_7,Africa,B_concentrated,A,0.02,1,0
-8,Deposit_8,Africa,B_concentrated,A,0.02,1,0
-9,Deposit_9,Africa,B_concentrated,A,0.02,1,0
+P_ID_NUMBER,NAME,REGION,DEPOSIT_TYPE,COPRODUCT_COMMODITY,COPRODUCT_GRADE,COPRODUCT_RECOVERY,SUPPLY_TRIGGER,COPRODUCT_BROWNFIELD_GRADE_FACTOR
+3,Deposit_3,Africa,AB_mixed,B,0.01,0.8,1,1
+4,Deposit_4,Africa,AB_mixed,B,0.01,0.8,1,1
+13,Deposit_13,Asia,AB_mixed,B,0.01,,1,1
+14,Deposit_14,Asia,AB_mixed,B,0.01,,1,1
+23,Deposit_23,Europe,AB_mixed,B,,,1,1
+24,Deposit_24,Europe,AB_mixed,B,,,1,1
+33,Deposit_33,North America,AB_mixed,B,0.02,0.6,1,1
+34,Deposit_34,North America,AB_mixed,B,0.02,0.6,1,1
+43,Deposit_43,South America,AB_mixed,B,0.01,0.6,1,1
+44,Deposit_44,South America,AB_mixed,B,0.01,0.6,1,1
+5,Deposit_5,Africa,B_concentrated,A,0.02,1,0,1
+6,Deposit_6,Africa,B_concentrated,A,0.02,1,0,1
+7,Deposit_7,Africa,B_concentrated,A,0.02,1,0,1
+8,Deposit_8,Africa,B_concentrated,A,0.02,1,0,1
+9,Deposit_9,Africa,B_concentrated,A,0.02,1,0,1

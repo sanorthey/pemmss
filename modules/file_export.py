@@ -43,18 +43,18 @@ def export_projects(output_path, project_list):
     with open(output_path, 'w+', newline='') as output_file:
         w = csv.writer(output_file, delimiter=',')
         w.writerow(("P_ID_NUMBER", "PROJECT_NAME", 'REGION', 'DEPOSIT_TYPE',
-                    'COMMODITY', 'INITIAL_RESOURCE', 'REMAINING_RESOURCE',
-                    "GRADE", 'RECOVERY', 'PRODUCTION_CAPACITY', 'STATUS',
-                    'STATUS_INITIAL', 'VALUE', 'DISCOVERY_YEAR',
+                    'COMMODITY', 'RESOURCE_INITIAL', 'REMAINING_RESOURCE',
+                    "GRADE", 'INITIAL_GRADE', 'RECOVERY', 'PRODUCTION_CAPACITY', 'STATUS',
+                    'INITIAL_STATUS', 'VALUE', 'DISCOVERY_YEAR',
                     'START_YEAR', 'END_YEAR', 'BROWNFIELD_TONNAGE_FACTOR',
                     'BROWNFIELD_GRADE_FACTOR', 'AGGREGATION'))
         for p in project_list:
             w.writerow([p.id_number, p.name, p.region, p.deposit_type,
                         p.commodity, p.initial_resource, p.remaining_resource,
-                        p.grade, p.recovery, p.production_capacity, p.status,
-                        p.status_initial, p.value, p.discovery_year,
-                        p.start_year, p.end_year, p.brownfield['tonnage'],
-                        p.brownfield['grade'], p.aggregation])
+                        p.grade, p.initial_grade, p.recovery, p.production_capacity, p.status,
+                        p.initial_status, p.value, p.discovery_year,
+                        p.start_year, p.end_year, p.brownfield_tonnage,
+                        p.brownfield_grade, p.aggregation])
     output_file.close()
 
 

@@ -60,8 +60,10 @@ class Mine:
     Mine.start_year | Year of first mine production
     Mine.production_ore | Dictionary of ore production from start_year {t: ore production}
     Mine.production_intermediate | Nested dictionary of intermediate commodity production from start_year {commodity: {t: value}}
-    Mine.expansion | Dictionary of brownfield expansion from start_year {t: ore expansion}
-    Mine.brownfield | Dictionary of brownfield expansion factors. 'grade', 'tonnage'
+    Mine.expansion | Dictionary of brownfield ore expansion from start_year {t: ore expansion}
+    Mine.expansion_contained | Nested dictionary of commodity contained in brownfield ore expansion {commodity: {t: value}}
+    Mine.brownfield_tonnage | Brownfield tonnage expansion factor
+    Mine.brownfield_grade | Dictionary of brownfield grade dilution factors {commodity: factor}
     Mine.end_year   | Year of resource depletion
     Mine.value_threshold | Value that must be exceeded for the mine to produce
     Mine.aggregation | Descriptor of deposit initialisation conditions
@@ -83,16 +85,16 @@ class Mine:
     Mine.resource_expansion(year)
     """
     __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
-                 'remaining_resource', 'initial_resource', 'grade', 'recovery',
+                 'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'recovery',
                  'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
-                 'status', 'status_initial', 'value',
+                 'expansion_contained', 'status', 'initial_status', 'value',
                  'discovery_year', 'start_year', 'production_ore',
-                 'brownfield', 'end_year', 'value_threshold', 'aggregation', 'key_set')
+                 'brownfield_tonnage', 'brownfield_grade', 'end_year', 'value_threshold', 'aggregation', 'key_set')
 
     # Initialise mine variables
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
-                 status, value, discovery_year, start_year, brownfield,
+                 status, value, discovery_year, start_year, brownfield_tonnage, brownfield_grade,
                  value_threshold, aggregation):
         self.id_number = id_number
         self.name = name
@@ -103,17 +105,20 @@ class Mine:
         self.remaining_resource = remaining_resource
         self.initial_resource = remaining_resource
         self.grade = {commodity: grade}
+        self.initial_grade = {commodity: grade}
         self.recovery = {commodity: recovery}
         self.production_capacity = production_capacity
         self.status = status
-        self.status_initial = status
+        self.initial_status = status
         self.value = value
         self.discovery_year = discovery_year
         self.start_year = start_year
         self.production_ore = {}
         self.production_intermediate = {commodity: {}}
         self.expansion = {}
-        self.brownfield = brownfield
+        self.expansion_contained = {commodity: {}}
+        self.brownfield_tonnage = brownfield_tonnage
+        self.brownfield_grade = {commodity: brownfield_grade}
         self.end_year = -1
         self.value_threshold = value_threshold
         self.aggregation = aggregation
@@ -135,9 +140,9 @@ class Mine:
                         (aggregation, region, deposit_type, commodity)
                         }
 
-    def add_commodity(self, add_commodity, add_grade, add_recovery, is_balanced):
+    def add_commodity(self, add_commodity, add_grade, add_recovery, is_balanced, add_brownfield_grade):
         """
-        Mine.add_commodity(add_commodity, add_grade, add_recovery, is_balanced)
+        Mine.add_commodity(add_commodity, add_grade, add_recovery, is_balanced, add_brownfield_grade)
         Adds a commodity to a Mine objects commodity, grade, recovery, production_intermediate and key_set variables
         Can also be used to update variables for a Mine's existing commodity
 
@@ -147,7 +152,9 @@ class Mine:
         self.commodity.update({add_commodity: int(is_balanced)})
         self.grade.update({add_commodity: float(add_grade)})
         self.recovery.update({add_commodity: float(add_recovery)})
+        self.brownfield_grade.update({add_commodity: float(add_brownfield_grade)})
         self.production_intermediate.update({add_commodity: {}})
+        self.expansion_contained.update({add_commodity: {}})
         self.key_set.update({('ALL', 'ALL', 'ALL', add_commodity),
                         ('ALL', 'ALL', self.deposit_type, add_commodity),
                         ('ALL', self.region, 'ALL', add_commodity),
@@ -178,11 +185,20 @@ class Mine:
                 return self.commodity
             elif get_commodity in self.commodity:
                 return self.commodity[get_commodity]
+        elif variable == 'remaining_resource':
+            return self.remaining_resource
+        elif variable == 'initial_resource':
+            return self.initial_resource
         elif variable == 'grade':
             if get_commodity is None:
                 return self.grade
             elif get_commodity in self.commodity:
                 return self.grade[get_commodity]
+        elif variable == 'initial_grade':
+            if get_commodity is None:
+                return self.initial_grade
+            elif get_commodity in self.commodity:
+                return self.initial_grade[get_commodity]
         elif variable == 'recovery':
             if get_commodity is None:
                 return self.recovery
@@ -192,8 +208,8 @@ class Mine:
             return self.production_capacity
         elif variable == 'status':
             return self.status
-        elif variable == 'status_initial':
-            return self.status_initial
+        elif variable == 'initial_status':
+            return self.initial_status
         elif variable == 'value':
             return self.value
         elif variable == 'discovery_year':
@@ -211,8 +227,20 @@ class Mine:
                 return {}
         elif variable == 'expansion':
             return self.expansion
-        elif variable == 'brownfield':
-            return self.brownfield
+        elif variable == 'expansion_contained':
+            if get_commodity is None:
+                return self.expansion_contained
+            elif get_commodity in self.commodity:
+                return self.expansion_contained[get_commodity]
+            else:
+                return {}
+        elif variable == 'brownfield_tonnage':
+            return self.brownfield_tonnage
+        elif variable == 'brownfield_grade':
+            if get_commodity is None:
+                return self.brownfield_grade
+            elif get_commodity in self.commodity:
+                return self.brownfield_grade[get_commodity]
         elif variable == 'end_year':
             return self.end_year
         elif variable == 'value_threshold':
@@ -422,17 +450,32 @@ class Mine:
             # Return Mine as having supplied
             return 1
 
+
     def resource_expansion(self, year):
         """
         Mine.resource_expansion(year)
-        Increases the remaining_resource of the deposit based on the brownfield tonnage factor.
-
+        Increases a deposit's remaining resource and recalculates deposit grades based on the brownfield tonnage and
+        brownfield grade factors.
+        Added ore = remaining resource * brownfield tonnage factor
+        Grade of added ore = grade[commodity] * brownfield grade factor[commodity]
         """
-        # FIXME: Get brownfield factors out of the input correctly.
-        # FIXME: Add resource_dilution() model for grade dilution
-        # FIXME: Check brownfield factors from project file or from deposit type / region file.
-        self.expansion[year] = self.remaining_resource * self.brownfield['tonnage']
+        # Determine the amount of added ore
+        self.expansion[year] = self.remaining_resource * self.brownfield_tonnage
+
+        expansion_grade = {}
+        for c in self.commodity:
+            # Determine the grade of added ore
+            expansion_grade[c] = self.grade[c] * self.brownfield_grade[c]
+
+            # Record the amount of commodity contained in added ore
+            self.expansion_contained[c][year] = expansion_grade[c] * self.expansion[year]
+
+            # Adjust grade of the remaining resource
+            self.grade[c] = (self.grade[c] * self.remaining_resource + self.expansion_contained[c][year])/(self.remaining_resource + self.expansion[year])
+
+        # Adjust size of the remaining resource
         self.remaining_resource += self.expansion[year]
+
 
 # ------------------------------------------------ #
 # Functions for discovering and defining resources 
@@ -461,8 +504,8 @@ def resource_discovery(f, current_year, is_background, id_number):
                      'c': f['grade_c'][index], 'd': f['grade_d'][index]}
     tonnage_factors = {'a': f['tonnage_a'][index], 'b': f['tonnage_b'][index],
                        'c': f['tonnage_c'][index], 'd': f['tonnage_d'][index]}
-    brownfield_factors = {'grade': f['brownfield_grade_factor'][index],
-                          'tonnage': f['brownfield_tonnage_factor'][index]}
+    brownfield_tonnage_factor = f['brownfield_tonnage_factor'][index]
+    brownfield_grade_factor = f['brownfield_grade_factor'][index]
     value_factors = {'a': f['value_a'][index], 'b': f['value_b'][index],
                      'c': f['value_c'][index], 'd': f['value_d'][index],
                      'value_threshold': f['value_threshold'][index]}
@@ -495,7 +538,7 @@ def resource_discovery(f, current_year, is_background, id_number):
 
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
-                       generated_value, discovery_time, start_time, brownfield_factors, value_factors['value_threshold'], aggregation)
+                       generated_value, discovery_time, start_time, brownfield_tonnage_factor, brownfield_grade_factor, value_factors['value_threshold'], aggregation)
 
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
@@ -504,8 +547,9 @@ def resource_discovery(f, current_year, is_background, id_number):
             if c != '':
                 g = coproduct_grade_generate(new_project, f, index, x)
                 r = f['coproduct_default_recovery'][index][x]
-                trigger = f['coproduct_supply_trigger'][index][x]
-                new_project.add_commodity(c, g, r, trigger)
+                st = f['coproduct_supply_trigger'][index][x]
+                bgf = f['coproduct_brownfield_grade_factor'][index][x]
+                new_project.add_commodity(c, g, r, st, bgf)
     return new_project
 
 
