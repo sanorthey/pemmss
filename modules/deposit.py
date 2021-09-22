@@ -55,7 +55,7 @@ class Mine:
                   Undeveloped = 0
                   Depleted = -1
                   Not valuable enough to mine = -2
-    Mine.value | Relative marginal value for sequencing mine supply.
+    Mine.value | Dictionary of net recovery value for each  Used to sequence mine supply.
     Mine.discovery_year | Year of deposit generation
     Mine.start_year | Year of first mine production
     Mine.production_ore | Dictionary of ore production from start_year {t: ore production}
@@ -65,7 +65,9 @@ class Mine:
     Mine.brownfield_tonnage | Brownfield tonnage expansion factor
     Mine.brownfield_grade | Dictionary of brownfield grade dilution factors {commodity: factor}
     Mine.end_year   | Year of resource depletion
-    Mine.value_threshold | Value that must be exceeded for the mine to produce
+    Mine.value_factors | Nested dictionary of value model factors {commodity: {type: {'model':,'a':,'b':,'c':,'d':}}
+                       | 'ALL' commodity represents value model factors for the mines fixed value (or costs if negative).
+                       | 'Type' should be either 'revenue' or 'cost'
     Mine.aggregation | Descriptor of deposit initialisation conditions
                          'user_input_active'
                          'user_input_active_delayed_start'
@@ -87,20 +89,19 @@ class Mine:
     __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'recovery',
                  'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
-                 'expansion_contained', 'status', 'initial_status', 'value',
-                 'discovery_year', 'start_year', 'production_ore',
-                 'brownfield_tonnage', 'brownfield_grade', 'end_year', 'value_threshold', 'aggregation', 'key_set')
+                 'expansion_contained', 'status', 'initial_status', 'value', 'discovery_year',
+                 'start_year', 'production_ore', 'brownfield_tonnage', 'brownfield_grade',
+                 'end_year', 'value_factors', 'aggregation', 'key_set')
 
     # Initialise mine variables
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
                  status, value, discovery_year, start_year, brownfield_tonnage, brownfield_grade,
-                 value_threshold, aggregation):
+                 value_factors, aggregation):
         self.id_number = id_number
         self.name = name
         self.region = region
         self.deposit_type = deposit_type
-        self.commodity = {}
         self.commodity = {commodity: 1} # All Mine objects should have at least one balanced commodity.
         self.remaining_resource = remaining_resource
         self.initial_resource = remaining_resource
@@ -110,7 +111,7 @@ class Mine:
         self.production_capacity = production_capacity
         self.status = status
         self.initial_status = status
-        self.value = value
+        self.value = value # {'ALL': value, commodity: value}
         self.discovery_year = discovery_year
         self.start_year = start_year
         self.production_ore = {}
@@ -120,7 +121,7 @@ class Mine:
         self.brownfield_tonnage = brownfield_tonnage
         self.brownfield_grade = {commodity: brownfield_grade}
         self.end_year = -1
-        self.value_threshold = value_threshold
+        self.value_factors = value_factors
         self.aggregation = aggregation
         self.key_set = {('ALL', 'ALL', 'ALL', 'ALL'),
                        ('ALL', 'ALL', deposit_type, 'ALL'),
@@ -140,7 +141,7 @@ class Mine:
                         (aggregation, region, deposit_type, commodity)
                         }
 
-    def add_commodity(self, add_commodity, add_grade, add_recovery, is_balanced, add_brownfield_grade):
+    def add_commodity(self, add_commodity, add_grade, add_recovery, is_balanced, add_brownfield_grade, add_value_factors, update_value=True):
         """
         Mine.add_commodity(add_commodity, add_grade, add_recovery, is_balanced, add_brownfield_grade)
         Adds a commodity to a Mine objects commodity, grade, recovery, production_intermediate and key_set variables
@@ -148,11 +149,16 @@ class Mine:
 
         is_balanced = 1 then mine supply will be triggered by this commodity's demand
         is_balanced = 0 then mine supply won't be triggered by this commodity's demand
+
+        update_value = True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
         """
         self.commodity.update({add_commodity: int(is_balanced)})
         self.grade.update({add_commodity: float(add_grade)})
         self.recovery.update({add_commodity: float(add_recovery)})
         self.brownfield_grade.update({add_commodity: float(add_brownfield_grade)})
+        self.value_factors.update({add_commodity: add_value_factors})
+        if update_value == True:
+            self.value_update()
         self.production_intermediate.update({add_commodity: {}})
         self.expansion_contained.update({add_commodity: {}})
         self.key_set.update({('ALL', 'ALL', 'ALL', add_commodity),
@@ -211,7 +217,10 @@ class Mine:
         elif variable == 'initial_status':
             return self.initial_status
         elif variable == 'value':
-            return self.value
+            if get_commodity is None:
+                return self.value
+            elif get_commodity in self.commodity:
+                return self.value[get_commodity]
         elif variable == 'discovery_year':
             return self.discovery_year
         elif variable == 'start_year':
@@ -313,12 +322,11 @@ class Mine:
         Mine.grade
         Mine.recovery
         Mine.end_year
-        Mine.value_threshold
         Mine.aggregation
 
         Note: Cannot be used to add a new commodity. Use Mine.add_commodity() for this
         or insert '0' values for a commodity in the input files, then update later on.
-
+        TODO: Consider adding functionality for updating Mine.value_factors
         """
         # Check if region and deposit type pair is present in update_factors
         if self.region in update_factors.keys():
@@ -331,6 +339,12 @@ class Mine:
                 elif variable == 'status':
                     self.status = int(variable[''])
                 elif variable == 'value':
+                    # Unpack commodity structure
+                    for c in variable:
+                        if c in self.value:
+                            self.value[c] = float(variable[c])
+                        else:
+                            export_log('Attempted to update a project value for a non-existent project commodity. Variable update skipped.', print_on=0)
                     self.value = float(variable[''])
                 elif variable == 'discovery_year':
                     self.discovery_year = int(variable[''])
@@ -342,17 +356,15 @@ class Mine:
                         if c in self.grade:
                             self.grade[c] = float(variable[c])
                         else:
-                            export_log('Attempted to update a project grade for a non-existant project commodity. Variable update skipped.', print_on=0)
+                            export_log('Attempted to update a project grade for a non-existent project commodity. Variable update skipped.', print_on=0)
                 elif variable == 'recovery':
                     for c in variable:
                         if c in self.recovery:
                             self.recovery[c] = float(variable[c])
                         else:
-                            export_log('Attempted to update a project recovery for a non-existant project commodity. Variable update skipped.', print_on=0)
+                            export_log('Attempted to update a project recovery for a non-existent project commodity. Variable update skipped.', print_on=0)
                 elif variable == 'end_year':
                     self.end_year = int(variable[''])
-                elif variable == 'value_threshold':
-                    self.value_threshold = float(variable[''])
                 elif variable == 'aggregation':
                     self.aggregation = variable['']
 
@@ -387,7 +399,7 @@ class Mine:
                 | 1 if mine did supply
 
         """
-        if self.value < self.value_threshold:
+        if self.value['ALL'] < 0:
             # Deposit is not valuable enough to mine.
             self.status = -2
             return 0
@@ -445,7 +457,12 @@ class Mine:
 
             # Return ore production
             for c in self.production_intermediate:
-                self.production_intermediate[c][year] = self.production_ore[year]*self.recovery[c]*self.grade[c]
+                if self.value[c] >= 0:
+                    # Recovery of c generates positive or neutral value
+                    self.production_intermediate[c][year] = self.production_ore[year]*self.recovery[c]*self.grade[c]
+                else:
+                    # Recovery of c generates a neutral value. c not supplied.
+                    self.production_intermediate[c][year] = 0
 
             # Return Mine as having supplied
             return 1
@@ -475,6 +492,13 @@ class Mine:
 
         # Adjust size of the remaining resource
         self.remaining_resource += self.expansion[year]
+
+    def value_update(self):
+        """
+        Mine.value_update()
+        Updates Mine.value based upon the current Mine object variables and value model.
+        """
+        self.value = value_generate(self.value_factors, self.remaining_resource, self.grade, self.recovery)
 
 
 # ------------------------------------------------ #
@@ -506,9 +530,22 @@ def resource_discovery(f, current_year, is_background, id_number):
                        'c': f['tonnage_c'][index], 'd': f['tonnage_d'][index]}
     brownfield_tonnage_factor = f['brownfield_tonnage_factor'][index]
     brownfield_grade_factor = f['brownfield_grade_factor'][index]
-    value_factors = {'a': f['value_a'][index], 'b': f['value_b'][index],
-                     'c': f['value_c'][index], 'd': f['value_d'][index],
-                     'value_threshold': f['value_threshold'][index]}
+    value_factors = {"MINE": {"cost": {"model": f['mine_cost_model'][index],
+                                       "a": f['mine_cost_a'][index],
+                                       "b": f['mine_cost_b'][index],
+                                       "c": f['mine_cost_c'][index],
+                                       "d": f['mine_cost_d'][index]}},
+                     commodity: {"cost": {"model": f['cost_model'][index],
+                                          "a": f['cost_a'][index],
+                                          "b": f['cost_b'][index],
+                                          "c": f['cost_c'][index],
+                                          "d": f['cost_d'][index]},
+                                 "revenue": {"model": f['revenue_model'][index],
+                                             "a": f['revenue_a'][index],
+                                             "b": f['revenue_b'][index],
+                                             "c": f['revenue_c'][index],
+                                             "d": f['revenue_d'][index]}}}
+
     development_period = f['development_period'][index]
 
     # Generate an ore grade based upon the deposit type's grade distribution model.
@@ -524,7 +561,7 @@ def resource_discovery(f, current_year, is_background, id_number):
     capacity = capacity_generate(tonnage, f['taylor_a'][index], f['taylor_b'][index], f['taylor_min'][index], f['taylor_max'][index])
 
     # Generate Value
-    generated_value = value_generate(f['value_model'][index], tonnage, grade, recovery, value_factors)
+    generated_value = value_generate(value_factors, tonnage, {commodity: grade}, {commodity: recovery})
 
     # Discovery and Start Time and Aggregation
     if is_background is True:
@@ -538,7 +575,7 @@ def resource_discovery(f, current_year, is_background, id_number):
 
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
-                       generated_value, discovery_time, start_time, brownfield_tonnage_factor, brownfield_grade_factor, value_factors['value_threshold'], aggregation)
+                       generated_value, discovery_time, start_time, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation)
 
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
@@ -549,11 +586,21 @@ def resource_discovery(f, current_year, is_background, id_number):
                 r = f['coproduct_default_recovery'][index][x]
                 st = f['coproduct_supply_trigger'][index][x]
                 bgf = f['coproduct_brownfield_grade_factor'][index][x]
-                new_project.add_commodity(c, g, r, st, bgf)
+                vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
+                                  'a': f['coproduct_revenue_a'][index][x],
+                                  'b': f['coproduct_revenue_b'][index][x],
+                                  'c': f['coproduct_revenue_c'][index][x],
+                                  'd': f['coproduct_revenue_d'][index][x]},
+                      'cost': {'model': f['coproduct_cost_model'][index][x],
+                               'a': f['coproduct_cost_a'][index][x],
+                               'b': f['coproduct_cost_a'][index][x],
+                               'c': f['coproduct_cost_a'][index][x],
+                               'd': f['coproduct_cost_a'][index][x]}}
+                new_project.add_commodity(c, g, r, st, bgf, vf)
     return new_project
 
 
-def grade_generate(grade_model, factors):
+def grade_generate(grade_model, factors, grade_dictionary={}):
     """
     grade_generate()
     Returns a mass ratio of commodity mass to total mass of the ore deposit, generated in accordance with defined grade
@@ -573,11 +620,24 @@ def grade_generate(grade_model, factors):
     TODO: Add grade model for multiple of an input variable
     TODO: Refactor grade_model to strings e.g. "fixed", "lognormal", etc.
     """
-    if grade_model == 1:
-        # Fixed grade distribution
-        grade = factors['a']
-    elif grade_model == 2:
+    a = factors['a']
+    b = factors['b']
+    c = factors['c']
+    d = factors['d']
+
+    if grade_model == "fixed":
+        # Fixed grade | 'a' = grade
+        grade = float(a)
+    elif grade_model == "multiple":
+        # Multiple of main commodity grade | 'a' = commodity name, 'b' = grade multiplier, grade_dictionary = {commodity: value}
+        grade = grade_dictionary[a] * float(b)
+    elif grade_model == "lognormal":
         # Lognormal grade distribution
+        # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
+        grade = abs(random.lognormvariate(float(a),float(b)))
+        if grade > float(c):
+            grade = float(c)
+
         # FIXME: 'tonnage' not passed to function
         # FIXME: check Gerst / paper the correct log-normal grade equation
         # tonnage = abs(random.gauss(factors['a'],factors['b']) * factors['c'])
@@ -586,10 +646,10 @@ def grade_generate(grade_model, factors):
         # Check if generated grade is higher than the maximum grade given in factor 'd'
         # FIXME: check for an alternative approach using random.lognormvariate(mu, sigma) function. Need to determine whether grade dependent.
         # FIXME: ensure parameter definition consistency with coproduct_grade_generate
-        grade = abs(random.lognormvariate(factors['a'], factors['b'])) * factors['c']
-        if grade > float(factors['d']):
-            grade = float(factors['d'])
-    elif grade_model == 3:
+        #grade = abs(random.lognormvariate(factors['a'], factors['b'])) * factors['c']
+        #if grade > float(factors['d']):
+        #    grade = float(factors['d'])
+    elif grade_model == "user":
         # User-defined grade distribution
         # grade = "ENTER USER DEFINED DISTRIBUTION HERE"
         grade = "ENTER USER DEFINED GRADE DISTRIBUTION HERE"
@@ -598,7 +658,7 @@ def grade_generate(grade_model, factors):
         print("!!! VALID GRADE_MODEL NOT SELECTED !!!")
     return grade
 
-def coproduct_grade_generate(project, factors, factors_index, commodity_index):
+def coproduct_grade_generate(project, factors, factor_index, commodity_index):
     """
     coproduct_grade_generate(
     factors['coproduct_a'][factor_index][commodity_index]
@@ -606,31 +666,21 @@ def coproduct_grade_generate(project, factors, factors_index, commodity_index):
     factors['coproduct_c'][factor_index][commodity_index]
     factors['coproduct_d'][factor_index][commodity_index]
     )
-
-
-    TODO: Remove hard coding of grade models, make call to grade_generate
-    TODO: Create lognormal-tonnage dependent grade distribution model.
     TODO: Fix docstrings
+    TODO: consider returning dictionary so that can return and update() empty dictionary.
     """
     try:
-        coproduct_grade_model = int(factors['coproduct_grade_model'][factors_index][commodity_index])
+        grade_model = factors['coproduct_grade_model'][factor_index][commodity_index]
     except:
         return 0
 
-    # Means that the coproduct doesn't exist.
-
-    if coproduct_grade_model == 1:
-        # Fixed grade | 'a' = grade
-        grade = factors['coproduct_a'][factors_index][commodity_index]
-    elif coproduct_grade_model == 2:
-        # Multiple of main commodity grade | 'a' = commodity name, 'b' = grade multiplier
-        grade = project.grade[factors['coproduct_a'][factors_index][commodity_index]] * float(factors['coproduct_b'][factors_index][commodity_index])
-    elif coproduct_grade_model == 3:
-        # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
-        grade = abs(random.lognormvariate(factors['coproduct_a'][factors_index][commodity_index], factors['coproduct_b'][factors_index][commodity_index]))
-        if grade > factors['coproduct_c'][factors_index][commodity_index]:
-            grade = factors['coproduct_c'][factors_index][commodity_index]
+    factors['a'] = factors['coproduct_a'][factor_index][commodity_index]
+    factors['b'] = factors['coproduct_b'][factor_index][commodity_index]
+    factors['c'] = factors['coproduct_c'][factor_index][commodity_index]
+    factors['d'] = factors['coproduct_d'][factor_index][commodity_index]
+    grade = grade_generate(grade_model, factors, project.grade)
     return grade
+    # Means that the coproduct doesn't exist.
 
 
 def tonnage_generate(size_model, factors, grade):
@@ -645,19 +695,19 @@ def tonnage_generate(size_model, factors, grade):
     TODO: Refactor tonnage models to strings
     """
     # Generate primary resource tonnage based upon a distribution relationship.
-    if size_model == 1:
+    if size_model == "fixed":
         # Fixed tonnage distribution
         tonnage = factors['a']
-    elif size_model == 2:
+    elif size_model == "lognormal":
         # Lognormal tonnage distribution
         tonnage = abs(random.lognormvariate(factors['a'], factors['b']) * factors['c'])
-    elif size_model == 3:
+    elif size_model == "lognormal_grade_dependent":
         # Lognormal-grade dependent tonnage distribution
         # FIXME: define the log-normal grade dependent tonnage distribution.
-        tonnage = grade
+        tonnage = grade * random.lognormvariate(factors['a'],factors['b']) ** factors['c']
         # grade = tonnage / random.lognormvariate(factors['a'],factors['b']) ** factors['c']
         # FIXME: ensure that size generated are greater than zero. Use abs()
-    elif size_model == 4:
+    elif size_model == "user":
         # User-defined size model
         tonnage = "ENTER USER DEFINED DISTRIBUTION HERE"
     else:
@@ -665,48 +715,91 @@ def tonnage_generate(size_model, factors, grade):
     return tonnage
 
 
-def value_generate(model, size, ore_grade, mine_recovery, value_factor):
+def value_generate(value_factors, ore, ore_grade, recovery):
     """
+    value_generate()
+    Generates net value based upon the current Mine object variables and value model.
+    value_factors = {'MINE': {'cost': {'model': string, 'a': value, 'b', value: 'c': value, 'd': value},
+                     commodity: {'revenue': {'model': string, 'a': value, 'b', value: 'c': value, 'd': value},
+                                {'cost': {'model': string, 'a': value, 'b', value: 'c': value, 'd': value}}
+    """
+    # Establish net value under 'ALL' commodity
+    return_value = {'ALL': float(0)}
+
+    # Loop through commodities
+    for c in value_factors:
+        return_value[c] = 0
+
+        # Check for 'MINE' costs to avoid passing c to ore_grade and recovery.
+        if c == 'MINE':
+            grade = ore_grade
+            rec = recovery
+        else:
+            grade = ore_grade[c]
+            rec = recovery[c]
+
+        # Loop through revenue and cost models
+        for k in value_factors[c]:
+
+            value = (value_model(value_factors[c][k], ore, grade, rec))
+            if k == "revenue":
+                return_value[c] += value
+                return_value['ALL'] += value
+            elif k == "cost":
+                return_value[c] -= value
+                return_value['ALL'] -= value
+    return return_value
+
+def value_model(value_factors, ore, ore_grade, recovery):
+    """
+    value_generate(value_factors, ore, ore_grade, recovery)
     Generates value based upon the value model selected in the input_parameters.csv
 
-    TODO: Create a basic commodity price / revenue model.
-    TODO: Generalise grade and recovery models for multiple commodity systems
-    TODO: Refactor model to strings
-    TODO: Update docstrings
+    User defined models can be defined below and use input parameters value_factors['a'], value_factors['b'],
+    value_factors['c'] and value_factors['d'] for individual regions and deposit types from the
+    input_exploration_production_factors.csv input file.
     """
-    if model == 1:
-        # Fixed
-        return value_factor['a']
-    if model == 2:
-        # Contained
-        return size * ore_grade
-    if model == 3:
-        # Grade
-        return ore_grade
-    if model == 4:
-        # Recoverable
-        return size * ore_grade * mine_recovery
-    if model == 5:
-        # Size
-        return size
-    if model == 6:
-        # User_Defined
-        # Placeholder for a user-defined value function.
-        # Users can define value_factor['a'], value_factor['b'], value_factor['c'], value_factor['d'] and value_factor['value_threshold'] for individual
-        # regions and deposit types in the input_exploration_production_factors.csv input file.
-        user_defined = size + ore_grade + mine_recovery + value_factor['a'] * value_factor['b'] * value_factor['c'] * value_factor['d']
-        return user_defined
 
-def capacity_generate(resource_tonnage, a, b, min, max):
+    model = value_factors['model']
+    a = float(value_factors['a'])
+    b = float(value_factors['b'])
+    c = float(value_factors['c'])
+    d = float(value_factors['d'])
+
+    if model == "fixed":
+        return a
+    if model == "size":
+        return ore
+    if model == "grade":
+        return ore_grade
+    if model == "grade_recoverable":
+        return ore_grade * recovery
+    if model == "contained":
+        return ore * ore_grade
+    if model == "contained_recoverable":
+        return ore * ore_grade * recovery
+    if model == "size_value":
+        return ore * a
+    if model == "grade_value":
+        return ore_grade * a
+    if model == "grade_recoverable_value":
+        return ore_grade * recovery * a
+    if model == "contained_value":
+        return ore * ore_grade * a
+    if model == "contained_recoverable_value":
+        return ore * ore_grade * recovery * a
+
+
+def capacity_generate(resource_tonnage, a, b, minimum, maximum):
     """
     Returns a production capacity based upon the taylor rule factors in input_exploration_production_factors.csv
     production_capacity = a * resource_tonnage ** b, constrained to between min and max
     """
     production_capacity = a * resource_tonnage ** b
-    if production_capacity < min:
-        production_capacity = min
-    elif production_capacity > max:
-        production_capacity = max
+    if production_capacity < minimum:
+        production_capacity = minimum
+    elif production_capacity > maximum:
+        production_capacity = maximum
 
     return production_capacity
 

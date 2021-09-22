@@ -40,7 +40,6 @@ _main_()
 
 # TODO: 1. Add copywrite statement
 # TODO: 2. Add file structure
-# TODO: 3. Change argument passing to via dictionary
 # TODO: 4. Update PEMMSS_flowcharts.drawio incl. correct output path and input file copies. Update cross-refs.
 # TODO: 3. Update this docstring after all module todos are completed.
 """
@@ -114,8 +113,8 @@ def initialise():
     mkdir(OUTPUT_FOLDER_GRAPHS)
 
     # Model version details for log and file writing
-    VERSION_NUMBER = (str(0.9981))
-    VERSION_DATE = '2021-08-13'
+    VERSION_NUMBER = (str(0.9982))
+    VERSION_DATE = '2021-09-22'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS)\n" +
                    "Version " + VERSION_NUMBER + ", " + VERSION_DATE + " \n" +
@@ -192,10 +191,16 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
         for year_current in range(year_start, year_end+1):
 
             # Update project variables and exploration_production_factors for timeseries overrides in input_exploration_production_factors_timeseries.csv
+            # Update project value if enabled
             # P5
-            for p in projects:
-                p.update_by_region_deposit_type(timeseries_project_updates[year_current])
             factors = deposit.update_exploration_production_factors(factors, timeseries_exploration_production_factors_updates[year_current])
+            if parameters['update_values'][i] == 1:
+                for p in projects:
+                    p.update_by_region_deposit_type(timeseries_project_updates[year_current])
+                    p.value_update()
+            else:
+                for p in projects:
+                    p.update_by_region_deposit_type(timeseries_project_updates[year_current])
 
             # Background greenfield discovery
             # P6
@@ -207,10 +212,10 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
             # P7
             if parameters['priority_active'][i] == 1:
                 # Sort then prioritise existing mines
-                projects.sort(key=lambda x: x.value)
+                projects.sort(key=lambda x: x.value['ALL'])
                 projects.sort(key=lambda x: x.status, reverse=True)
             else:
-                projects.sort(key=lambda x: x.value)
+                projects.sort(key=lambda x: x.value['ALL'])
 
             # Commodity Supply-Demand Balance Algorithm
             # P8
@@ -232,7 +237,7 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
                                 if p_commodity not in demand:
                                     log_message.append('Project '+str(project.name)+' attempted to supply commodity '+str(p_commodity)+ ' that has no corresponding demand list. Supply of this commodity has not been recorded. To address this ensure in input_demand.csv all commodities have a corresponding demand entry for scenario '+parameters['scenario_name'][i]+' (this can be blank).')
                                 else:
-                                   demand[p_commodity][year_current] -= project.production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
+                                    demand[p_commodity][year_current] -= project.production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
 
                     # Greenfield Discovery (Demanded). If supply insufficient, generate new deposits
                     # P10

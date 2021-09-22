@@ -78,7 +78,7 @@ def import_parameters(path, copy_path=None, log_path=None):
     imported_parameters = {'scenario_name': [], 'year_start': [], 'year_end': [], 'iterations': [],
                            'brownfield_exploration_on': [], 'greenfield_exploration_on': [],
                            'greenfield_background': [], 'priority_active': [], 'random_seed': [],
-                           'generate_all_coproducts': []}
+                           'generate_all_coproducts': [], 'update_values': []}
 
     with open(path + r'\\input_parameters.csv', mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
@@ -94,6 +94,7 @@ def import_parameters(path, copy_path=None, log_path=None):
             imported_parameters['priority_active'].append(int(row['PRIORITY_ACTIVE']))
             imported_parameters['random_seed'].append(float(row['RANDOM_SEED']))
             imported_parameters['generate_all_coproducts'].append(int(row['GENERATE_ALL_COPRODUCTS']))
+            imported_parameters['update_values'].append(int(row['UPDATE_VALUES']))
     if copy_path is not None:
         copyfile(path + r'\\input_parameters.csv', copy_path + r'\\input_parameters.csv')
     if log_path is not None:
@@ -215,14 +216,41 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 status = int(row['STATUS'])
             if row['VALUE'] == "":
                 no_value += 1
-                value = deposit.value_generate(f['value_model'][index], remaining_resource, grade, recovery,
-                                               {'a': f['value_a'][index],
-                                                'b': f['value_b'][index],
-                                                'c': f['value_c'][index],
-                                                'd': f['value_d'][index],
-                                                'value_threshold': f['value_threshold'][index]})
+                value_factors = {'MINE': {'cost': {'model': f['mine_cost_model'][index],
+                                                        'a': f['mine_cost_a'][index],
+                                                        'b': f['mine_cost_b'][index],
+                                                        'c': f['mine_cost_c'][index],
+                                                        'd': f['mine_cost_d'][index]}},
+                                 commodity: {'revenue': {'model': f['revenue_model'][index],
+                                                         'a': f['revenue_a'][index],
+                                                         'b': f['revenue_b'][index],
+                                                         'c': f['revenue_c'][index],
+                                                         'd': f['revenue_d'][index]},
+                                             'cost': {'model': f['cost_model'][index],
+                                                      'a': f['cost_a'][index],
+                                                      'b': f['cost_b'][index],
+                                                      'c': f['cost_c'][index],
+                                                      'd': f['cost_d'][index]}}}
+                value = deposit.value_model(value_factors, remaining_resource, grade, recovery)
+
             else:
-                value = float(row['VALUE'])
+                # TODO: check logic of including value_factors here. Want to be able to maintain project by project value factors
+                value = {'ALL': float(row['VALUE']), commodity: float(row['VALUE'])}
+                value_factors = {'MINE': {'cost': {'model': f['mine_cost_model'][index],
+                                                        'a': f['mine_cost_a'][index],
+                                                        'b': f['mine_cost_b'][index],
+                                                        'c': f['mine_cost_c'][index],
+                                                        'd': f['mine_cost_d'][index]}},
+                                 commodity: {'revenue': {'model': f['revenue_model'][index],
+                                                         'a': f['revenue_a'][index],
+                                                         'b': f['revenue_b'][index],
+                                                         'c': f['revenue_c'][index],
+                                                         'd': f['revenue_d'][index]},
+                                             'cost': {'model': f['cost_model'][index],
+                                                      'a': f['cost_a'][index],
+                                                      'b': f['cost_b'][index],
+                                                      'c': f['cost_c'][index],
+                                                      'd': f['cost_d'][index]}}}
             if row['DISCOVERY_YEAR'] == "":
                 no_discovery_year += 1
                 discovery_year = -9999
@@ -261,7 +289,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
             imported_projects.append(
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
-                             start_year, brownfield_tonnage, brownfield_grade, f['value_threshold'][index], aggregation))
+                             start_year, brownfield_tonnage, brownfield_grade, value_factors, aggregation))
 
     if copy_path is not None:
         copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
@@ -292,10 +320,11 @@ def import_projects(f, path, copy_path=None, log_path=None):
     return imported_projects
 
 
-def import_project_coproducts(exp_factors, path, projects, generate_all, copy_path=None, log_path=None):
+def import_project_coproducts(f, path, projects, generate_all, copy_path=None, log_path=None):
     """
     import_project_coproducts(path):
     Imports and adds coproduct parameters to projects from input_project_coproducts.csv located in the working directory.
+    f = exploration_production_factors
     generate_all | If 1, update projects only listed in input_project_coproducts.csv. If 0, also update all other projects with data from exploration_production_factors.csv.
     TODO: Update docstrings
     TODO: Describe input file format, see import_postprocessing
@@ -313,7 +342,7 @@ def import_project_coproducts(exp_factors, path, projects, generate_all, copy_pa
         generated_brownfield_grade_factor = 0
         for row in csv_reader:
             for p in projects:
-                index = exp_factors['lookup_table'][p.region][p.deposit_type]
+                index = f['lookup_table'][p.region][p.deposit_type]
                 if p.id_number == row['P_ID_NUMBER']:
                     # Manual inputs for the project are listed in input_project_coproducts.csv
                     if row['COPRODUCT_COMMODITY'] == '':
@@ -322,49 +351,71 @@ def import_project_coproducts(exp_factors, path, projects, generate_all, copy_pa
                     else:
                         entries += 1
                         c = row['COPRODUCT_COMMODITY']
-                        for x in range(0, len(exp_factors['coproduct_commodity'][index])):
-                            if len(exp_factors['coproduct_commodity'][index]) != 0:
-                                if exp_factors['coproduct_commodity'][index][x] == row['COPRODUCT_COMMODITY']:
+                        for x in range(0, len(f['coproduct_commodity'][index])):
+                            if len(f['coproduct_commodity'][index]) != 0:
+                                if f['coproduct_commodity'][index][x] == row['COPRODUCT_COMMODITY']:
                                     if row['COPRODUCT_GRADE'] == '':
                                         # Generate grade from the region and deposit type grade model
-                                        g = deposit.coproduct_grade_generate(p, exp_factors, index, x)
+                                        g = deposit.coproduct_grade_generate(p, f, index, x)
                                         generated_grades += 1
                                     else:
                                         # Use inputted coproduct grade
                                         g = float(row['COPRODUCT_GRADE'])
                                     if row['COPRODUCT_RECOVERY'] == '':
                                         # Use default coproduct recovery for the region and deposit type
-                                        r = float(exp_factors['coproduct_default_recovery'][index][x])
+                                        r = float(f['coproduct_default_recovery'][index][x])
                                         generated_recovery += 1
                                     else:
                                         # Use inputted coproduct recovery
                                         r = float(row['COPRODUCT_RECOVERY'])
                                     if row['SUPPLY_TRIGGER']:
                                         # Use default coproduct supply trigger for the region and deposit type
-                                        st = float(exp_factors['coproduct_supply_trigger'][index][x])
+                                        st = float(f['coproduct_supply_trigger'][index][x])
                                         generated_supply_trigger += 1
                                     else:
                                         # Use inputted supply trigger
                                         st = float(row['SUPPLY_TRIGGER'])
                                     if row['COPRODUCT_BROWNFIELD_GRADE_FACTOR']:
                                         # Use default coproduct brownfield grade factor for the region and deposit type
-                                        bgf = float(exp_factors['coproduct_brownfield_grade_factor'][index][x])
+                                        bgf = float(f['coproduct_brownfield_grade_factor'][index][x])
                                         generated_brownfield_grade_factor += 1
                                     else:
                                         # Use inputted brownfield grade factor
                                         bgf = float(row['COPRODUCT_BROWNFIELD_GRADE_FACTOR'])
-                        p.add_commodity(c, g, r, st, bgf)
+                                    # TODO: check indentation level
+                                    vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
+                                                      'a': float(f['coproduct_revenue_a'][index][x]),
+                                                      'b': float(f['coproduct_revenue_b'][index][x]),
+                                                      'c': float(f['coproduct_revenue_c'][index][x]),
+                                                      'd': float(f['coproduct_revenue_d'][index][x])},
+                                          'cost': {'model': f['coproduct_cost_model'][index][x],
+                                                   'a': float(f['coproduct_cost_a'][index][x]),
+                                                   'b': float(f['coproduct_cost_b'][index][x]),
+                                                   'c': float(f['coproduct_cost_c'][index][x]),
+                                                   'd': float(f['coproduct_cost_d'][index][x])}}
+                                    p.add_commodity(c, g, r, st, bgf, vf)
                 elif generate_all == 1:
                     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
-                    for x in range(0, len(exp_factors['coproduct_commodity'][index])):
-                        if len(exp_factors['coproduct_commodity'][index]) != 0:
-                            c = exp_factors['coproduct_commodity'][index][x]
+                    for x in range(0, len(f['coproduct_commodity'][index])):
+                        if len(f['coproduct_commodity'][index]) != 0:
+                            c = f['coproduct_commodity'][index][x]
                             if c != '':
-                                g = deposit.coproduct_grade_generate(p, exp_factors, index, x)
-                                r = float(exp_factors['coproduct_default_recovery'][index][x])
-                                st = float(exp_factors['coproduct_supply_trigger'][index][x])
-                                bgf = float(exp_factors['coproduct_brownfield_grade_factor'][index][x])
-                                p.add_commodity(c, g, r, st, bgf)
+                                g = deposit.coproduct_grade_generate(p, f, index, x)
+                                r = float(f['coproduct_default_recovery'][index][x])
+                                st = float(f['coproduct_supply_trigger'][index][x])
+                                bgf = float(f['coproduct_brownfield_grade_factor'][index][x])
+                                vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
+                                                  'a': float(f['coproduct_revenue_a'][index][x]),
+                                                  'b': float(f['coproduct_revenue_b'][index][x]),
+                                                  'c': float(f['coproduct_revenue_c'][index][x]),
+                                                  'd': float(f['coproduct_revenue_d'][index][x])},
+                                      'cost': {'model': f['coproduct_cost_model'][index][x],
+                                               'a': float(f['coproduct_cost_a'][index][x]),
+                                               'b': float(f['coproduct_cost_b'][index][x]),
+                                               'c': float(f['coproduct_cost_c'][index][x]),
+                                               'd': float(f['coproduct_cost_d'][index][x])}}
+
+                                p.add_commodity(c, g, r, st, bgf, vf)
                                 generated_grades += 1
                                 generated_recovery += 1
                                 generated_supply_trigger += 1
@@ -376,6 +427,7 @@ def import_project_coproducts(exp_factors, path, projects, generate_all, copy_pa
         export_log('Imported input_projects_coproducts.csv', output_path=log_path, print_on=1)
         export_log('Added ' + str(entries)+' new coproduct entries. '+str(skipped)+' skipped (check log file for details). '+str(generated_grades)+' grade, '+str(generated_recovery)+' recovery, '+str(generated_supply_trigger)+' supply trigger, and '+str(generated_brownfield_grade_factor)+' brownfield grade factors generated from factors in input_exploration_production.csv.', output_path=log_path, print_on=0)
     return projects
+
 
 def import_exploration_production_factors(path, copy_path=None, log_path=None):
     """
@@ -392,9 +444,14 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'brownfield_tonnage_factor': [], 'brownfield_grade_factor': [],
                         'taylor_a': [], 'taylor_b': [], 'taylor_min': [], 'taylor_max': [],
                         'default_recovery': [],
-                        'value_model': [], 'value_a': [], 'value_b': [], 'value_c': [], 'value_d': [], 'value_threshold': [],
-                        'development_period': [], 'coproduct_commodity': [], 'coproduct_grade_model': [], 'coproduct_a': [], 'coproduct_b': [], 'coproduct_c': [], 'coproduct_d': [],
+                        'revenue_model': [], 'revenue_a': [], 'revenue_b': [], 'revenue_c': [], 'revenue_d': [],
+                        'cost_model': [], 'cost_a': [], 'cost_b': [], 'cost_c': [], 'cost_d': [],
+                        'mine_cost_model': [], 'mine_cost_a': [], 'mine_cost_b': [], 'mine_cost_c': [], 'mine_cost_d': [],
+                        'development_period': [], 'coproduct_commodity': [],
+                        'coproduct_grade_model': [], 'coproduct_a': [], 'coproduct_b': [], 'coproduct_c': [], 'coproduct_d': [],
                         'coproduct_default_recovery': [], 'coproduct_supply_trigger': [], 'coproduct_brownfield_grade_factor': [],
+                        'coproduct_revenue_model': [], 'coproduct_revenue_a': [], 'coproduct_revenue_b': [], 'coproduct_revenue_c': [], 'coproduct_revenue_d': [],
+                        'coproduct_cost_model': [], 'coproduct_cost_a': [], 'coproduct_cost_b': [], 'coproduct_cost_c': [], 'coproduct_cost_d': [],
                         'lookup_table': {}}
 
     with open(path+r'\\input_exploration_production_factors.csv', mode='r') as parameters_file:
@@ -406,12 +463,12 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['region'].append(row['REGION'])
             imported_factors['deposit_type'].append(row['DEPOSIT_TYPE'])
             imported_factors['commodity_primary'].append(row['COMMODITY_PRIMARY'])
-            imported_factors['grade_model'].append(int(row['GRADE_MODEL']))
+            imported_factors['grade_model'].append(row['GRADE_MODEL'])
             imported_factors['grade_a'].append(float(row['GRADE_A']))
             imported_factors['grade_b'].append(float(row['GRADE_B']))
             imported_factors['grade_c'].append(float(row['GRADE_C']))
             imported_factors['grade_d'].append(float(row['GRADE_D']))
-            imported_factors['tonnage_model'].append(int(row['TONNAGE_MODEL']))
+            imported_factors['tonnage_model'].append(row['TONNAGE_MODEL'])
             imported_factors['tonnage_a'].append(float(row['TONNAGE_A']))
             imported_factors['tonnage_b'].append(float(row['TONNAGE_B']))
             imported_factors['tonnage_c'].append(float(row['TONNAGE_C']))
@@ -423,12 +480,21 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['taylor_min'].append(float(row['TAYLOR_MIN']))
             imported_factors['taylor_max'].append(float(row['TAYLOR_MAX']))
             imported_factors['default_recovery'].append(float(row['DEFAULT_RECOVERY']))
-            imported_factors['value_model'].append(int(row['VALUE_MODEL']))
-            imported_factors['value_a'].append(float(row['VALUE_A']))
-            imported_factors['value_b'].append(float(row['VALUE_B']))
-            imported_factors['value_c'].append(float(row['VALUE_C']))
-            imported_factors['value_d'].append(float(row['VALUE_D']))
-            imported_factors['value_threshold'].append(float(row['VALUE_THRESHOLD']))
+            imported_factors['revenue_model'].append(row['REVENUE_MODEL'])
+            imported_factors['revenue_a'].append(float(row['REVENUE_A']))
+            imported_factors['revenue_b'].append(float(row['REVENUE_B']))
+            imported_factors['revenue_c'].append(float(row['REVENUE_C']))
+            imported_factors['revenue_d'].append(float(row['REVENUE_D']))
+            imported_factors['cost_model'].append(row['COST_MODEL'])
+            imported_factors['cost_a'].append(float(row['COST_A']))
+            imported_factors['cost_b'].append(float(row['COST_B']))
+            imported_factors['cost_c'].append(float(row['COST_C']))
+            imported_factors['cost_d'].append(float(row['COST_D']))
+            imported_factors['mine_cost_model'].append(row['MINE_COST_MODEL'])
+            imported_factors['mine_cost_a'].append(float(row['MINE_COST_A']))
+            imported_factors['mine_cost_b'].append(float(row['MINE_COST_B']))
+            imported_factors['mine_cost_c'].append(float(row['MINE_COST_C']))
+            imported_factors['mine_cost_d'].append(float(row['MINE_COST_D']))
             imported_factors['development_period'].append(int(row['DEVELOPMENT_PERIOD']))
             imported_factors['coproduct_commodity'].extend([row['COPRODUCT_COMMODITY'].split(';')])
             imported_factors['coproduct_grade_model'].extend([row['COPRODUCT_GRADE_MODEL'].split(';')])
@@ -439,6 +505,16 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['coproduct_default_recovery'].extend([row['COPRODUCT_DEFAULT_RECOVERY'].split(';')])
             imported_factors['coproduct_supply_trigger'].extend([row['COPRODUCT_SUPPLY_TRIGGER'].split(';')])
             imported_factors['coproduct_brownfield_grade_factor'].extend([row['COPRODUCT_BROWNFIELD_GRADE_FACTOR'].split(';')])
+            imported_factors['coproduct_revenue_model'].extend([row['COPRODUCT_REVENUE_MODEL'].split(';')])
+            imported_factors['coproduct_revenue_a'].extend([row['COPRODUCT_REVENUE_A'].split(';')])
+            imported_factors['coproduct_revenue_b'].extend([row['COPRODUCT_REVENUE_B'].split(';')])
+            imported_factors['coproduct_revenue_c'].extend([row['COPRODUCT_REVENUE_C'].split(';')])
+            imported_factors['coproduct_revenue_d'].extend([row['COPRODUCT_REVENUE_D'].split(';')])
+            imported_factors['coproduct_cost_model'].extend([row['COPRODUCT_COST_MODEL'].split(';')])
+            imported_factors['coproduct_cost_a'].extend([row['COPRODUCT_COST_A'].split(';')])
+            imported_factors['coproduct_cost_b'].extend([row['COPRODUCT_COST_B'].split(';')])
+            imported_factors['coproduct_cost_c'].extend([row['COPRODUCT_COST_C'].split(';')])
+            imported_factors['coproduct_cost_d'].extend([row['COPRODUCT_COST_D'].split(';')])
             region_key = imported_factors['region'][-1]
             deposit_type_key = imported_factors['deposit_type'][-1]
             if region_key in imported_factors['lookup_table']:
