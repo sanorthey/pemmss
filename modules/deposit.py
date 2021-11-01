@@ -5,9 +5,12 @@ Module with data structures and functions for handling deposit data
         .__init__()
         .add_commodity()
         .get()
+        .update_key_dict()
+        .check_key_set()
         .update_by_region_deposit_type()
         .supply()
         .resource_expansion()
+        .value_update()
 
   # Functions for discovering and defining resources
   resource_discovery()
@@ -15,6 +18,8 @@ Module with data structures and functions for handling deposit data
   coproduct_grade_generate()
   tonnage_generate()
   value_generate()
+  value_model()
+  capacity_generate()
   update_exploration_production_factors()
 
 # TODO: 1. Add copyright to docstring
@@ -147,13 +152,14 @@ class Mine:
         Adds a commodity to a Mine objects commodity, grade, recovery, production_intermediate and key_set variables
         Can also be used to update variables for a Mine's existing commodity
 
-        is_balanced = 1 then mine supply will be triggered by this commodity's demand
-        is_balanced = 0 then mine supply won't be triggered by this commodity's demand
+        is_balanced == 1 then mine supply will be triggered by this commodity's demand
+        is_balanced == 0 then mine supply won't be triggered by this commodity's demand
 
-        update_value = True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
+        update_value == True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
         """
         self.commodity.update({add_commodity: int(is_balanced)})
         self.grade.update({add_commodity: float(add_grade)})
+        self.initial_grade.update({add_commodity: float(add_grade)})
         self.recovery.update({add_commodity: float(add_recovery)})
         self.brownfield_grade.update({add_commodity: float(add_brownfield_grade)})
         self.value_factors.update({add_commodity: add_value_factors})
@@ -309,14 +315,14 @@ class Mine:
 
     def update_by_region_deposit_type(self, update_factors):
         """
-        Mine.update(ext_factors)
+        Mine.update_by_region_deposit_type(ext_factors)
         Updates a mine variable if it matches the deposit type and region.
         update_factors = {region: {deposit_type: {variable: value OR {commodity: value}}}}
 
         Variables that can be updated:
         Mine.production_capacity
         Mine.status
-        Mine.value
+        Mine.value | Note will
         Mine.discovery_year
         Mine.start_year
         Mine.grade
@@ -324,9 +330,11 @@ class Mine:
         Mine.end_year
         Mine.aggregation
 
-        Note: Cannot be used to add a new commodity. Use Mine.add_commodity() for this
-        or insert '0' values for a commodity in the input files, then update later on.
-        TODO: Consider adding functionality for updating Mine.value_factors
+        Important Notes:
+        - Cannot be used to add a new commodity. Use Mine.add_commodity() for this or insert '0' values for a commodity
+              in the input files, then update later on.
+        - If global parameter 'update_values' is true than any direct updates to Mine.value will be immediately
+              overridden in the time loop by the models defined in Mine.value_factors.
         """
         # Check if region and deposit type pair is present in update_factors
         if self.region in update_factors.keys():
@@ -606,19 +614,15 @@ def grade_generate(grade_model, factors, grade_dictionary={}):
     Returns a mass ratio of commodity mass to total mass of the ore deposit, generated in accordance with defined grade
     distributions.
     'factors' input must be a dictionary with 'grade_model', 'a', 'b', 'c' and 'd' defined.
-    grade_model = 1: Fixed grade distribution
-        a = grade
-    grade_model = 2: Lognormal grade distribution
+    grade_model = 'fixed' | 'a' = grade
+    grade_model = 'multiple' | 'a' = grade, 'b' = multiplier
+    grade_model = 'lognormal' |
         a = mu, mean
         b = sigma, standard deviation
-        c = multiplier
-        d = max grade
-    grade_model = 3: Placeholder for user-defined grade distribution
+        c = max grade
+    grade_model = 'user' | Placeholder for user-defined grade distribution
 
-    TODO: Check lognormal distribution function and grade-dependent tonnage
-    TODO: Ensure parameter definition consistent with coproduct_grade_generate
-    TODO: Add grade model for multiple of an input variable
-    TODO: Refactor grade_model to strings e.g. "fixed", "lognormal", etc.
+    Note | Factors passed from coproduct_grade_generate are likely to be strings and need type conversion.
     """
     a = factors['a']
     b = factors['b']
@@ -637,50 +641,33 @@ def grade_generate(grade_model, factors, grade_dictionary={}):
         grade = abs(random.lognormvariate(float(a),float(b)))
         if grade > float(c):
             grade = float(c)
-
-        # FIXME: 'tonnage' not passed to function
-        # FIXME: check Gerst / paper the correct log-normal grade equation
-        # tonnage = abs(random.gauss(factors['a'],factors['b']) * factors['c'])
-        # Generate grade and ensure it is positive
-        # grade = abs(tonnage / random.gauss(factors['a'],factors['b']) ** factors['c'])
-        # Check if generated grade is higher than the maximum grade given in factor 'd'
-        # FIXME: check for an alternative approach using random.lognormvariate(mu, sigma) function. Need to determine whether grade dependent.
-        # FIXME: ensure parameter definition consistency with coproduct_grade_generate
-        #grade = abs(random.lognormvariate(factors['a'], factors['b'])) * factors['c']
-        #if grade > float(factors['d']):
-        #    grade = float(factors['d'])
     elif grade_model == "user":
         # User-defined grade distribution
         # grade = "ENTER USER DEFINED DISTRIBUTION HERE"
         grade = "ENTER USER DEFINED GRADE DISTRIBUTION HERE"
-
     else:
-        print("!!! VALID GRADE_MODEL NOT SELECTED !!!")
+        export_log('Invalid grade model ' + str(grade_model), print_on=1)
     return grade
 
 def coproduct_grade_generate(project, factors, factor_index, commodity_index):
     """
-    coproduct_grade_generate(
-    factors['coproduct_a'][factor_index][commodity_index]
-    factors['coproduct_b'][factor_index][commodity_index]
-    factors['coproduct_c'][factor_index][commodity_index]
-    factors['coproduct_d'][factor_index][commodity_index]
-    )
-    TODO: Fix docstrings
-    TODO: consider returning dictionary so that can return and update() empty dictionary.
-    """
-    try:
-        grade_model = factors['coproduct_grade_model'][factor_index][commodity_index]
-    except:
-        return 0
+    coproduct_grade_generate_
+    Returns a mass ratio of commodity mass to total mass of the ore deposit, based on coproduct commodity grade models.
 
-    factors['a'] = factors['coproduct_a'][factor_index][commodity_index]
-    factors['b'] = factors['coproduct_b'][factor_index][commodity_index]
-    factors['c'] = factors['coproduct_c'][factor_index][commodity_index]
-    factors['d'] = factors['coproduct_d'][factor_index][commodity_index]
-    grade = grade_generate(grade_model, factors, project.grade)
+    factors[f][factor_index][commodity_index] where f can = 'a', 'b', 'c' or 'd'
+    factor_index = exploration_production_factors row index number
+    commodity_index = coproduct commodity index from exploration_production_factors cell .split()
+
+    Note | Likely to pass
+    """
+
+    grade_model = factors['coproduct_grade_model'][factor_index][commodity_index]
+    f = {'a': factors['coproduct_a'][factor_index][commodity_index],
+         'b': factors['coproduct_b'][factor_index][commodity_index],
+         'c': factors['coproduct_c'][factor_index][commodity_index],
+         'd': factors['coproduct_d'][factor_index][commodity_index]}
+    grade = grade_generate(grade_model, f, project.grade)
     return grade
-    # Means that the coproduct doesn't exist.
 
 
 def tonnage_generate(size_model, factors, grade):
@@ -689,29 +676,26 @@ def tonnage_generate(size_model, factors, grade):
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
     tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
     tonnage distribution, 4. User-defined tonnage distribution
-    TODO: Check lognormal-grade dependent tonnage distribution
-    TODO: Define variable inputs for each model in comments.
-    TODO: change size_model inputs to strings, e.g. "fixed", "lognormal", etc.
-    TODO: Refactor tonnage models to strings
     """
-    # Generate primary resource tonnage based upon a distribution relationship.
+    a = factors['a']
+    b = factors['b']
+    c = factors['c']
+    d = factors['d']
+
     if size_model == "fixed":
-        # Fixed tonnage distribution
-        tonnage = factors['a']
+        # Fixed tonnage | 'a' = tonnage
+        tonnage = float(a)
     elif size_model == "lognormal":
         # Lognormal tonnage distribution
-        tonnage = abs(random.lognormvariate(factors['a'], factors['b']) * factors['c'])
-    elif size_model == "lognormal_grade_dependent":
-        # Lognormal-grade dependent tonnage distribution
-        # FIXME: define the log-normal grade dependent tonnage distribution.
-        tonnage = grade * random.lognormvariate(factors['a'],factors['b']) ** factors['c']
-        # grade = tonnage / random.lognormvariate(factors['a'],factors['b']) ** factors['c']
-        # FIXME: ensure that size generated are greater than zero. Use abs()
+        # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
+        tonnage = abs(random.lognormvariate(float(a), float(b)))
+        if tonnage > float(c):
+            tonnage = float(c)
     elif size_model == "user":
         # User-defined size model
         tonnage = "ENTER USER DEFINED DISTRIBUTION HERE"
     else:
-        print("!!! VALID SIZE_MODEL NOT SELECTED !!!")
+        export_log('Invalid tonnage model ' + str(size_model), print_on=1)
     return tonnage
 
 
@@ -768,26 +752,28 @@ def value_model(value_factors, ore, ore_grade, recovery):
 
     if model == "fixed":
         return a
-    if model == "size":
+    elif model == "size":
         return ore
-    if model == "grade":
+    elif model == "grade":
         return ore_grade
-    if model == "grade_recoverable":
+    elif model == "grade_recoverable":
         return ore_grade * recovery
-    if model == "contained":
+    elif model == "contained":
         return ore * ore_grade
-    if model == "contained_recoverable":
+    elif model == "contained_recoverable":
         return ore * ore_grade * recovery
-    if model == "size_value":
+    elif model == "size_value":
         return ore * a
-    if model == "grade_value":
+    elif model == "grade_value":
         return ore_grade * a
-    if model == "grade_recoverable_value":
+    elif model == "grade_recoverable_value":
         return ore_grade * recovery * a
-    if model == "contained_value":
+    elif model == "contained_value":
         return ore * ore_grade * a
-    if model == "contained_recoverable_value":
+    elif model == "contained_recoverable_value":
         return ore * ore_grade * recovery * a
+    else:
+        export_log('Invalid value model ' + str(model), print_on=1)
 
 
 def capacity_generate(resource_tonnage, a, b, minimum, maximum):
@@ -808,7 +794,7 @@ def update_exploration_production_factors(factors, updates):
     """
     Updates the exploration_production_factors data structure
     factors | a dictionary containing lists of exploration_production_factor variables
-    updates | a nested dictionary of structure {region: {deposit_type: {variable: {commodity: value}}}}
+    updates | a nested dictionary of structure {region: {deposit_type: {variable: {commodity: value}, variable: value}}}
 
     returns updated factors
 
@@ -838,6 +824,8 @@ def update_exploration_production_factors(factors, updates):
                             factors[v][index] = variable_rebuilt
                     else:
                         # Replicated incase ever want to add functionality for selective changes to a commodities values. This section would need modifying to allow that.
+                        # Should work but not tested.
+                        # TODO: test
                         variable_split = updates[r][d][v][c].split(';')
                         if len(variable_split) == 1:
                             try:
@@ -851,5 +839,5 @@ def update_exploration_production_factors(factors, updates):
                                     variable_rebuilt.append(float(variable_split[x]))
                                 except:
                                     variable_rebuilt.append(variable_split[x])
-                            factors[v][index] = variable_rebuilt
+                            factors[v][index][c] = variable_rebuilt
     return factors

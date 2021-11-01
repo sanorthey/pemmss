@@ -12,7 +12,7 @@ Module with routines for importing PEMMSS model parameters and data files.
     import_graphs()
     import_postprocessing()
     import_historic()
-    import_statistics_flat()
+    import_statistics()
     import_statistics_flat_filter()
 
     TODO: 1. Add copyright statement
@@ -35,17 +35,17 @@ from modules.file_export import export_log
 def import_static_files(path, copy_path_folder=None, log_file=None):
     """
     import_static_files()
-    Imports the input files that don't need
-    to be reimported through the model run.
-    Includes:
+    Imports the input files that don't need to be reimported through the model run.
+    Imports:
         input_parameters.csv
         input_exploration_production_factors.csv
         input_exploration_production_factors_timeseries.csv
         input_demand.csv
         input_graphs.csv
+        input_postprocessing.csv
+        input_historic.csv
     Files will be copied to copy_path_folder if specified.
-    Returns file structures within a tuple.
-    TODO: Update docstrings to include full input / output descriptions
+    Returns file structures within a tuple
     """
     
     parameters = import_parameters(path, copy_path=copy_path_folder, log_path=log_file)
@@ -64,6 +64,7 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
             imported_graphs,
             imported_postprocessing,
             imported_historic)
+
 
 def import_parameters(path, copy_path=None, log_path=None):
     """
@@ -98,9 +99,8 @@ def import_parameters(path, copy_path=None, log_path=None):
     if copy_path is not None:
         copyfile(path + r'\\input_parameters.csv', copy_path + r'\\input_parameters.csv')
     if log_path is not None:
-        export_log('Imported input_parameters.csv', log_path, 1)
+        export_log('Imported input_parameters.csv', output_path=log_path, print_on=1)
     return imported_parameters
-
 
 
 def import_projects(f, path, copy_path=None, log_path=None):
@@ -129,13 +129,16 @@ def import_projects(f, path, copy_path=None, log_path=None):
     no_production_capacity = 0
     no_status = 0
     no_value = 0
+    no_mine_cost_model = 0
+    no_revenue_model = 0
+    no_cost_model = 0
     no_discovery_year = 0
     no_start_year = 0
     no_brownfield_grade_factor = 0
     no_brownfield_tonnage_factor = 0
     # Open and generate projects from input_projects.csv
     imported_projects = []
-    brownfield = {}
+
 
     with open(path + r'\\input_projects.csv', mode='r') as input_file:
 
@@ -214,43 +217,54 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 status = 0
             else:
                 status = int(row['STATUS'])
+
+            value_factors = {'MINE': {}, commodity: {}}
+
+            if row['MINE_COST_MODEL'] == '':
+                no_mine_cost_model += 1
+                value_factors['MINE'].update({'cost': {'model': f['mine_cost_model'][index],
+                                                       'a': f['mine_cost_a'][index],
+                                                       'b': f['mine_cost_b'][index],
+                                                       'c': f['mine_cost_c'][index],
+                                                       'd': f['mine_cost_d'][index]}})
+            else:
+                value_factors['MINE'].update({'cost': {'model': row['MINE_COST_MODEL'],
+                                                       'a': row['MINE_COST_A'],
+                                                       'b': row['MINE_COST_B'],
+                                                       'c': row['MINE_COST_C'],
+                                                       'd': row['MINE_COST_D']}})
+            if row['REVENUE_MODEL'] == '':
+                no_mine_cost_model += 1
+                value_factors[commodity].update({'revenue': {'model': f['revenue_model'][index],
+                                                             'a': f['revenue_a'][index],
+                                                             'b': f['revenue_b'][index],
+                                                             'c': f['revenue_c'][index],
+                                                             'd': f['revenue_d'][index]}})
+            else:
+                value_factors[commodity].update({'revenue': {'model': row['REVENUE_MODEL'],
+                                                             'a': row['REVENUE_A'],
+                                                             'b': row['REVENUE_B'],
+                                                             'c': row['REVENUE_C'],
+                                                             'd': row['REVENUE_D']}})
+            if row['COST_MODEL'] == '':
+                no_mine_cost_model += 1
+                value_factors[commodity].update({'cost': {'model': f['cost_model'][index],
+                                                          'a': f['cost_a'][index],
+                                                          'b': f['cost_b'][index],
+                                                          'c': f['cost_c'][index],
+                                                          'd': f['cost_d'][index]}})
+            else:
+                value_factors[commodity].update({'cost': {'model': row['COST_MODEL'],
+                                                          'a': row['COST_A'],
+                                                          'b': row['COST_B'],
+                                                          'c': row['COST_C'],
+                                                          'd': row['COST_D']}})
             if row['VALUE'] == "":
                 no_value += 1
-                value_factors = {'MINE': {'cost': {'model': f['mine_cost_model'][index],
-                                                        'a': f['mine_cost_a'][index],
-                                                        'b': f['mine_cost_b'][index],
-                                                        'c': f['mine_cost_c'][index],
-                                                        'd': f['mine_cost_d'][index]}},
-                                 commodity: {'revenue': {'model': f['revenue_model'][index],
-                                                         'a': f['revenue_a'][index],
-                                                         'b': f['revenue_b'][index],
-                                                         'c': f['revenue_c'][index],
-                                                         'd': f['revenue_d'][index]},
-                                             'cost': {'model': f['cost_model'][index],
-                                                      'a': f['cost_a'][index],
-                                                      'b': f['cost_b'][index],
-                                                      'c': f['cost_c'][index],
-                                                      'd': f['cost_d'][index]}}}
-                value = deposit.value_model(value_factors, remaining_resource, grade, recovery)
-
+                v = deposit.value_model(value_factors, remaining_resource, grade, recovery)
+                value = {'ALL': float(v), commodity: float(v)}
             else:
-                # TODO: check logic of including value_factors here. Want to be able to maintain project by project value factors
                 value = {'ALL': float(row['VALUE']), commodity: float(row['VALUE'])}
-                value_factors = {'MINE': {'cost': {'model': f['mine_cost_model'][index],
-                                                        'a': f['mine_cost_a'][index],
-                                                        'b': f['mine_cost_b'][index],
-                                                        'c': f['mine_cost_c'][index],
-                                                        'd': f['mine_cost_d'][index]}},
-                                 commodity: {'revenue': {'model': f['revenue_model'][index],
-                                                         'a': f['revenue_a'][index],
-                                                         'b': f['revenue_b'][index],
-                                                         'c': f['revenue_c'][index],
-                                                         'd': f['revenue_d'][index]},
-                                             'cost': {'model': f['cost_model'][index],
-                                                      'a': f['cost_a'][index],
-                                                      'b': f['cost_b'][index],
-                                                      'c': f['cost_c'][index],
-                                                      'd': f['cost_d'][index]}}}
             if row['DISCOVERY_YEAR'] == "":
                 no_discovery_year += 1
                 discovery_year = -9999
@@ -590,7 +604,6 @@ def import_demand(path, copy_path=None, log_path=None):
     TODO: Update docstrings to include functionality, inputs and correct path description
     TODO: Describe input file format, see import_postprocessing
     """
-    print('Importing input_demand.csv')
     imported_demand = {}
 
     with open(path+r'\\input_demand.csv', mode='r') as input_file:
@@ -640,15 +653,14 @@ def import_graphs(path, copy_path=None, log_path=None):
         s_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
         t_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
         labels_on       |   x;x;x;x;x;x   where x = 0 (off) and x = 1 (on)
-        include_all     |   x;x;x;x;x;x   where x = 0 (off) and x = 1 (on)
         share_scale     |   True or False (can be 1 or 0 and will automatically convert to boolean True or False)
         y_axis_label    |   -1 (will generate all keys) or a string
+    TODO: Change i_keys et al description based upon postprocessing._include_key() definitions
     TODO: Add docstring description of copy_path and log_path
     TODO: Add a_keys description to docstring
     TODO: Check labels format
     TODO: Describe input file format, see import_postprocessing
     """
-    print('Importing input_graphs.csv')
     imported_graphs = []
 
     with open(path+r'\\input_graphs.csv', mode='r') as input_file:
@@ -660,6 +672,9 @@ def import_graphs(path, copy_path=None, log_path=None):
             imported_graphs[-1].update({'file_prefix': row['FILE_PREFIX'],
                                         'plot_algorithm': row['PLOT_ALGORITHM'],
                                         'subplot_type': row['SUBPLOT_TYPE'],
+                                        'plot_0': row['PLOT_0'].split(';'),
+                                        'plot_1': row['PLOT_1'].split(';'),
+                                        'subplot_0': row['SUBPLOT_0'].split(';'),
                                         'i_keys': row['I_KEYS'].split(';'),
                                         'j_keys': row['J_KEYS'].split(';'),
                                         'a_keys': row['A_KEYS'].split(';'),
@@ -669,7 +684,6 @@ def import_graphs(path, copy_path=None, log_path=None):
                                         's_keys': row['S_KEYS'].split(';'),
                                         't_keys': row['T_KEYS'].split(';'),
                                         'labels_on': row['LABELS_ON'].split(';'),
-                                        'include_all': row['INCLUDE_ALL'].split(';'),
                                         'share_scale': row['SHARE_SCALE'],
                                         'y_axis_label': row['Y_AXIS_LABEL'],
                                         })
@@ -680,12 +694,13 @@ def import_graphs(path, copy_path=None, log_path=None):
             for k in ['i_keys', 'j_keys', 'a_keys', 'r_keys', 'd_keys', 'c_keys', 's_keys', 't_keys']:
                 if imported_graphs[-1][k][0] == "-1":
                     imported_graphs[-1][k] = -1
+                elif imported_graphs[-1][k][0] in ['FALSE','false','False']:
+                    imported_graphs[-1][k] = False
+                elif imported_graphs[-1][k][0] in ['TRUE', 'true', 'True']:
+                    imported_graphs[-1][k] = True
+
                     # FIXME: Also consider altering to True, False and lists for argument alignment with the new x_y_labels_generate_flat function
 
-            for value in imported_graphs[-1]['labels_on']:
-                value = int(value)
-            for index in range(len(imported_graphs[-1]['include_all'])):
-                imported_graphs[-1]['include_all'][index] = int(imported_graphs[-1]['include_all'][index])
             if imported_graphs[-1]['share_scale'] == "false" or imported_graphs[-1]['share_scale'] == "0" or imported_graphs[-1]['share_scale'] == "FALSE":
                 imported_graphs[-1]['share_scale'] = False
             elif imported_graphs[-1]['share_scale'] == "true" or imported_graphs[-1]['share_scale'] == "1" or imported_graphs[-1]['share_scale'] == "TRUE":
@@ -754,7 +769,7 @@ def import_historic(path, copy_path=None, log_path=None):
 
     TODO: Describe input file format, see import_postprocessing
     """
-    imported_historic = import_statistics_flat(path + r'\\input_historic.csv', custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC'])
+    imported_historic = import_statistics(path + r'\\input_historic.csv', custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC'])
     
     if copy_path is not None:
         copyfile(path + r'\\input_historic.csv', copy_path + r'\\input_historic.csv')
@@ -765,19 +780,18 @@ def import_historic(path, copy_path=None, log_path=None):
     
     
 
-def import_statistics_flat(path, log_path=None, custom_keys=False):
+def import_statistics(path, log_path=None, custom_keys=False, convert_values=False):
     """
     import_statistics_flat()
     Imports csv file with a flat statistics data structure.
     custom_keys | Default is (i,j,a,r,d,c,s).
                 | For input_historic.csv use:
                 | custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
+    convert_values | True will convert values in the time dictionaries to float and missing values to None
     Returns a shallow nested dictionary {(i,j,a,r,d,c,s): {time: values}}
+    ## Usage Note. For historic.csv import convert_values should be False.
     TODO: Describe input file format, see import_postprocessing
-    TODO: Refactor to import_statistics_flat
     """
-    print('Importing statistics.csv')
-        
     imported_statistics = {}
     
     with open(path, mode='r') as input_file:
@@ -793,27 +807,31 @@ def import_statistics_flat(path, log_path=None, custom_keys=False):
         for row in csv_reader:
             if row[keys[0]] == keys[0]:
                 imported_statistics = {}
-                time_keys = row['TIME']
+                if convert_values:
+                    time_keys = [int(t) for t in row['TIME']]
+                else:
+                    time_keys = row['TIME']
             else:
                 tuple_key = tuple([row[k] for k in keys])
+                if convert_values:
+                    time_values = [float(v) if v != '' else None for v in row['TIME']]
+                else:
+                    time_values = row['TIME']
+                imported_statistics.update({tuple_key: dict(zip(time_keys, time_values))})
 
-                imported_statistics.update({tuple_key: dict(zip(time_keys, row['TIME']))})
-                
-                
     if log_path is not None:
         export_log('Imported a flat statistics csv.', output_path=log_path, print_on=1)
 
     return imported_statistics
 
-def import_statistics_flat_filter(path, stats_included, log_path=None):
+def import_statistics_filter(path, stats_included, log_path=None):
     """
-    import_statistics_flat_filter()
+    import_statistics_filter()
     Imports a _statistics.csv file with a flatter data structure for post-processing.
     stats_included is a list of statistics to include
     Returns a nested dictionary {s:{(i,j,a,r,d,c,s): {time: values}}} and the time keys.
     ## top level {s} is a default dictionary
     TODO: Describe input file format, see import_postprocessing
-    TODO: Refactor to import_statistics_filter()
     """
     
     imported_statistics = defaultdict(dict)
