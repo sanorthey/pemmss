@@ -40,8 +40,9 @@ _main_()
 
 # TODO: 1. Add copywrite statement
 # TODO: 2. Add file structure
-# TODO: 4. Update PEMMSS_flowcharts.drawio incl. correct output path and input file copies. Update cross-refs.
-# TODO: 3. Update this docstring after all module todos are completed.
+# TODO: 3. Update PEMMSS_flowcharts.drawio incl. correct output path and input file copies. Update cross-refs.
+# TODO: 4. Update this docstring after all module todos are completed.
+# TODO: 5. Check supply routines and demand carry to make sure supply/demand balancing correctly.
 """
 
 # Import standard packages
@@ -125,7 +126,7 @@ def initialise():
     file_export.export_log('Model executed at '+RUN_TIME+'\n', output_path=LOG, print_on=1)
 
     # Import user input files and assign variables
-    PARAMETERS, IMPORTED_FACTORS, TIMESERIES_PROJECT_UPDATES, TIMESERIES_EXPLORATION_PRODUCTION_FACTORS_UPDATES, IMPORTED_DEMAND, IMPORTED_GRAPHS, IMPORTED_POSTPROCESSING, IMPORTED_HISTORIC = file_import.import_static_files(INPUT_FOLDER, copy_path_folder=OUTPUT_FOLDER_INPUT_COPY)
+    PARAMETERS, IMPORTED_FACTORS, TIMESERIES_PROJECT_UPDATES, TIMESERIES_EXPLORATION_PRODUCTION_FACTORS_UPDATES, IMPORTED_DEMAND, IMPORTED_GRAPHS, IMPORTED_POSTPROCESSING, IMPORTED_HISTORIC = file_import.import_static_files(INPUT_FOLDER, copy_path_folder=OUTPUT_FOLDER_INPUT_COPY, log_file=LOG)
     return (PARAMETERS, IMPORTED_FACTORS, TIMESERIES_PROJECT_UPDATES,
             TIMESERIES_EXPLORATION_PRODUCTION_FACTORS_UPDATES, IMPORTED_DEMAND,
             IMPORTED_GRAPHS, IMPORTED_POSTPROCESSING,
@@ -330,7 +331,7 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
         # Export statistics
         time_range = list(year_set)
         time_range.sort(key=lambda x: int(x))
-        file_export.export_statistics_flat(output_path_stats, stats, time_range)
+        file_export.export_statistics(output_path_stats, stats, time_range)
 
         jt3 = (time())
         log_message.append('\nIteration export duration '+str((jt3-jt2)))
@@ -340,36 +341,81 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
 
     return output_folder_scenario
 
-def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs):
+
+def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, log_path):
     """
-    # P15
-    # P16
 
     FIXME: Write docstrings
-    FIXME: Fix figure generation loop
+
+    Files read:
+
+    Files & directories written:
+
+
+    --- Journal article cross-references ---
+    P15, P16
+
+
+
     """
 
     # Filter and merge scenario and iteration statistics
     # P15
+    file_export.export_log('Merging scenario data', output_path=log_path, print_on=1)
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
+    file_export.export_log('Merged data exported to '+str(output_stats_folder), output_path=log_path, print_on=1)
+
+    # Generate optional summary files
+    """
+    # FIXME: handling of optional stats
+    for s in statistics_files:
+        if s['mean'] == '1':
+            post_processing.stat_mean
+        if s['median'] == '1':
+
+        if s['stdev'] == '0':
+
+        if s['min'] == '1':
+
+        if s['max'] == '1':
+
+        if s['cumulative'] == '0':
+    """
+
+
     # Generate figures
     # P16
     # FIXME: generate_figures based upon filtered statistics
+    # Add CPU pool here
+    figure_paths_objects = []
+    figure_paths = []
 
-    #for s in statistics_files:
-    #    post_processing.generate_figures(statistics_files[s]['path'], imported_graphs, output_graphs_folder)
+    with Pool(cpu_count() - 1) as pool:
+        for graph in imported_graphs:
+            figure_paths_objects.append(pool.apply_async(post_processing.generate_figure, (statistics_files, graph, output_graphs_folder)))
+        pool.close()
+        pool.join()
+
+    # Get returned values from AsyncResult objects.
+    # .get() will also raise any pooled process errors and exceptions.
+    for o in figure_paths_objects:
+        figure_paths.append(o.get())
 
 
-if __name__ == '__main__':
+
+
+
+
+def main():
     """
     Execute scenario modelling across parallel processes
-    
+
     --- Journal article cross-references ---
     P1 - Import input files
     P2 - Execute scenario modelling concurrently amongst pooled cpu processes
     P13 - Check for pooled process errors and exceptions
     P14 - Post-processing of scenario output files to produce summary graphs
-    
+
     FIXME: Refactor CONSTANTS variable to a dictionary
     """
     t0 = (time())
@@ -380,10 +426,10 @@ if __name__ == '__main__':
     scenario_folders = []
 
     # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
-    with Pool(cpu_count()-1) as pool:
+    with Pool(cpu_count() - 1) as pool:
         for i, scenario_name in enumerate(CONSTANTS[0]['scenario_name']):
             scenario_folder_objects.append(pool.apply_async(scenario, CONSTANTS + (i,)))  # R2, W1 and P3 to P14
-            print('Scenario '+scenario_name+' initialised.')
+            print('Scenario ' + scenario_name + ' initialised.')
         print('\nScenarios being modelled.')
         pool.close()
         pool.join()
@@ -391,25 +437,28 @@ if __name__ == '__main__':
     # Check for pooled process errors and exceptions
     for o in scenario_folder_objects:
         # Get returned values from AsyncResult objects.
-        # .get() will also raise any pooled process errors and exceptions. 
+        # .get() will also raise any pooled process errors and exceptions.
         scenario_folders.append(o.get())
 
-
-    print('\n--- Scenario Modelling Complete ---',
-          '\nPost-processing of scenario outputs.')
-
     t1 = (time())
+    file_export.export_log('\nScenario modelling duration ' + str(t1 - t0) + ' seconds.'
+                                                                             '\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.',
+                           output_path=CONSTANTS[-1], print_on=1)
+
     # P15 - Post-processing of scenario output files to produce summary files
     # P16 - Post-processing of output files to generate graphs
     post_process(scenario_folders=scenario_folders, output_stats_folder=CONSTANTS[10],
                  output_graphs_folder=CONSTANTS[11], imported_postprocessing=CONSTANTS[6],
-                 imported_graphs=CONSTANTS[5])
-    
+                 imported_graphs=CONSTANTS[5], log_path=CONSTANTS[-1])
+
     t2 = (time())
-    print('Post-processing duration '+str(t2-t1))
-    print('\n--- Post-Processing Complete---\n\nResults available in:\n'+str(CONSTANTS[8]))
+    log_message = ('Post-processing duration ' + str(t2 - t1) +
+                   '\n--- Post-Processing Complete---\n\nResults available in:\n' + str(CONSTANTS[8]) +
+                   '\nExecution time (s): ' + str(t2 - t0))
+    file_export.export_log(log_message, output_path=CONSTANTS[-1], print_on=1)
 
-
-    file_export.export_log('\nExecution time (s): '+str(t2-t0), output_path=CONSTANTS[-1], print_on=1)
     # Scenario generation complete. Congratulations !!
 
+
+if __name__ == '__main__':
+    main()
