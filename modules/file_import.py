@@ -53,6 +53,7 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
     timeseries_project_updates, timeseries_exploration_production_factors_updates = import_exploration_production_factors_timeseries(path, copy_path=copy_path_folder, log_path=log_file)
     imported_demand = import_demand(path, copy_path=copy_path_folder, log_path=log_file)
     imported_graphs = import_graphs(path, copy_path=copy_path_folder, log_path=log_file)
+    imported_graphs_formatting = import_graphs_formatting(path, copy_path=copy_path_folder, log_path=log_file)
     imported_postprocessing = import_postprocessing(path, copy_path=copy_path_folder, log_path=log_file)
     imported_historic = import_historic(path, copy_path=copy_path_folder, log_path=log_file)
 
@@ -62,6 +63,7 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
             timeseries_exploration_production_factors_updates,
             imported_demand,
             imported_graphs,
+            imported_graphs_formatting,
             imported_postprocessing,
             imported_historic)
 
@@ -644,6 +646,8 @@ def import_graphs(path, copy_path=None, log_path=None):
         file_prefix     |   No hard restrictions (keep short though)
         plot_algorithm  |   statistics_cs_plots_i_subplots, statistics_ij_plots_c_subplots
         subplot_type    |   line, scatter, stacked
+        plot_keys       |   one of i,j,a,r,d,c,s or separated by ';' (e.g. i;c;s)
+        subplot_keys    |   one of i,j,a,r,d,c,s or separated by ';' (e.g. i;c;s)
         i_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
         j_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
         a_keys          |
@@ -672,9 +676,8 @@ def import_graphs(path, copy_path=None, log_path=None):
             imported_graphs[-1].update({'file_prefix': row['FILE_PREFIX'],
                                         'plot_algorithm': row['PLOT_ALGORITHM'],
                                         'subplot_type': row['SUBPLOT_TYPE'],
-                                        'plot_0': row['PLOT_0'].split(';'),
-                                        'plot_1': row['PLOT_1'].split(';'),
-                                        'subplot_0': row['SUBPLOT_0'].split(';'),
+                                        'plot_keys': row['PLOT_KEYS'].split(';'),
+                                        'subplot_keys': row['SUBPLOT_KEYS'].split(';'),
                                         'i_keys': row['I_KEYS'].split(';'),
                                         'j_keys': row['J_KEYS'].split(';'),
                                         'a_keys': row['A_KEYS'].split(';'),
@@ -683,9 +686,9 @@ def import_graphs(path, copy_path=None, log_path=None):
                                         'c_keys': row['C_KEYS'].split(';'),
                                         's_keys': row['S_KEYS'].split(';'),
                                         't_keys': row['T_KEYS'].split(';'),
-                                        'labels_on': row['LABELS_ON'].split(';'),
                                         'share_scale': row['SHARE_SCALE'],
                                         'y_axis_label': row['Y_AXIS_LABEL'],
+                                        'labels_on': row['LABELS_ON'].split(';')
                                         })
 
             # Convert values to integers
@@ -714,6 +717,40 @@ def import_graphs(path, copy_path=None, log_path=None):
         export_log('Imported input_graphs.csv', output_path=log_path, print_on=1)
 
     return imported_graphs
+
+
+def import_graphs_formatting(path, copy_path=None, log_path=None):
+    """
+    import_graphs_formatting()
+    Imports postprocessing parameters from a csv located at 'path'.
+    Typical path is \WORKING_DIRECTORY\input_files\input_graphs_formatting.csv
+    Output is a dictionary {label: {color: value, line: value, linestyle: value}}
+
+    Copies file if copy_path directory specified.
+
+    Expected input csv format:
+         HEADER ROW  | ACCEPTABLE INPUT ROW VALUES
+         LABEL       |
+         COLOR       |
+         LINEWIDTH   |
+         LINESTYLE   |
+
+    Header row should be capitalised in input file. Output dictionary has lowercase keys.
+
+    """
+    imported_graphs_formatting = {}
+
+    with open(path + r'\\input_graphs_formatting.csv', mode='r') as input_file:
+        csv_reader = csv.DictReader(input_file)
+        # Import labels
+        for row in csv_reader:
+            imported_graphs_formatting.update({str(row["LABEL"]): {'color': row['COLOR'], 'linewidth': row['LINEWIDTH'], 'linestyle': row['LINESTYLE']}})
+
+    if copy_path is not None:
+        copyfile(path + r'\\input_graphs_formatting.csv', copy_path + r'\\input_graphs_formatting.csv')
+    if log_path is not None:
+        export_log('Imported input_graphs_formatting.csv', log_path, 1)
+    return imported_graphs_formatting
 
 def import_postprocessing(path, copy_path=None, log_path=None):
     """

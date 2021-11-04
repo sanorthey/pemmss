@@ -1,0 +1,15 @@
+LABEL,COLOR,LINEWIDTH,LINESTYLE
+Asia,r,0.2,-
+Europe,y,0.2,-
+Africa,b,0.2,solid
+North America,c,0.2,solid
+South America,m,0.2,solid
+0,r,0.2,solid
+1,y,0.2,solid
+2,g,0.2,solid
+D_Exponential,r,0.2,solid
+D_Peaking,y,0.2,solid
+D_Declining,g,0.2,solid
+Expl_off,b,0.2,solid
+D_Flat_A,c,0.2,solid
+D_Flat_B,m,0.2,solid

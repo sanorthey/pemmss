@@ -1,7 +1,17 @@
-FILE_PREFIX,PLOT_ALGORITHM,SUBPLOT_TYPE,I_KEYS,J_KEYS,A_KEYS,R_KEYS,D_KEYS,C_KEYS,S_KEYS,T_KEYS,LABELS_ON,INCLUDE_ALL,SHARE_SCALE,Y_AXIS_LABEL
-graph1,statistics_cs_plots_i_subplots,line,-1,-1,ALL,-1,ALL,ALL,cumulative_mines_started;production_ore,-1,0;1;0;0;0;0,0;0;0;0;0;0,TRUE,-1
-graph2,statistics_cs_plots_i_subplots,scatter,-1,0,ALL,-1,ALL,A;B;C;D,production_commodity;cumulative_mines_started,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
-graph3,statistics_cs_plots_i_subplots,stacked,-1,0,ALL,ALL,ALL,A;B;C;D,production_commodity;cumulative_mines_started,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
-graph4,statistics_ij_plots_c_subplots,line,-1,0,ALL,ALL,ALL,A;B;C;D,production_commodity,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
-graph5,statistics_ij_plots_c_subplots,scatter,-1,0,ALL,-1,ALL,A;B;C;D,production_commodity,-1,0;0;0;0;1;1,0;1;0;0;0;0,TRUE,-1
-graph6,statistics_ij_plots_c_subplots,stacked,-1,0,ALL,-1,ALL,A;B;C;D,production_commodity,-1,0;0;0;0;1;1,0;0;0;0;0;0,TRUE,-1
+FILE_PREFIX,PLOT_ALGORITHM,SUBPLOT_TYPE,PLOT_KEYS,SUBPLOT_KEYS,I_KEYS,J_KEYS,A_KEYS,R_KEYS,D_KEYS,C_KEYS,S_KEYS,T_KEYS,SHARE_SCALE,Y_AXIS_LABEL,LABELS_ON
+fig1_ic,plot_subplot_default,line,i,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,r
+fig1_ci,plot_subplot_default,line,c,i,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,r
+fig1_cs,plot_subplot_default,line,c,s,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,i
+fig1_sc,plot_subplot_default,line,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,i
+fig1_sc_i0,plot_subplot_default,line,s,c,TRUE,0,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,i
+fig2_i_only,plot_subplot_default,line,i,i,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),i
+fig2_i_only_r,plot_subplot_default,line,i,i,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),r
+fig2_is,plot_subplot_default,line,i,s,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),i
+fig2_sa,plot_subplot_default,line,s,a,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),i
+fig2_si_stacked_r,plot_subplot_default,stacked,s,i,TRUE,0,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),r
+fig2_ir_stacked_r,plot_subplot_default,stacked,s,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),r
+stacked_r,plot_subplot_default,stacked,i,s,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,-1,r
+stacked_d,plot_subplot_default,stacked,i,s,TRUE,TRUE,ALL,ALL,TRUE,ALL,production_ore_mass,TRUE,TRUE,-1,d
+deposits_discovered_by_type,plot_subplot_default,line,i,r,TRUE,TRUE,ALL,ALL,TRUE,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,d
+deposits_discovered_by_region,plot_subplot_default,line,i,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,r
+deposits_discovered_by_region,plot_subplot_default,line,s,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,i

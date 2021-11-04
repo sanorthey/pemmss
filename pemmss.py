@@ -126,14 +126,14 @@ def initialise():
     file_export.export_log('Model executed at '+RUN_TIME+'\n', output_path=LOG, print_on=1)
 
     # Import user input files and assign variables
-    PARAMETERS, IMPORTED_FACTORS, TIMESERIES_PROJECT_UPDATES, TIMESERIES_EXPLORATION_PRODUCTION_FACTORS_UPDATES, IMPORTED_DEMAND, IMPORTED_GRAPHS, IMPORTED_POSTPROCESSING, IMPORTED_HISTORIC = file_import.import_static_files(INPUT_FOLDER, copy_path_folder=OUTPUT_FOLDER_INPUT_COPY, log_file=LOG)
+    PARAMETERS, IMPORTED_FACTORS, TIMESERIES_PROJECT_UPDATES, TIMESERIES_EXPLORATION_PRODUCTION_FACTORS_UPDATES, IMPORTED_DEMAND, IMPORTED_GRAPHS, IMPORTED_GRAPHS_FORMATTING, IMPORTED_POSTPROCESSING, IMPORTED_HISTORIC = file_import.import_static_files(INPUT_FOLDER, copy_path_folder=OUTPUT_FOLDER_INPUT_COPY, log_file=LOG)
     return (PARAMETERS, IMPORTED_FACTORS, TIMESERIES_PROJECT_UPDATES,
             TIMESERIES_EXPLORATION_PRODUCTION_FACTORS_UPDATES, IMPORTED_DEMAND,
-            IMPORTED_GRAPHS, IMPORTED_POSTPROCESSING,
+            IMPORTED_GRAPHS, IMPORTED_GRAPHS_FORMATTING, IMPORTED_POSTPROCESSING,
             INPUT_FOLDER, OUTPUT_FOLDER, OUTPUT_FOLDER_INPUT_COPY, OUTPUT_FOLDER_STATISTICS, OUTPUT_FOLDER_GRAPHS, IMPORTED_HISTORIC, LOG)
 
 
-def scenario(parameters, imported_factors, timeseries_project_updates, timeseries_exploration_production_factors_updates, imported_demand, imported_graphs, imported_postprocessing, input_folder, output_folder, output_folder_input_copy, output_folder_statistics, output_folder_graphs, imported_historic, log, i):
+def scenario(parameters, imported_factors, timeseries_project_updates, timeseries_exploration_production_factors_updates, imported_demand, imported_graphs, imported_graphs_formatting, imported_postprocessing, input_folder, output_folder, output_folder_input_copy, output_folder_statistics, output_folder_graphs, imported_historic, log, i):
     """
     Executes multiple iterations of the scenario run, creates scenario specific output folders and files,
     imports project specific data and then loops through all time periods where it generates background greenfield
@@ -342,14 +342,20 @@ def scenario(parameters, imported_factors, timeseries_project_updates, timeserie
     return output_folder_scenario
 
 
-def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, log_path):
+def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path):
     """
 
     FIXME: Write docstrings
 
     Files read:
+    output_files/[RUN_TIME]/[scenario]/_statistics.csv
 
     Files & directories written:
+    output_files/[RUN_TIME]/_statistics/
+    output_files/[RUN_TIME]/_statistics/_[statistic].csv
+    for file_prefix, plot_key in input_files/input_graphs.csv
+        output_files/[RUN_TIME]/_graphs/_[file_prefix] [plot_key].png
+        output_files/[RUN_TIME]/_graphs/_[file_prefix] [plot_key].csv
 
 
     --- Journal article cross-references ---
@@ -358,12 +364,15 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
 
 
     """
+    pt0=(time())
 
     # Filter and merge scenario and iteration statistics
     # P15
     file_export.export_log('Merging scenario data', output_path=log_path, print_on=1)
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
-    file_export.export_log('Merged data exported to '+str(output_stats_folder), output_path=log_path, print_on=1)
+    pt1=(time())
+    file_export.export_log('Merged data exported to ' + str(output_stats_folder), output_path=log_path, print_on=1)
+    file_export.export_log('Merge duration '+str((pt1-pt0))+'\n', output_path=log_path, print_on=1)
 
     # Generate optional summary files
     """
@@ -382,17 +391,15 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
         if s['cumulative'] == '0':
     """
 
-
     # Generate figures
     # P16
-    # FIXME: generate_figures based upon filtered statistics
-    # Add CPU pool here
+
+    file_export.export_log('Generating Figures:' output_path=log_path, print_on=1)
     figure_paths_objects = []
     figure_paths = []
-
     with Pool(cpu_count() - 1) as pool:
         for graph in imported_graphs:
-            figure_paths_objects.append(pool.apply_async(post_processing.generate_figure, (statistics_files, graph, output_graphs_folder)))
+            figure_paths_objects.append(pool.apply_async(post_processing.generate_figure, (statistics_files, graph, imported_graphs_formatting, output_graphs_folder)))
         pool.close()
         pool.join()
 
@@ -401,9 +408,8 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     for o in figure_paths_objects:
         figure_paths.append(o.get())
 
-
-
-
+    pt2 = (time())
+    file_export.export_log('Figure generation duration '+str((pt2-pt1)) output_path=log_path, print_on=1)
 
 
 def main():
@@ -441,20 +447,20 @@ def main():
         scenario_folders.append(o.get())
 
     t1 = (time())
-    file_export.export_log('\nScenario modelling duration ' + str(t1 - t0) + ' seconds.'
-                                                                             '\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.',
+    file_export.export_log('\nScenario modelling duration ' + str(t1 - t0) + ' seconds.\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.\n',
                            output_path=CONSTANTS[-1], print_on=1)
 
     # P15 - Post-processing of scenario output files to produce summary files
     # P16 - Post-processing of output files to generate graphs
-    post_process(scenario_folders=scenario_folders, output_stats_folder=CONSTANTS[10],
-                 output_graphs_folder=CONSTANTS[11], imported_postprocessing=CONSTANTS[6],
-                 imported_graphs=CONSTANTS[5], log_path=CONSTANTS[-1])
+    post_process(scenario_folders=scenario_folders, output_stats_folder=CONSTANTS[11],
+                 output_graphs_folder=CONSTANTS[12], imported_postprocessing=CONSTANTS[7],
+                 imported_graphs=CONSTANTS[5], imported_graphs_formatting=CONSTANTS[6], log_path=CONSTANTS[-1])
 
     t2 = (time())
     log_message = ('Post-processing duration ' + str(t2 - t1) +
-                   '\n--- Post-Processing Complete---\n\nResults available in:\n' + str(CONSTANTS[8]) +
+                   '\n--- Post-Processing Complete---\n\nResults available in:\n' + str(CONSTANTS[9]) +
                    '\nExecution time (s): ' + str(t2 - t0))
+    # TODO: check the correct constants index in the log message.
     file_export.export_log(log_message, output_path=CONSTANTS[-1], print_on=1)
 
     # Scenario generation complete. Congratulations !!
