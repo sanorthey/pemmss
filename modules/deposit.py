@@ -737,7 +737,7 @@ def value_generate(value_factors, ore, ore_grade, recovery):
 def value_model(value_factors, ore, ore_grade, recovery):
     """
     value_generate(value_factors, ore, ore_grade, recovery)
-    Generates value based upon the value model selected in the input_parameters.csv
+    Generates value based upon the value model selected in the input_exploration_production_factors.csv
 
     User defined models can be defined below and use input parameters value_factors['a'], value_factors['b'],
     value_factors['c'] and value_factors['d'] for individual regions and deposit types from the

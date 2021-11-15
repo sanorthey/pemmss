@@ -85,14 +85,14 @@ def export_list_of_dictionary(path, list_of_dictionary, header='None', id_key='N
         if id_key != 'None':
             export_header.insert(0, id_key)
 
-    if os.path.isfile(path) == 0:
-        existing = 0
+    if os.path.isfile(path) is False:
+        existing = False
     else:
-        existing = 1
+        existing = True
 
     with open(path, 'a', newline='') as output_file:
         w = csv.DictWriter(output_file, export_header)
-        if existing == 0:
+        if existing is False:
             w.writeheader()
         for dic in list_of_dictionary:
             w.writerow(dic)

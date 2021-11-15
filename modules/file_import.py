@@ -47,57 +47,47 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
     Files will be copied to copy_path_folder if specified.
     Returns file structures within a tuple
     """
-    
-    parameters = import_parameters(path, copy_path=copy_path_folder, log_path=log_file)
-    imported_factors = import_exploration_production_factors(path, copy_path=copy_path_folder, log_path=log_file)
-    timeseries_project_updates, timeseries_exploration_production_factors_updates = import_exploration_production_factors_timeseries(path, copy_path=copy_path_folder, log_path=log_file)
-    imported_demand = import_demand(path, copy_path=copy_path_folder, log_path=log_file)
-    imported_graphs = import_graphs(path, copy_path=copy_path_folder, log_path=log_file)
-    imported_graphs_formatting = import_graphs_formatting(path, copy_path=copy_path_folder, log_path=log_file)
-    imported_postprocessing = import_postprocessing(path, copy_path=copy_path_folder, log_path=log_file)
-    imported_historic = import_historic(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files = {}
+    static_files['parameters'] = import_parameters(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_factors'] = import_exploration_production_factors(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_demand'] = import_demand(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs'] = import_graphs(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs_formatting'] = import_graphs_formatting(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_postprocessing'] = import_postprocessing(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_historic'] = import_historic(path, copy_path=copy_path_folder, log_path=log_file)
 
-    return (parameters,
-            imported_factors,
-            timeseries_project_updates,
-            timeseries_exploration_production_factors_updates,
-            imported_demand,
-            imported_graphs,
-            imported_graphs_formatting,
-            imported_postprocessing,
-            imported_historic)
+    return static_files
 
 
 def import_parameters(path, copy_path=None, log_path=None):
     """
     import_parameters()
     Imports parameters from input_parameters.csv located in the path directory.
-    Output is a dictionary, imported_parameters['key'][i], where i is each scenario run.
+    Output is a nested dictionary, imported_parameters[i]['key'], where i is each scenario run.
     Copies input_parameters if copy_path directory specified.
 
+    # Each scenario_name must be unique in input files.
     TODO: Add input argument description to docstrings
     TODO: Describe input file format, see import_postprocessing
     """
-    imported_parameters = {'scenario_name': [], 'year_start': [], 'year_end': [], 'iterations': [],
-                           'brownfield_exploration_on': [], 'greenfield_exploration_on': [],
-                           'greenfield_background': [], 'priority_active': [], 'random_seed': [],
-                           'generate_all_coproducts': [], 'update_values': []}
+    imported_parameters = {}
 
     with open(path + r'\\input_parameters.csv', mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
-            imported_parameters['scenario_name'].append(str(row['SCENARIO_NAME']))
-            imported_parameters['year_start'].append(int(row['YEAR_START']))
-            imported_parameters['year_end'].append(int(row['YEAR_END']))
-            imported_parameters['iterations'].append(int(row["ITERATIONS"]))
-            imported_parameters['brownfield_exploration_on'].append(int(row['BROWNFIELD_EXPLORATION_ON']))
-            imported_parameters['greenfield_exploration_on'].append(int(row['GREENFIELD_EXPLORATION_ON']))
-            imported_parameters['greenfield_background'].append(int(row['GREENFIELD_BACKGROUND']))
-            imported_parameters['priority_active'].append(int(row['PRIORITY_ACTIVE']))
-            imported_parameters['random_seed'].append(float(row['RANDOM_SEED']))
-            imported_parameters['generate_all_coproducts'].append(int(row['GENERATE_ALL_COPRODUCTS']))
-            imported_parameters['update_values'].append(int(row['UPDATE_VALUES']))
+            imported_parameters.update({row['SCENARIO_NAME']: {'scenario_name': str(row['SCENARIO_NAME']),
+                                                               'year_start': int(row['YEAR_START']),
+                                                               'year_end': int(row['YEAR_END']),
+                                                               'iterations': int(row["ITERATIONS"]),
+                                                               'brownfield_exploration_on': int(row['BROWNFIELD_EXPLORATION_ON']),
+                                                               'greenfield_exploration_on': int(row['GREENFIELD_EXPLORATION_ON']),
+                                                               'greenfield_background': int(row['GREENFIELD_BACKGROUND']),
+                                                               'priority_active': int(row['PRIORITY_ACTIVE']),
+                                                               'random_seed': float(row['RANDOM_SEED']),
+                                                               'generate_all_coproducts': int(row['GENERATE_ALL_COPRODUCTS']),
+                                                               'update_values': int(row['UPDATE_VALUES'])}})
     if copy_path is not None:
         copyfile(path + r'\\input_parameters.csv', copy_path + r'\\input_parameters.csv')
     if log_path is not None:
@@ -729,11 +719,12 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
     Copies file if copy_path directory specified.
 
     Expected input csv format:
-         HEADER ROW  | ACCEPTABLE INPUT ROW VALUES
-         LABEL       |
-         COLOR       |
-         LINEWIDTH   |
-         LINESTYLE   |
+         HEADER ROW           | ACCEPTABLE INPUT ROW VALUES
+         LABEL                |
+         LEGEND_TEXT_OVERRIDE |
+         COLOR                |
+         LINEWIDTH            |
+         LINESTYLE            |
 
     Header row should be capitalised in input file. Output dictionary has lowercase keys.
 
@@ -744,7 +735,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(input_file)
         # Import labels
         for row in csv_reader:
-            imported_graphs_formatting.update({str(row["LABEL"]): {'color': row['COLOR'], 'linewidth': row['LINEWIDTH'], 'linestyle': row['LINESTYLE']}})
+            imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': row['LEGEND_TEXT'], 'color': row['COLOR'], 'linewidth': row['LINEWIDTH'], 'linestyle': row['LINESTYLE']}})
 
     if copy_path is not None:
         copyfile(path + r'\\input_graphs_formatting.csv', copy_path + r'\\input_graphs_formatting.csv')
