@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 # Import custom modules
 
 from modules.results import key_all_expand, key_generate_filter, x_y_labels_generate_flat, key_include_filter
-from modules.file_export import export_log, export_statistics
+from modules.file_export import export_statistics
 from modules.file_import import import_statistics_filter, import_statistics
 
 def generate_figure(statistics_files, graph, graph_formatting, output_folder):
@@ -57,8 +57,6 @@ def generate_figure(statistics_files, graph, graph_formatting, output_folder):
 
     if graph['plot_algorithm'] == 'plot_subplot_default':
         output_path = plot_subplot(filtered_data, output_folder, graph, graph_formatting)
-
-    export_log(output_path)
 
     return output_path
 
@@ -190,7 +188,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     matplotlib.use('Agg') # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
 
     # Create an iterator for the subplots (e.g. commodity keys)
-    subplot = iter(plot)
+    subplot = iter(sorted(plot))
 
     # Generating plot with subplots
     if share_scale == True:
@@ -205,59 +203,62 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     for h in range(h_panels):
         for v in range(v_panels):
             # Generate next panel key and check if it exists.
-            try:
-                sp = next(subplot)
-            except StopIteration:
-                sp == StopIteration
-            if sp != StopIteration:
-                if plot_type == 'stacked':
-                    for label, data in plot[sp].items():
+            sp = next(subplot, False)
+            if sp is not False:
+                # Unpack plot[sp] = {label: {x: [[x0, x0], [x1, x1], ...], y: [[y0, y0], [y1, y1], ...]}}
+                # Sort to ensure labels are alphabetical in legend. Does this based on label, not legend_text.
+                for label, data in sorted(plot[sp].items()):
+                    legend_text, color, linewidth, linestyle = label_format(label, g_formatting)
+
+                    if plot_type == 'stacked':
+                        # Rebuild y for stacked plot. [[y series 0],[y series 1], ...]
                         y = []
                         for y_list in data['y']:
                             y_list_with_none_as_zero = [0 if v is None else v for v in y_list]
                             y.append(y_list_with_none_as_zero)
-                        color, linewidth, linestyle = label_format(label, g_formatting)
-                        ax[h, v].stackplot(data['x'][0], y, color=color)
-                        ax[h, v].stackplot([], [], labels=[str(label)], color=color)
+                        ax[h, v].stackplot(data['x'][0], y, color=color) # Assumes all x series are the same.
+                        ax[h, v].stackplot([], [], labels=[legend_text], color=color)
 
-                elif plot_type == 'scatter':
-                    for label, data in plot[sp].items():  # Unpack sp = {label: {x: [[x0, x0], [x1, x1], ...], y: [[y0, y0], [y1, y1], ...]}}
-                        # Generate scatter plot for all series in this label
-                        color, linewidth, linestyle = label_format(label, g_formatting)
+                    elif plot_type == 'scatter':
+                        # Generate scatter plots for all series in this label
                         for n, x in enumerate(data['x']):
                             ax[h, v].scatter(x, data['y'][n], marker=',', s=1.5, color=color)
-                        ax[h, v].scatter([], [], label=str(label), marker=',', s=1.5, color=color)
+                        ax[h, v].scatter([], [], label=legend_text, marker=',', s=1.5, color=color)
 
-                elif plot_type == 'line':
-                    for label, data in plot[sp].items():
-                        # Generate line plt for all series in this label
-                        color, linewidth, linestyle = label_format(label, g_formatting)
+                    elif plot_type == 'line':
+                        # Generate line plots for all series in this label
                         for n, x in enumerate(data['x']):
                             ax[h, v].plot(x, data['y'][n], color=color, linewidth=linewidth, linestyle=linestyle)
-                        ax[h, v].plot([], [], label=str(label), color=color)
+                        ax[h, v].plot([], [], label=legend_text, color=color)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
                 ax[h, v].set_title(sp, pad=-15)
                 ax[h, v].set_ylabel(y_axis_label)
                 ax[h, v].tick_params(labelbottom=1, labelleft=1)
+
+            else:
+                fig.delaxes(ax[h, v])
     # Export file
     fig.savefig(fname=output_filename, dpi=300)
     plt.close('all')
 
     return output_filename
 
+
 def label_format(label, g_formatting):
     if label in g_formatting:
+        legend_text = str(g_formatting[label]['legend_text'])
         color = g_formatting[label]['color']
         linewidth = g_formatting[label]['linewidth']
         linestyle = g_formatting[label]['linestyle']
     else:
+        legend_text = str(label)
         color = choice(['b', 'g', 'r', 'c', 'm', 'y', 'k'])
         linewidth = 0.5
         linestyle = 'solid'
-        g_formatting.update({label: {'color': color, 'linewidth': linewidth, 'linestyle': linestyle}})
-    return color, linewidth, linestyle
+        g_formatting.update({label: {'legend_text': legend_text, 'color': color, 'linewidth': linewidth, 'linestyle': linestyle}})
+    return legend_text, color, linewidth, linestyle
 
 def build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on):
     """

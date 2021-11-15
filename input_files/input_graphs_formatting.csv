@@ -1,15 +1,20 @@
-LABEL,COLOR,LINEWIDTH,LINESTYLE
-Asia,r,0.2,-
-Europe,y,0.2,-
-Africa,b,0.2,solid
-North America,c,0.2,solid
-South America,m,0.2,solid
-0,r,0.2,solid
-1,y,0.2,solid
-2,g,0.2,solid
-D_Exponential,r,0.2,solid
-D_Peaking,y,0.2,solid
-D_Declining,g,0.2,solid
-Expl_off,b,0.2,solid
-D_Flat_A,c,0.2,solid
-D_Flat_B,m,0.2,solid
+LABEL,LEGEND_TEXT,COLOR,LINEWIDTH,LINESTYLE
+Asia,Asia,r,0.2,-
+Europe,Europe,y,0.2,-
+Africa,Africa,b,0.2,solid
+North America,North America,c,0.2,solid
+South America,South America,m,0.2,solid
+0,0,r,0.2,solid
+1,1,y,0.2,solid
+2,2,g,0.2,solid
+D_Exponential,Exponential,r,0.2,solid
+D_Peaking,Peaking,y,0.2,solid
+D_Declining,Declining,g,0.2,solid
+Expl_Off,Exploration Off,b,0.2,solid
+D_Flat_A,Flat A Demand,c,0.2,solid
+D_Flat_B,Flat B Demand,m,0.2,solid
+unmet_demand,Unmet Demand,b,0.3,--
+A,A,r,0.2,solid
+B,B,b,0.2,solid
+C,C,g,0.2,solid
+D,D,m,0.2,solid

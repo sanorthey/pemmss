@@ -128,7 +128,7 @@ def generate_statistics(key, project_list, time_range, demand_factors):
             if return_stats[key+('deposits_discovered_ore_mass',)][time_key] != 0:
                 return_stats[key + ('deposits_discovered_ore_mass',)][time_key] = return_stats[key+('deposits_discovered_ore_content',)][time_key] / return_stats[key+('deposits_discovered_ore_mass',)][time_key]
             # Unmet demand
-            if key[3] == 'ALL' and key[4] == 'ALL' and key[5] == 'ALL':
+            if key[2] == 'ALL' and key[3] == 'ALL' and key[4] == 'ALL':
                 return_stats[key+('unmet_demand',)][time_key] = demand_factors[commodity][time_key]
 
     # FIXME: Think about adding 'ALL' time_key to return_stats[(key)][time_key]. May be necessary for compatability with original export, import and graphing functions.
