@@ -24,7 +24,7 @@ from random import choice
 # TODO check if general matplotlib import is still needed
 import matplotlib
 import matplotlib.pyplot as plt
-
+from numpy import nan
 
 # Import custom modules
 
@@ -233,6 +233,25 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                             ax[h, v].plot(x, data['y'][n], color=color, linewidth=linewidth, linestyle=linestyle)
                         if legend_suppress is False:
                             ax[h, v].plot([], [], label=legend_text, color=color)
+
+                    elif plot_type == 'fill':
+                        min_y = []
+                        max_y = []
+                        modified_x = []
+                        for i in range(len(data['y'][0])):
+                            # Extract series y values and filter out None. Replace these with numpy nan to allow plotting breaks in series.
+                            y_list_for_x = [y_list[i] for y_list in data['y'] if y_list[i] is not None]
+                            if len(y_list_for_x) == 0:
+                                modified_x.append(nan)
+                                min_y.append(nan)
+                                max_y.append(nan)
+                            else:
+                                modified_x.append(data['x'][0][i])
+                                min_y.append(min(y_list_for_x))
+                                max_y.append(max(y_list_for_x))
+                        ax[h, v].fill_between(modified_x, min_y, max_y, color=color)
+                        if legend_suppress is False:
+                            ax[h, v].fill([], [], label=legend_text, color=color)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
