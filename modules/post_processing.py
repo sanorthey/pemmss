@@ -180,7 +180,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     """
     Returns a plot with an arbitrary number of subplots.
     plot_type can equal 'stacked', 'scatter', 'line'
-    iterator must be ordered to generate horizontal then vertical. TODO: CHECK THIS.
+    iterator must be ordered to generate horizontal then vertical.
     TODO: Update docstrings
 
     x | for stacked plots x[0] should equal any x[any]
@@ -316,33 +316,6 @@ def plot_subplot_data_export(output_filename, plot):
     """
     path = 'dummy.csv'
     return output_filename
-
-
-
-def post_processing_old(imported_postprocessing, scenario_folders, output_stats_folder):
-    """
-    # Create a list of statistics to be postprocessed
-    imported_postprocessing = 
-    scenario_folders = 
-    output_stats_folder = 
-    TODO: Check whether used
-    TODO: Delete if not used
-    TODO: Update docstrings if used
-    TODO: Refactor if used
-    """
-
-    stats_list = []
-    for row in imported_postprocessing:
-        if row['postprocess'] == '1':
-            stats_list.append(row['statistic'])
-
-    # Iterate scenario CSVs and rewrite to files for each statistic.
-    for folder in scenario_folders:
-        stats_list, time_keys = import_statistics_filter((folder+r'\_statistics.csv'),stats_list)
-        
-        for row in imported_postprocessing:
-            if row['postprocess'] == '1':
-                export_statistics(output_stats_folder+r'\_'+str(row)+'.csv', stats_list[row], time_keys)
 
 
 def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder):
