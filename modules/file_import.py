@@ -25,6 +25,7 @@ import csv
 from shutil import copyfile
 from collections import defaultdict
 from random import choices
+from distutils.util import strtobool
 
 # Import custom modules
 import modules.deposit as deposit
@@ -569,7 +570,7 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
 def timeseries_dictionary_merge_row(dictionary, row):
     """
     Merges a new row into an existing timeseries factor update dictionary.
-    TODO: Describe use case -- currently used by file_import.import_exploration_production_factors.timeseries()
+    TODO: Describe use case -- currently used by file_import.import_exploration_production_factors_timeseries()
     TODO: Update docstrings
     """
     for key in row.keys():
@@ -737,7 +738,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(input_file)
         # Import labels
         for row in csv_reader:
-            imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': row['LEGEND_TEXT'], 'color': row['COLOR'], 'linewidth': row['LINEWIDTH'], 'linestyle': row['LINESTYLE']}})
+            imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': row['LEGEND_TEXT'], 'legend_suppress': bool(strtobool(str(row['LEGEND_SUPPRESS']))), 'color': row['COLOR'], 'linewidth': row['LINEWIDTH'], 'linestyle': row['LINESTYLE']}})
 
     if copy_path is not None:
         copyfile(path + r'\\input_graphs_formatting.csv', copy_path + r'\\input_graphs_formatting.csv')

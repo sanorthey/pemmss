@@ -208,7 +208,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                 # Unpack plot[sp] = {label: {x: [[x0, x0], [x1, x1], ...], y: [[y0, y0], [y1, y1], ...]}}
                 # Sort to ensure labels are alphabetical in legend. Does this based on label, not legend_text.
                 for label, data in sorted(plot[sp].items()):
-                    legend_text, color, linewidth, linestyle = label_format(label, g_formatting)
+                    legend_text, legend_suppress, color, linewidth, linestyle = label_format(label, g_formatting)
 
                     if plot_type == 'stacked':
                         # Rebuild y for stacked plot. [[y series 0],[y series 1], ...]
@@ -217,19 +217,22 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                             y_list_with_none_as_zero = [0 if v is None else v for v in y_list]
                             y.append(y_list_with_none_as_zero)
                         ax[h, v].stackplot(data['x'][0], y, color=color) # Assumes all x series are the same.
-                        ax[h, v].stackplot([], [], labels=[legend_text], color=color)
+                        if legend_suppress is False:
+                            ax[h, v].stackplot([], [], labels=[legend_text], color=color)
 
                     elif plot_type == 'scatter':
                         # Generate scatter plots for all series in this label
                         for n, x in enumerate(data['x']):
                             ax[h, v].scatter(x, data['y'][n], marker=',', s=1.5, color=color)
-                        ax[h, v].scatter([], [], label=legend_text, marker=',', s=1.5, color=color)
+                        if legend_suppress is False:
+                            ax[h, v].scatter([], [], label=legend_text, marker=',', s=1.5, color=color)
 
                     elif plot_type == 'line':
                         # Generate line plots for all series in this label
                         for n, x in enumerate(data['x']):
                             ax[h, v].plot(x, data['y'][n], color=color, linewidth=linewidth, linestyle=linestyle)
-                        ax[h, v].plot([], [], label=legend_text, color=color)
+                        if legend_suppress is False:
+                            ax[h, v].plot([], [], label=legend_text, color=color)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
@@ -249,6 +252,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 def label_format(label, g_formatting):
     if label in g_formatting:
         legend_text = str(g_formatting[label]['legend_text'])
+        legend_suppress = g_formatting[label]['legend_suppress']
         color = g_formatting[label]['color']
         linewidth = g_formatting[label]['linewidth']
         linestyle = g_formatting[label]['linestyle']
@@ -257,8 +261,9 @@ def label_format(label, g_formatting):
         color = choice(['b', 'g', 'r', 'c', 'm', 'y', 'k'])
         linewidth = 0.5
         linestyle = 'solid'
-        g_formatting.update({label: {'legend_text': legend_text, 'color': color, 'linewidth': linewidth, 'linestyle': linestyle}})
-    return legend_text, color, linewidth, linestyle
+        legend_suppress = False
+        g_formatting.update({label: {'legend_text': legend_text, 'color': color, 'linewidth': linewidth, 'linestyle': linestyle, 'legend_suppress': legend_suppress}})
+    return legend_text, legend_suppress, color, linewidth, linestyle
 
 def build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on):
     """
