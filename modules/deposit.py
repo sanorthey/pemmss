@@ -60,7 +60,7 @@ class Mine:
                   Undeveloped = 0
                   Depleted = -1
                   Not valuable enough to mine = -2
-    Mine.value | Dictionary of net recovery value for each  Used to sequence mine supply.
+    Mine.value | Dictionary of net recovery value for each commodity. Used to sequence mine supply.
     Mine.discovery_year | Year of deposit generation
     Mine.start_year | Year of first mine production
     Mine.production_ore | Dictionary of ore production from start_year {t: ore production}
@@ -463,13 +463,13 @@ class Mine:
                     self.production_ore[year] = self.production_capacity
                     self.status = 2
 
-            # Return ore production
+            # Convert ore production to commodity production
             for c in self.production_intermediate:
                 if self.value[c] >= 0:
                     # Recovery of c generates positive or neutral value
                     self.production_intermediate[c][year] = self.production_ore[year]*self.recovery[c]*self.grade[c]
                 else:
-                    # Recovery of c generates a neutral value. c not supplied.
+                    # Recovery of c generates a negative value. c not supplied.
                     self.production_intermediate[c][year] = 0
 
             # Return Mine as having supplied
