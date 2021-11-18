@@ -126,7 +126,7 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                 return_stats[key+('mined_grade_weighted_average',)][time_key] = return_stats[key+('production_ore_content',)][time_key] / return_stats[key+('production_ore_mass',)][time_key]
 
             if return_stats[key+('deposits_discovered_ore_mass',)][time_key] != 0:
-                return_stats[key + ('deposits_discovered_ore_mass',)][time_key] = return_stats[key+('deposits_discovered_ore_content',)][time_key] / return_stats[key+('deposits_discovered_ore_mass',)][time_key]
+                return_stats[key + ('deposits_discovered_grade_weighted_average',)][time_key] = return_stats[key+('deposits_discovered_ore_content',)][time_key] / return_stats[key+('deposits_discovered_ore_mass',)][time_key]
             # Unmet demand
             if key[2] == 'ALL' and key[3] == 'ALL' and key[4] == 'ALL':
                 return_stats[key+('unmet_demand',)][time_key] = demand_factors[commodity][time_key]
