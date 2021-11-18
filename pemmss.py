@@ -160,7 +160,6 @@ def scenario(i, constants):
     --- Journal article cross-references ---
     P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, R2, W1
     """
-    # TODO: check i type
     parameters = constants['parameters'][i]
     imported_factors = constants['imported_factors']
     timeseries_project_updates = constants['timeseries_project_updates']
@@ -191,6 +190,7 @@ def scenario(i, constants):
         jt0 = (time())
         factors = deepcopy(imported_factors)
         demand = deepcopy(imported_demand[parameters['scenario_name']])
+        commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
         projects = file_import.import_projects(factors, input_folder, copy_path=output_folder_input_copy)
         projects = file_import.import_project_coproducts(factors, input_folder, projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy)
@@ -230,7 +230,9 @@ def scenario(i, constants):
 
             # Commodity Supply-Demand Balance Algorithm
             # P8
-            for c in demand:
+
+            random.shuffle(commodities)
+            for c in commodities:
                 if demand[c]['balance_supply'] == 1:
 
                     # Project Loop
@@ -381,7 +383,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     file_export.export_log('Merging scenario data', output_path=log_path, print_on=1)
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
     pt1=(time())
-    file_export.export_log('Merge duration '+str((pt1-pt0))+' seconds.\n', output_path=log_path, print_on=1)
+    file_export.export_log('Merge duration '+str((pt1-pt0))+' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Merged data exported to ' + str(output_stats_folder), output_path=log_path, print_on=1)
 
     # Generate optional summary files
@@ -404,7 +406,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     # Generate figures
     # P16
 
-    file_export.export_log('Generating Figures:', output_path=log_path, print_on=1)
+    file_export.export_log('\nGenerating Figures:', output_path=log_path, print_on=1)
     figure_paths_objects = []
     figure_paths = []
     with Pool(cpu_count() - 1) as pool:
@@ -474,7 +476,6 @@ def main():
     log_message = ('Post-processing duration ' + str(t2 - t1) +
                    '\n--- Post-Processing Complete---\n\nResults available in:\n' + str(CONSTANTS['output_folder']) +
                    '\nExecution time (s): ' + str(t2 - t0))
-    # TODO: check the correct constants index in the log message.
     file_export.export_log(log_message, output_path=CONSTANTS['log'], print_on=1)
 
     # Scenario generation complete. Congratulations !!
