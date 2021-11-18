@@ -738,7 +738,14 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(input_file)
         # Import labels
         for row in csv_reader:
-            imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': row['LEGEND_TEXT'], 'legend_suppress': bool(strtobool(str(row['LEGEND_SUPPRESS']))), 'color': row['COLOR'], 'linewidth': row['LINEWIDTH'], 'linestyle': row['LINESTYLE']}})
+            imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': row['LEGEND_TEXT'],
+                                                                   'legend_suppress': bool(strtobool(str(row['LEGEND_SUPPRESS']))),
+                                                                   'color': row['COLOR'],
+                                                                   'alpha': float(row['ALPHA']),
+                                                                   'linestyle': row['LINESTYLE'],
+                                                                   'linewidth': float(row['LINEWIDTH']),
+                                                                   'marker': row['MARKER'],
+                                                                   'size': float(row['SIZE'])}})
 
     if copy_path is not None:
         copyfile(path + r'\\input_graphs_formatting.csv', copy_path + r'\\input_graphs_formatting.csv')

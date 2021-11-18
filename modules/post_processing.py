@@ -208,50 +208,18 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                 # Unpack plot[sp] = {label: {x: [[x0, x0], [x1, x1], ...], y: [[y0, y0], [y1, y1], ...]}}
                 # Sort to ensure labels are alphabetical in legend. Does this based on label, not legend_text.
                 for label, data in sorted(plot[sp].items()):
-                    legend_text, legend_suppress, color, linewidth, linestyle = label_format(label, g_formatting)
-
+                    l_format = label_format(label, g_formatting)
                     if plot_type == 'stacked':
-                        # Rebuild y for stacked plot. [[y series 0],[y series 1], ...]
-                        y = []
-                        for y_list in data['y']:
-                            y_list_with_none_as_zero = [0 if v is None else v for v in y_list]
-                            y.append(y_list_with_none_as_zero)
-                        ax[h, v].stackplot(data['x'][0], y, color=color) # Assumes all x series are the same.
-                        if legend_suppress is False:
-                            ax[h, v].stackplot([], [], labels=[legend_text], color=color)
-
+                        generate_stackplot(ax[h, v], data, l_format)
                     elif plot_type == 'scatter':
-                        # Generate scatter plots for all series in this label
-                        for n, x in enumerate(data['x']):
-                            ax[h, v].scatter(x, data['y'][n], marker=',', s=1.5, color=color)
-                        if legend_suppress is False:
-                            ax[h, v].scatter([], [], label=legend_text, marker=',', s=1.5, color=color)
-
+                        generate_scatter(ax[h, v], data, l_format)
                     elif plot_type == 'line':
-                        # Generate line plots for all series in this label
-                        for n, x in enumerate(data['x']):
-                            ax[h, v].plot(x, data['y'][n], color=color, linewidth=linewidth, linestyle=linestyle)
-                        if legend_suppress is False:
-                            ax[h, v].plot([], [], label=legend_text, color=color)
-
+                        generate_line(ax[h, v], data, l_format)
                     elif plot_type == 'fill':
-                        min_y = []
-                        max_y = []
-                        modified_x = []
-                        for i in range(len(data['y'][0])):
-                            # Extract series y values and filter out None. Replace these with numpy nan to allow plotting breaks in series.
-                            y_list_for_x = [y_list[i] for y_list in data['y'] if y_list[i] is not None]
-                            if len(y_list_for_x) == 0:
-                                modified_x.append(nan)
-                                min_y.append(nan)
-                                max_y.append(nan)
-                            else:
-                                modified_x.append(data['x'][0][i])
-                                min_y.append(min(y_list_for_x))
-                                max_y.append(max(y_list_for_x))
-                        ax[h, v].fill_between(modified_x, min_y, max_y, color=color)
-                        if legend_suppress is False:
-                            ax[h, v].fill([], [], label=legend_text, color=color)
+                        generate_fill(ax[h,v], data, l_format)
+                    elif plot_type == 'fill_line':
+                        generate_fill(ax[h,v], data, l_format)
+                        generate_line(ax[h, v], data, l_format, force_legend_suppress=True)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
@@ -267,22 +235,73 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
     return output_filename
 
+def generate_stackplot(axis, data, l_format, force_legend_suppress=False):
+    # Rebuild y for stacked plot. [[y series 0],[y series 1], ...]
+    y = []
+    for y_list in data['y']:
+        y_list_with_none_as_zero = [0 if v is None else v for v in y_list]
+        y.append(y_list_with_none_as_zero)
+    axis.stackplot(data['x'][0], y, color=l_format['color'])  # Assumes all x series are the same.
+    if l_format['legend_suppress'] is False and force_legend_suppress is False:
+        axis.stackplot([], [], labels=[l_format['legend_text']], color=l_format['color'])
+
+def generate_scatter(axis, data, l_format, force_legend_suppress=False):
+    # Generate scatter plots for all series in this label
+    for n, x in enumerate(data['x']):
+        axis.scatter(x, data['y'][n], marker=l_format['marker'], s=l_format['size'], color=l_format['color'])
+    if l_format['legend_suppress'] is False and force_legend_suppress is False:
+        axis.scatter([], [], label=l_format['legend_text'], marker=l_format['marker'], s=l_format['size'],
+                         color=l_format['color'])
+
+def generate_line(axis, data, l_format, force_legend_suppress=False):
+    # Generate line plots for all series in this label
+    for n, x in enumerate(data['x']):
+        axis.plot(x, data['y'][n], color=l_format['color'], linewidth=l_format['linewidth'],
+                      linestyle=l_format['linestyle'])
+    if l_format['legend_suppress'] is False and force_legend_suppress is False:
+        axis.plot([], [], label=l_format['legend_text'], color=l_format['color'])
+
+def generate_fill(axis, data, l_format, force_legend_suppress=False):
+    min_y = []
+    max_y = []
+    modified_x = []
+    for i in range(len(data['y'][0])):
+        # Extract series y values and filter out None. Replace these with numpy nan to allow plotting breaks in series.
+        y_list_for_x = [y_list[i] for y_list in data['y'] if y_list[i] is not None]
+        if len(y_list_for_x) == 0:
+            modified_x.append(nan)
+            min_y.append(nan)
+            max_y.append(nan)
+        else:
+            modified_x.append(data['x'][0][i])
+            min_y.append(min(y_list_for_x))
+            max_y.append(max(y_list_for_x))
+    axis.fill_between(modified_x, min_y, max_y, color=l_format['color'], alpha=l_format['alpha'])
+    if l_format['legend_suppress'] is False and force_legend_suppress is False:
+        axis.fill([], [], label=l_format['legend_text'], color=l_format['color'], alpha=l_format['alpha'])
 
 def label_format(label, g_formatting):
+    l = {}
     if label in g_formatting:
-        legend_text = str(g_formatting[label]['legend_text'])
-        legend_suppress = g_formatting[label]['legend_suppress']
-        color = g_formatting[label]['color']
-        linewidth = g_formatting[label]['linewidth']
-        linestyle = g_formatting[label]['linestyle']
+        l['legend_text'] = str(g_formatting[label]['legend_text'])
+        l['legend_suppress'] = g_formatting[label]['legend_suppress']
+        l['color'] = g_formatting[label]['color']
+        l['alpha'] = g_formatting[label]['alpha']
+        l['linewidth'] = g_formatting[label]['linewidth']
+        l['linestyle'] = g_formatting[label]['linestyle']
+        l['marker'] = g_formatting[label]['marker']
+        l['size'] = g_formatting[label]['size']
     else:
-        legend_text = str(label)
-        color = choice(['b', 'g', 'r', 'c', 'm', 'y', 'k'])
-        linewidth = 0.5
-        linestyle = 'solid'
-        legend_suppress = False
-        g_formatting.update({label: {'legend_text': legend_text, 'color': color, 'linewidth': linewidth, 'linestyle': linestyle, 'legend_suppress': legend_suppress}})
-    return legend_text, legend_suppress, color, linewidth, linestyle
+        l['legend_text'] = str(label)
+        l['color'] = choice(['b', 'g', 'r', 'c', 'm', 'y', 'k'])
+        l['alpha'] = 1
+        l['linewidth'] = 0.5
+        l['linestyle'] = 'solid'
+        l['legend_suppress'] = False
+        l['marker'] = '.'
+        l['size'] = 1
+        g_formatting.update({label: l})
+    return l
 
 def build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on):
     """
