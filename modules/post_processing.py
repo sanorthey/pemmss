@@ -19,9 +19,9 @@ TODO: 4. Check docstrings after functionality finalised
 from math import ceil
 from collections import defaultdict
 from random import choice
+from itertools import accumulate
 
 # Import external packages
-# TODO check if general matplotlib import is still needed
 import matplotlib
 import matplotlib.pyplot as plt
 from numpy import nan
@@ -141,8 +141,8 @@ def plot_subplot(statistics, path, g, g_formatting):
     """
     """
 
-    file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label = (
-        g['file_prefix'], g['plot_keys'], g['subplot_keys'], g['labels_on'], g['subplot_type'], g['share_scale'], g['y_axis_label'])
+    file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label, cumulative = (
+        g['file_prefix'], g['plot_keys'], g['subplot_keys'], g['labels_on'], g['subplot_type'], g['share_scale'], g['y_axis_label'], g['cumulative'])
 
     # Build x, y and labels of format
     plot_subplot_label_xy_data = build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on)
@@ -170,13 +170,13 @@ def plot_subplot(statistics, path, g, g_formatting):
         # Generate file path
         output_filepath = path + r'\_' + file_prefix + '-' + str(plot) + '.png'
 
-        path_outputs.append(plot_subplot_generator(output_filepath, str(title), plot_subplot_label_xy_data[plot], h_panels, v_panels, subplot_type, share_scale, y_label, g_formatting))
+        path_outputs.append(plot_subplot_generator(output_filepath, str(title), plot_subplot_label_xy_data[plot], h_panels, v_panels, subplot_type, share_scale, y_label, cumulative, g_formatting))
         path_outputs.append(plot_subplot_data_export(output_filepath + '.csv', plot))
 
     return path_outputs
 
 
-def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plot_type, share_scale, y_axis_label, g_formatting):
+def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plot_type, share_scale, y_axis_label, cumulative, g_formatting):
     """
     Returns a plot with an arbitrary number of subplots.
     plot_type can equal 'stacked', 'scatter', 'line'
@@ -210,16 +210,16 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                 for label, data in sorted(plot[sp].items()):
                     l_format = label_format(label, g_formatting)
                     if plot_type == 'stacked':
-                        generate_stackplot(ax[h, v], data, l_format)
+                        generate_stackplot(ax[h, v], data, l_format, cumulative=cumulative)
                     elif plot_type == 'scatter':
-                        generate_scatter(ax[h, v], data, l_format)
+                        generate_scatter(ax[h, v], data, l_format, cumulative=cumulative)
                     elif plot_type == 'line':
-                        generate_line(ax[h, v], data, l_format)
+                        generate_line(ax[h, v], data, l_format, cumulative=cumulative)
                     elif plot_type == 'fill':
-                        generate_fill(ax[h,v], data, l_format)
+                        generate_fill(ax[h, v], data, l_format, cumulative=cumulative)
                     elif plot_type == 'fill_line':
-                        generate_fill(ax[h,v], data, l_format)
-                        generate_line(ax[h, v], data, l_format, force_legend_suppress=True)
+                        generate_fill(ax[h, v], data, l_format, cumulative=cumulative)
+                        generate_line(ax[h, v], data, l_format, cumulative=cumulative, force_legend_suppress=True)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
@@ -235,39 +235,53 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
     return output_filename
 
-def generate_stackplot(axis, data, l_format, force_legend_suppress=False):
+
+def generate_stackplot(axis, data, l_format, force_legend_suppress=False, cumulative=False):
     # Rebuild y for stacked plot. [[y series 0],[y series 1], ...]
     y = []
     for y_list in data['y']:
-        y_list_with_none_as_zero = [0 if v is None else v for v in y_list]
-        y.append(y_list_with_none_as_zero)
-    axis.stackplot(data['x'][0], y, color=l_format['color'])  # Assumes all x series are the same.
+        # Replace None with 0
+        #y_list_modified = [0 if v is None else v for v in y_list]
+        #if cumulative:
+        #    y_list_modified = list(accumulate(y_list_modified))
+        y.append(series_list_modify(y_list, cumulative, replace_none=float(0)))
+    axis.stackplot(data['x'][0], y, color=l_format['color'], alpha=l_format['fill_alpha'])  # Assumes all x series are the same.
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
-        axis.stackplot([], [], labels=[l_format['legend_text']], color=l_format['color'])
+        axis.stackplot([], [], labels=[l_format['legend_text']], color=l_format['color'], alpha=l_format['fill_alpha'])
 
-def generate_scatter(axis, data, l_format, force_legend_suppress=False):
+
+def generate_scatter(axis, data, l_format, force_legend_suppress=False, cumulative=False):
     # Generate scatter plots for all series in this label
     for n, x in enumerate(data['x']):
-        axis.scatter(x, data['y'][n], marker=l_format['marker'], s=l_format['size'], color=l_format['color'])
+        y = series_list_modify(data['y'][n], cumulative)
+        axis.scatter(x, y, marker=l_format['marker'], s=l_format['size'], color=l_format['color'])
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
-        axis.scatter([], [], label=l_format['legend_text'], marker=l_format['marker'], s=l_format['size'],
-                         color=l_format['color'])
+        axis.scatter([], [], label=l_format['legend_text'], marker=l_format['marker'], s=l_format['size'], color=l_format['color'], alpha=l_format['alpha'])
 
-def generate_line(axis, data, l_format, force_legend_suppress=False):
+
+def generate_line(axis, data, l_format, force_legend_suppress=False, cumulative=False):
     # Generate line plots for all series in this label
     for n, x in enumerate(data['x']):
-        axis.plot(x, data['y'][n], color=l_format['color'], linewidth=l_format['linewidth'],
-                      linestyle=l_format['linestyle'])
+        y = series_list_modify(data['y'][n], cumulative)
+        axis.plot(x, y, color=l_format['color'], linewidth=l_format['linewidth'],
+                      linestyle=l_format['linestyle'], alpha=l_format['alpha'])
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
         axis.plot([], [], label=l_format['legend_text'], color=l_format['color'])
 
-def generate_fill(axis, data, l_format, force_legend_suppress=False):
+
+def generate_fill(axis, data, l_format, force_legend_suppress=False, cumulative=False):
     min_y = []
     max_y = []
     modified_x = []
-    for i in range(len(data['y'][0])):
+
+    y = []
+    for y_list in data['y']:
+        y.append(series_list_modify(y_list, cumulative=cumulative))
+
+    for i in range(len(y[0])):
         # Extract series y values and filter out None. Replace these with numpy nan to allow plotting breaks in series.
-        y_list_for_x = [y_list[i] for y_list in data['y'] if y_list[i] is not None]
+        y_list_for_x = [y_list[i] for y_list in y if y_list[i] is not None]
+
         if len(y_list_for_x) == 0:
             modified_x.append(nan)
             min_y.append(nan)
@@ -276,25 +290,42 @@ def generate_fill(axis, data, l_format, force_legend_suppress=False):
             modified_x.append(data['x'][0][i])
             min_y.append(min(y_list_for_x))
             max_y.append(max(y_list_for_x))
-    axis.fill_between(modified_x, min_y, max_y, color=l_format['color'], alpha=l_format['alpha'])
+
+    axis.fill_between(modified_x, min_y, max_y, color=l_format['color'], alpha=l_format['fill_alpha'])
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
-        axis.fill([], [], label=l_format['legend_text'], color=l_format['color'], alpha=l_format['alpha'])
+        axis.fill([], [], label=l_format['legend_text'], color=l_format['color'], alpha=l_format['fill_alpha'])
+
+
+def series_list_modify(series_lists, cumulative=False, replace_none=False):
+    if cumulative:
+        filtered_list = [0 if v is None else v for v in series_lists]
+        return list(accumulate(filtered_list))
+    elif replace_none is not False:
+        return [replace_none if v is None else v for v in series_lists]
+    else:
+        return series_lists
+
 
 def label_format(label, g_formatting):
     l = {}
     if label in g_formatting:
+        """
         l['legend_text'] = str(g_formatting[label]['legend_text'])
         l['legend_suppress'] = g_formatting[label]['legend_suppress']
         l['color'] = g_formatting[label]['color']
         l['alpha'] = g_formatting[label]['alpha']
+        l['fill_alpha'] = g_formatting[label]['fill_alpha']
         l['linewidth'] = g_formatting[label]['linewidth']
         l['linestyle'] = g_formatting[label]['linestyle']
         l['marker'] = g_formatting[label]['marker']
         l['size'] = g_formatting[label]['size']
+        """
+        l.update(g_formatting[label])
     else:
         l['legend_text'] = str(label)
         l['color'] = choice(['b', 'g', 'r', 'c', 'm', 'y', 'k'])
         l['alpha'] = 1
+        l['fill_alpha'] = 1
         l['linewidth'] = 0.5
         l['linestyle'] = 'solid'
         l['legend_suppress'] = False
@@ -302,6 +333,7 @@ def label_format(label, g_formatting):
         l['size'] = 1
         g_formatting.update({label: l})
     return l
+
 
 def build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on):
     """
@@ -318,25 +350,20 @@ def build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels
         plot_key = build_plot_key(k, key_map, plot_keys)
         subplot_key = build_plot_key(k, key_map, subplot_keys)
         label = build_plot_key(k, key_map, labels_on)
+        x = list(v)
+        y = list(v.values())
 
         if plot_key not in plot_subplot_label_xy_data:
-            plot_subplot_label_xy_data[plot_key] = {subplot_key: {label: {'x': [list(v),],
-                                                                          'y': [list(v.values()),]
-                                                                          }}}
+            plot_subplot_label_xy_data[plot_key] = {subplot_key: {label: {'x': [x,], 'y': [y,]}}}
         elif subplot_key not in plot_subplot_label_xy_data[plot_key]:
-            plot_subplot_label_xy_data[plot_key].update({subplot_key: {label: {'x': [list(v),],
-                                                                               'y': [list(v.values()),]
-                                                                               }}})
+            plot_subplot_label_xy_data[plot_key].update({subplot_key: {label: {'x': [x,], 'y': [y,]}}})
         elif label not in plot_subplot_label_xy_data[plot_key][subplot_key]:
-            plot_subplot_label_xy_data[plot_key][subplot_key].update({label: {'x': [list(v),],
-                                                                              'y': [list(v.values()),]
-                                                                              }})
+            plot_subplot_label_xy_data[plot_key][subplot_key].update({label: {'x': [x,],'y': [y,]}})
         else:
-            plot_subplot_label_xy_data[plot_key][subplot_key][label]['x'].append(list(v),)
-            plot_subplot_label_xy_data[plot_key][subplot_key][label]['y'].append(list(v.values()),)
+            plot_subplot_label_xy_data[plot_key][subplot_key][label]['x'].append(x,)
+            plot_subplot_label_xy_data[plot_key][subplot_key][label]['y'].append(y,)
 
     return plot_subplot_label_xy_data
-
 
 
 def build_plot_key(k, key_map, plot_keys):

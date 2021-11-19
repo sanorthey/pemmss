@@ -652,6 +652,7 @@ def import_graphs(path, copy_path=None, log_path=None):
         labels_on       |   x;x;x;x;x;x   where x = 0 (off) and x = 1 (on)
         share_scale     |   True or False (can be 1 or 0 and will automatically convert to boolean True or False)
         y_axis_label    |   -1 (will generate all keys) or a string
+        cumulative      |   True or False
     TODO: Change i_keys et al description based upon postprocessing._include_key() definitions
     TODO: Add docstring description of copy_path and log_path
     TODO: Add a_keys description to docstring
@@ -681,7 +682,8 @@ def import_graphs(path, copy_path=None, log_path=None):
                                         't_keys': row['T_KEYS'].split(';'),
                                         'share_scale': row['SHARE_SCALE'],
                                         'y_axis_label': row['Y_AXIS_LABEL'],
-                                        'labels_on': row['LABELS_ON'].split(';')
+                                        'labels_on': row['LABELS_ON'].split(';'),
+                                        'cumulative': row['CUMULATIVE']
                                         })
 
             # Convert values to integers
@@ -703,6 +705,11 @@ def import_graphs(path, copy_path=None, log_path=None):
                 imported_graphs[-1]['share_scale'] = True
             if imported_graphs[-1]['y_axis_label'] == "-1":
                 imported_graphs[-1]['y_axis_label'] = -1
+            if imported_graphs[-1]['cumulative'].lower() == "false" or imported_graphs[-1]['cumulative'] == "0":
+                imported_graphs[-1]['cumulative'] = False
+            elif imported_graphs[-1]['cumulative'].lower() == "true" or imported_graphs[-1]['cumulative'] == "1":
+                imported_graphs[-1]['cumulative'] = True
+
     if copy_path is not None:
         copyfile(path + r'\\input_graphs.csv', copy_path + r'\\input_graphs.csv')
         
@@ -738,10 +745,11 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(input_file)
         # Import labels
         for row in csv_reader:
-            imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': row['LEGEND_TEXT'],
+            imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': str(row['LEGEND_TEXT']),
                                                                    'legend_suppress': bool(strtobool(str(row['LEGEND_SUPPRESS']))),
                                                                    'color': row['COLOR'],
                                                                    'alpha': float(row['ALPHA']),
+                                                                   'fill_alpha': float(row['FILL_ALPHA']),
                                                                    'linestyle': row['LINESTYLE'],
                                                                    'linewidth': float(row['LINEWIDTH']),
                                                                    'marker': row['MARKER'],
