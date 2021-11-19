@@ -233,7 +233,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                                                        'c': row['MINE_COST_C'],
                                                        'd': row['MINE_COST_D']}})
             if row['REVENUE_MODEL'] == '':
-                no_mine_cost_model += 1
+                no_revenue_model += 1
                 value_factors[commodity].update({'revenue': {'model': f['revenue_model'][index],
                                                              'a': f['revenue_a'][index],
                                                              'b': f['revenue_b'][index],
@@ -246,7 +246,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                                                              'c': row['REVENUE_C'],
                                                              'd': row['REVENUE_D']}})
             if row['COST_MODEL'] == '':
-                no_mine_cost_model += 1
+                no_cost_model += 1
                 value_factors[commodity].update({'cost': {'model': f['cost_model'][index],
                                                           'a': f['cost_a'][index],
                                                           'b': f['cost_b'][index],

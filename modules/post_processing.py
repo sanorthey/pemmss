@@ -32,6 +32,34 @@ from modules.results import key_all_expand, key_generate_filter, x_y_labels_gene
 from modules.file_export import export_statistics
 from modules.file_import import import_statistics_filter, import_statistics
 
+
+def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder):
+    """
+    merge_scenarios()
+    # Merges statistics from scenario statistics.csv and outputs as individuals CSVs in a new folder
+    imported_postprocessing =
+    scenario_folders =
+    output_stats_folder =
+
+    TODO: Update docstrings
+    #TODO: optimise. Possibly can use import_statistics rather than import_statistics_filter. Then change 'for s in stats_list'
+    """
+
+    updated_postprocessing = imported_postprocessing
+
+    # Iterate scenario CSVs and rewrite to files for each statistic.
+    for folder in scenario_folders:
+        stats_list, time_keys = import_statistics_filter((folder + r'\_statistics.csv'), updated_postprocessing.keys())
+        ## stats_list is {s: {(i,j,a,r,d,s): {t: value}}}
+        ## time_keys is [t1, t2, etc.]
+
+        for s in stats_list:
+            updated_postprocessing[s].update({'path': (output_stats_folder + r'\_' + str(s) + '.csv')})
+            export_statistics(updated_postprocessing[s]['path'], stats_list[s], time_keys)
+
+    return updated_postprocessing
+
+
 def generate_figure(statistics_files, graph, graph_formatting, output_folder):
     """
 
@@ -53,7 +81,7 @@ def generate_figure(statistics_files, graph, graph_formatting, output_folder):
             g_statistics.update(import_statistics(s_dict['path'], convert_values=True))
 
     # Filter statistics
-    filtered_data, filtered_key_dict_set = filter_statistics(g_statistics, graph)
+    filtered_data = filter_statistics(g_statistics, graph)
 
     if graph['plot_algorithm'] == 'plot_subplot_default':
         output_path = plot_subplot(filtered_data, output_folder, graph, graph_formatting)
@@ -69,27 +97,11 @@ def filter_statistics(statistics, g):
     i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys =\
         g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys']
     filtered_statistics = {}
-    filtered_key_dict_set = {'i': set(),
-                         'j': set(),
-                         'a': set(),
-                         'r': set(),
-                         'd': set(),
-                         'c': set(),
-                         's': set()}
-
-
     for key in statistics:
         if filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys):
-            filtered_key_dict_set['i'].add(key[0])
-            filtered_key_dict_set['j'].add(key[1])
-            filtered_key_dict_set['a'].add(key[2])
-            filtered_key_dict_set['r'].add(key[3])
-            filtered_key_dict_set['d'].add(key[4])
-            filtered_key_dict_set['c'].add(key[5])
-            filtered_key_dict_set['s'].add(key[6])
             filtered_statistics.update({key: statistics[key]})
 
-    return filtered_statistics, filtered_key_dict_set
+    return filtered_statistics
 
 
 def filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys):
@@ -193,11 +205,10 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     # Generating plot with subplots
     if share_scale == True:
         # Subplots have common scale
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(h_panels * 7, v_panels * 7), sharey=True, sharex=True,
-                                   squeeze=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(h_panels * 7, v_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
     elif share_scale == False:
         # Subplots have independent scales
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(h_panels * 7, v_panels * 7), sharey=False, sharex=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(h_panels * 7, v_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
 
     fig.suptitle(title)
     for h in range(h_panels):
@@ -304,17 +315,6 @@ def series_modify(data_series, cumulative=False, replace_none=False):
 def label_format(label, g_formatting):
     l = {}
     if label in g_formatting:
-        """
-        l['legend_text'] = str(g_formatting[label]['legend_text'])
-        l['legend_suppress'] = g_formatting[label]['legend_suppress']
-        l['color'] = g_formatting[label]['color']
-        l['alpha'] = g_formatting[label]['alpha']
-        l['fill_alpha'] = g_formatting[label]['fill_alpha']
-        l['linewidth'] = g_formatting[label]['linewidth']
-        l['linestyle'] = g_formatting[label]['linestyle']
-        l['marker'] = g_formatting[label]['marker']
-        l['size'] = g_formatting[label]['size']
-        """
         l.update(g_formatting[label])
     else:
         l['legend_text'] = str(label)
@@ -380,29 +380,4 @@ def plot_subplot_data_export(output_filename, plot):
     return output_filename
 
 
-def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder):
-    """
-    merge_scenarios()
-    # Merges statistics from scenario statistics.csv and outputs as individuals CSVs in a new folder
-    imported_postprocessing =
-    scenario_folders =
-    output_stats_folder =
-
-    TODO: Update docstrings
-    #TODO: optimise. Possibly can use import_statistics rather than import_statistics_filter. Then change 'for s in stats_list'
-    """
-
-    updated_postprocessing = imported_postprocessing
-
-    # Iterate scenario CSVs and rewrite to files for each statistic.
-    for folder in scenario_folders:
-        stats_list, time_keys = import_statistics_filter((folder + r'\_statistics.csv'), updated_postprocessing.keys())
-        ## stats_list is {s: {(i,j,a,r,d,s): {t: value}}}
-        ## time_keys is [t1, t2, etc.]
-
-        for s in stats_list:
-            updated_postprocessing[s].update({'path': (output_stats_folder + r'\_' + str(s) + '.csv')})
-            export_statistics(updated_postprocessing[s]['path'], stats_list[s], time_keys)
-            
-    return updated_postprocessing
 
