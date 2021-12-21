@@ -1,0 +1,29 @@
+LABEL,LEGEND_TEXT,LEGEND_SUPPRESS,COLOR,ALPHA,FILL_ALPHA,LINESTYLE,LINEWIDTH,MARKER,SIZE
+Asia,Asia,FALSE,r,1,1,-,0.2,.,2
+Europe,Europe,FALSE,y,1,1,-,0.2,.,2
+Africa,Africa,FALSE,b,1,1,solid,0.2,.,2
+North America,North America,FALSE,c,1,1,solid,0.2,.,2
+South America,South America,FALSE,m,1,1,solid,0.2,.,2
+0,0,FALSE,r,1,1,solid,0.2,.,2
+1,1,FALSE,y,1,1,solid,0.2,.,2
+2,2,FALSE,g,1,1,solid,0.2,.,2
+D_Exponential,High Growth,FALSE,r,0.5,0.1,solid,0.2,.,2
+D_Peaking,Decoupling,FALSE,y,0.5,0.1,solid,0.2,.,2
+D_Declining,Degrowth,FALSE,g,0.5,0.1,solid,0.2,.,2
+Expl_Off,Exploration Off,FALSE,b,0.5,0.1,solid,0.2,.,2
+D_Flat_A,Medium Growth,FALSE,c,0.5,0.1,solid,0.2,.,2
+D_Flat_B,Flat B Demand,FALSE,m,0.5,0.1,solid,0.2,.,2
+unmet_demand,Unmet Demand,FALSE,b,1,1,--,0.3,.,2
+A,A,FALSE,r,1,1,solid,0.2,.,2
+B,B,FALSE,b,1,1,solid,0.2,.,2
+C,C,FALSE,g,1,1,solid,0.2,.,2
+D,D,FALSE,m,1,1,solid,0.2,.,2
+Existing Mines,Existing,FALSE,black,1,1,solid,0.2,.,2
+Identified Resources,Identified Resources,FALSE,r,1,1,solid,0.2,.,2
+Identified Resources with defined start year,Identified Resources,TRUE,r,1,1,solid,0.2,.,2
+Greenfield - Demanded,Undiscovered Resources,FALSE,g,1,1,solid,0.2,.,2
+Greenfield - Background,Undiscovered Resources,TRUE,g,1,1,solid,0.2,.,2
+A_concentrated,Igneous,FALSE,b,0.5,0.1,solid,0.2,.,2
+A_diluted,Metamorphic,FALSE,g,0.5,0.1,solid,0.2,.,2
+AB_mixed,Sedimentary,FALSE,r,0.5,0.1,solid,0.2,.,2
+B_concentrated,Hydrothermal,FALSE,y,0.5,0.1,solid,0.2,.,2

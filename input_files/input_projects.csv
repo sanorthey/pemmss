@@ -1,51 +1,51 @@
-P_ID_NUMBER,NAME,REGION,DEPOSIT_TYPE,COMMODITY,REMAINING_RESOURCE,PRODUCTION_CAPACITY,STATUS,VALUE,DISCOVERY_YEAR,START_YEAR,GRADE,RECOVERY,BROWNFIELD_TONNAGE_FACTOR,BROWNFIELD_GRADE_FACTOR
-0,Deposit_0,Africa,A_concentrated,A,1500,400,1,110,,,0.02,0.9,0.001,0.0001
-1,Deposit_1,Africa,A_concentrated,A,800,,0,100,,,0.02,0.9,0.001,0.0001
-2,Deposit_2,Africa,A_diluted,A,600,200,1,90,,,0.01,0.9,0.001,0.0001
-3,Deposit_3,Africa,AB_mixed,A,400,,0,80,,,0.005,0.9,0.001,0.0001
-4,Deposit_4,Africa,AB_mixed,A,200,100,1,70,,,0.005,0.9,0.001,0.0001
-5,Deposit_5,Africa,B_concentrated,B,1500,,0,60,,,0.015,0.9,0.001,0.0001
-6,Deposit_6,Africa,B_concentrated,B,800,300,1,50,,,0.015,0.9,0.001,0.0001
-7,Deposit_7,Africa,B_concentrated,B,600,,0,40,,,0.015,0.9,0.001,0.0001
-8,Deposit_8,Africa,B_concentrated,B,400,100,1,30,,,0.015,0.9,0.001,0.0001
-9,Deposit_9,Africa,B_concentrated,B,200,,0,20,,,0.015,0.9,0.001,0.0001
-10,Deposit_10,Asia,A_concentrated,A,1500,400,1,110,,,0.02,0.9,0.001,0.0001
-11,Deposit_11,Asia,A_concentrated,A,800,,0,100,,,0.02,0.9,0.001,0.0001
-12,Deposit_12,Asia,A_diluted,A,600,200,1,90,,,0.01,0.9,0.001,0.0001
-13,Deposit_13,Asia,AB_mixed,A,400,,0,80,,,0.005,0.9,0.001,0.0001
-14,Deposit_14,Asia,AB_mixed,A,200,100,1,70,,,0.005,0.9,0.001,0.0001
-15,Deposit_15,Asia,B_concentrated,B,1500,,0,60,,,0.015,0.9,0.001,0.0001
-16,Deposit_16,Asia,B_concentrated,B,800,300,1,50,,,0.015,0.9,0.001,0.0001
-17,Deposit_17,Asia,B_concentrated,B,600,,0,40,,,0.015,0.9,0.001,0.0001
-18,Deposit_18,Asia,B_concentrated,B,400,100,1,30,,,0.015,0.9,0.001,0.0001
-19,Deposit_19,Asia,B_concentrated,B,200,,0,20,,,0.015,0.9,0.001,0.0001
-20,Deposit_20,Europe,A_concentrated,A,1500,400,1,110,,,0.02,0.9,0.001,0.0001
-21,Deposit_21,Europe,A_concentrated,A,800,50,0,100,,2015,0.02,0.9,0.001,0.0001
-22,Deposit_22,Europe,A_diluted,A,600,150,1,90,,,0.01,0.9,0.001,0.0001
-23,Deposit_23,Europe,AB_mixed,A,400,50,0,80,,2015,0.005,0.9,0.001,0.0001
-24,Deposit_24,Europe,AB_mixed,A,200,150,1,70,,,0.005,0.9,0.001,0.0001
-25,Deposit_25,Europe,B_concentrated,B,1500,50,0,60,,2015,0.015,0.9,0.001,0.0001
-26,Deposit_26,Europe,B_concentrated,B,800,150,1,50,,,0.015,0.9,0.001,0.0001
-27,Deposit_27,Europe,B_concentrated,B,600,50,0,40,,2015,0.015,0.9,0.001,0.0001
-28,Deposit_28,Europe,B_concentrated,B,400,20,1,30,,,0.015,0.9,0.001,0.0001
-29,Deposit_29,Europe,B_concentrated,B,200,50,0,20,,2015,0.015,0.9,0.001,0.0001
-30,Deposit_30,North America,B_concentrated,B,1500,400,1,110,,,0.03,0.9,0.001,0.0001
-31,Deposit_31,North America,B_concentrated,B,800,,0,100,,,0.03,0.9,0.001,0.0001
-32,Deposit_32,North America,B_concentrated,B,600,200,1,90,,,0.03,0.9,0.001,0.0001
-33,Deposit_33,North America,B_concentrated,B,400,,0,80,,,0.03,0.9,0.001,0.0001
-34,Deposit_34,North America,B_concentrated,B,200,100,1,70,,,0.03,0.9,0.001,0.0001
-35,Deposit_35,North America,B_concentrated,B,1500,,0,60,,,0.03,0.9,0.001,0.0001
-36,Deposit_36,North America,B_concentrated,B,800,300,1,50,,,0.03,0.9,0.001,0.0001
-37,Deposit_37,North America,B_concentrated,B,600,,0,40,,,0.03,0.9,0.001,0.0001
-38,Deposit_38,North America,B_concentrated,B,400,100,1,30,,,0.03,0.9,0.001,0.0001
-39,Deposit_39,North America,B_concentrated,B,200,,0,20,,,0.03,0.9,0.001,0.0001
-40,Deposit_40,South America,B_concentrated,B,1500,400,1,110,,,0.03,0.9,0.001,0.0001
-41,Deposit_41,South America,B_concentrated,B,800,,0,100,,,0.03,0.9,0.001,0.0001
-42,Deposit_42,South America,B_concentrated,B,600,200,1,90,,,0.03,0.9,0.001,0.0001
-43,Deposit_43,South America,B_concentrated,B,400,,0,80,,,0.03,0.9,0.001,0.0001
-44,Deposit_44,South America,B_concentrated,B,200,100,1,70,,,0.03,0.9,0.001,0.0001
-45,Deposit_45,South America,B_concentrated,B,1500,,0,60,,,0.03,0.9,0.001,0.0001
-46,Deposit_46,South America,B_concentrated,B,800,300,1,50,,,0.03,0.9,0.001,0.0001
-47,Deposit_47,South America,B_concentrated,B,600,,0,40,,,0.03,0.9,0.001,0.0001
-48,Deposit_48,South America,B_concentrated,B,400,100,1,30,,,0.03,0.9,0.001,0.0001
-49,Deposit_49,South America,B_concentrated,B,200,,0,20,,,0.03,0.9,0.001,0.0001
+P_ID_NUMBER,NAME,REGION,DEPOSIT_TYPE,COMMODITY,REMAINING_RESOURCE,PRODUCTION_CAPACITY,STATUS,DISCOVERY_YEAR,START_YEAR,GRADE,RECOVERY,BROWNFIELD_TONNAGE_FACTOR,BROWNFIELD_GRADE_FACTOR,VALUE,MINE_COST_MODEL,MINE_COST_A,MINE_COST_B,MINE_COST_C,MINE_COST_D,REVENUE_MODEL,REVENUE_A,REVENUE_B,REVENUE_C,REVENUE_D,COST_MODEL,COST_A,COST_B,COST_C,COST_D
+0,Deposit_0,Africa,A_concentrated,A,1500,400,1,,,0.02,0.9,1.01,0.99,110,,,,,,,,,,,,,,,
+1,Deposit_1,Africa,A_concentrated,A,800,,0,,,0.02,0.9,1.01,0.99,100,,,,,,,,,,,,,,,
+2,Deposit_2,Africa,A_diluted,A,600,200,1,,,0.01,0.9,1.01,0.99,90,,,,,,,,,,,,,,,
+3,Deposit_3,Africa,AB_mixed,A,400,,0,,,0.005,0.9,1.01,0.99,80,,,,,,,,,,,,,,,
+4,Deposit_4,Africa,AB_mixed,A,200,100,1,,,0.005,0.9,1.01,0.99,70,,,,,,,,,,,,,,,
+5,Deposit_5,Africa,B_concentrated,B,1500,,0,,,0.015,0.9,1.01,0.99,60,,,,,,,,,,,,,,,
+6,Deposit_6,Africa,B_concentrated,B,800,300,1,,,0.015,0.9,1.01,0.99,50,,,,,,,,,,,,,,,
+7,Deposit_7,Africa,B_concentrated,B,600,,0,,,0.015,0.9,1.01,0.99,40,,,,,,,,,,,,,,,
+8,Deposit_8,Africa,B_concentrated,B,400,100,1,,,0.015,0.9,1.01,0.99,30,,,,,,,,,,,,,,,
+9,Deposit_9,Africa,B_concentrated,B,200,,0,,,0.015,0.9,1.01,0.99,20,,,,,,,,,,,,,,,
+10,Deposit_10,Asia,A_concentrated,A,1500,400,1,,,0.02,0.9,1.01,0.99,110,,,,,,,,,,,,,,,
+11,Deposit_11,Asia,A_concentrated,A,800,,0,,,0.02,0.9,1.01,0.99,100,,,,,,,,,,,,,,,
+12,Deposit_12,Asia,A_diluted,A,600,200,1,,,0.01,0.9,1.01,0.99,90,,,,,,,,,,,,,,,
+13,Deposit_13,Asia,AB_mixed,A,400,,0,,,0.005,0.9,1.01,0.99,80,,,,,,,,,,,,,,,
+14,Deposit_14,Asia,AB_mixed,A,200,100,1,,,0.005,0.9,1.01,0.99,70,,,,,,,,,,,,,,,
+15,Deposit_15,Asia,B_concentrated,B,1500,,0,,,0.015,0.8,1.01,0.99,60,,,,,,,,,,,,,,,
+16,Deposit_16,Asia,B_concentrated,B,800,300,1,,,0.015,0.8,1.01,0.99,50,,,,,,,,,,,,,,,
+17,Deposit_17,,,B,600,,0,,,0.015,0.8,1.01,0.99,40,,,,,,,,,,,,,,,
+18,Deposit_18,Asia,,B,400,100,1,,,0.015,0.8,1.01,0.99,30,,,,,,,,,,,,,,,
+19,Deposit_19,,B_concentrated,B,200,,0,,,0.015,0.9,1.01,0.99,20,,,,,,,,,,,,,,,
+20,Deposit_20,Europe,A_concentrated,A,1500,400,1,,,0.02,0.9,1.01,0.99,110,,,,,,,,,,,,,,,
+21,Deposit_21,Europe,A_concentrated,A,800,50,0,,2015,0.02,0.9,1.01,0.99,100,,,,,,,,,,,,,,,
+22,Deposit_22,Europe,A_diluted,A,600,150,1,,,0.01,0.9,1.01,0.99,90,,,,,,,,,,,,,,,
+23,Deposit_23,Europe,AB_mixed,A,400,50,0,,2015,0.005,0.9,1.01,0.99,80,,,,,,,,,,,,,,,
+24,Deposit_24,Europe,AB_mixed,A,200,150,1,,,0.005,0.9,1.01,0.99,70,,,,,,,,,,,,,,,
+25,Deposit_25,Europe,B_concentrated,B,1500,50,0,,2015,0.015,0.9,1.01,0.99,60,,,,,,,,,,,,,,,
+26,Deposit_26,Europe,B_concentrated,B,800,150,1,,,0.015,0.9,1.01,0.99,50,,,,,,,,,,,,,,,
+27,Deposit_27,Europe,B_concentrated,B,600,50,0,,2015,0.015,0.9,1.01,0.99,40,,,,,,,,,,,,,,,
+28,Deposit_28,Europe,B_concentrated,B,400,20,1,,,0.015,0.9,1.01,0.99,30,,,,,,,,,,,,,,,
+29,Deposit_29,Europe,B_concentrated,B,200,50,0,,2015,0.015,0.9,1.01,0.99,20,,,,,,,,,,,,,,,
+30,Deposit_30,North America,B_concentrated,B,1500,400,1,,,0.03,0.9,1.01,0.99,110,,,,,,,,,,,,,,,
+31,Deposit_31,North America,B_concentrated,B,800,,0,,,0.03,0.9,1.01,0.99,100,,,,,,,,,,,,,,,
+32,Deposit_32,North America,B_concentrated,B,600,200,1,,,0.03,0.9,1.01,0.99,90,,,,,,,,,,,,,,,
+33,Deposit_33,North America,B_concentrated,B,400,,0,,,0.03,0.9,1.01,0.99,80,,,,,,,,,,,,,,,
+34,Deposit_34,North America,B_concentrated,B,200,100,1,,,0.03,0.7,1.01,0.99,70,,,,,,,,,,,,,,,
+35,Deposit_35,North America,B_concentrated,B,1500,,0,,,0.03,0.7,1.01,0.99,60,,,,,,,,,,,,,,,
+36,Deposit_36,North America,B_concentrated,B,800,300,1,,,0.03,0.7,1.01,0.99,50,,,,,,,,,,,,,,,
+37,Deposit_37,North America,B_concentrated,B,600,,0,,,0.03,0.7,1.01,0.99,40,,,,,,,,,,,,,,,
+38,Deposit_38,North America,B_concentrated,B,400,100,1,,,0.03,0.9,1.01,0.99,30,,,,,,,,,,,,,,,
+39,Deposit_39,North America,B_concentrated,B,200,,0,,,0.03,0.9,1.01,0.99,20,,,,,,,,,,,,,,,
+40,Deposit_40,South America,B_concentrated,B,1500,400,1,,,0.03,0.9,1.01,0.99,110,,,,,,,,,,,,,,,
+41,Deposit_41,South America,B_concentrated,B,800,,0,,,0.03,0.9,1.01,0.99,100,,,,,,,,,,,,,,,
+42,Deposit_42,South America,B_concentrated,B,600,200,1,,,0.03,0.9,1.01,0.99,90,,,,,,,,,,,,,,,
+43,Deposit_43,South America,B_concentrated,B,400,,0,,,0.03,0.9,1.01,0.99,80,,,,,,,,,,,,,,,
+44,Deposit_44,South America,B_concentrated,B,200,100,1,,,0.03,0.9,1.01,0.99,70,,,,,,,,,,,,,,,
+45,Deposit_45,South America,B_concentrated,B,1500,,0,,,0.03,0.9,1.01,0.99,60,,,,,,,,,,,,,,,
+46,Deposit_46,South America,B_concentrated,B,800,300,1,,,0.03,0.9,1.01,0.99,50,,,,,,,,,,,,,,,
+47,Deposit_47,South America,B_concentrated,B,600,,0,,,0.03,0.9,1.01,0.99,40,,,,,,,,,,,,,,,
+48,Deposit_48,South America,B_concentrated,B,400,100,1,,,0.03,0.9,1.01,0.99,30,,,,,,,,,,,,,,,
+49,Deposit_49,South America,B_concentrated,B,200,,0,,,0.03,0.9,1.01,0.99,20,,,,,,,,,,,,,,,
