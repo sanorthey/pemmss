@@ -10,14 +10,11 @@ Module with routines for importing PEMMSS model parameters and data files.
     timeseries_dictionary_merge_row()
     import_demand()
     import_graphs()
+    import_graphs_formatting()
     import_postprocessing()
     import_historic()
     import_statistics()
-    import_statistics_flat_filter()
-
-    TODO: 1. Add copyright statement
-    TODO: 2. Add cross-references to the journal article
-    TODO: 3. Update this docstring after all other todos removed
+    import_statistics_keyed()
 """
 
 # Import standard packages
@@ -65,13 +62,34 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
 def import_parameters(path, copy_path=None, log_path=None):
     """
     import_parameters()
-    Imports parameters from input_parameters.csv located in the path directory.
-    Output is a nested dictionary, imported_parameters[i]['key'], where i is each scenario run.
+    Imports parameters from input_parameters.csv located at 'path'.
+    Typical path is \WORKING DIRECTORY\input_files\input_parameters.csv
+
+    Returns a nested dictionary [i]['key'], where i is each scenario run.
+
     Copies input_parameters if copy_path directory specified.
 
     # Each scenario_name must be unique in input files.
-    TODO: Add input argument description to docstrings
-    TODO: Describe input file format, see import_postprocessing
+
+    Returns a list of dictionaries [{row0_keys: row0_values}, {row1_keys: row1_values}, etc.
+
+    Files will be copied to copy_path_folder if specified.
+
+    Expected input csv format:
+
+        KEYS              |   ACCEPTABLE INPUT VALUES
+        SCENARIO_NAME     |   No hard restrictions (best practice would be to keep short though)
+        YEAR_START        |   plot_subplot_default
+        YEAR_END          |   line, scatter, stacked, fill, fill_line
+        ITERATIONS        |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s)
+        BROWNFIELD_EXPLORATION_ON    |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s)
+        GREENFIELD_EXPLORATION_ON    |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        GREENFIELD_BACKGROUND        |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        PRIORITY_ACTIVE   |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        RANDOM_SEED       |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        GENERATE_ALL_COPRODUCTS      |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        UPDATE_VALUES     |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+
     """
     imported_parameters = {}
 
@@ -105,7 +123,43 @@ def import_projects(f, path, copy_path=None, log_path=None):
     Missing variables are infilled using a variety of approaches,
     based upon parameters defined in input_exploration_production_factors.csv.
     P_ID_NUMBER should start sequentially from zero to avoid P_ID collisions when generating greenfield deposits.
-    TODO: Describe input file format, see import_postprocessing
+
+    File will be copied to copy_path if specified.
+
+    Expected csv format:
+        KEYS                 | ACCEPTABLE INPUT VALUES
+        P_ID_NUMBER          | integer or string, optional
+        NAME                 | string, optional
+        REGION               | string, optional
+        DEPOSIT_TYPE         | string, optional
+        COMMODITY            | string, optional
+        REMAINING_RESOURCE   | float, optional
+        PRODUCTION_CAPACITY  | float, optional
+        STATUS               | integer, 1 or 0
+        DISCOVERY_YEAR       | integer, optional
+        START_YEAR           | integer, optional
+        GRADE                | float, optional
+        RECOVERY             | float, optional
+        BROWNFIELD_TONNAGE_FACTOR  | float, optional
+        BROWNFIELD_GRADE_FACTOR    | float, optional
+        VALUE                | float, optional
+        MINE_COST_MODEL      | string corresponding to models in deposit.value_model(), optional
+        MINE_COST_A          | value corresponding to parameter in deposit_value_model(), optional
+        MINE_COST_B          | value corresponding to parameter in deposit_value_model(), optional
+        MINE_COST_C          | value corresponding to parameter in deposit_value_model(), optional
+        MINE_COST_D          | value corresponding to parameter in deposit_value_model(), optional
+        REVENUE_MODEL        | string corresponding to models in deposit.value_model(), optional
+        REVENUE_A            | value corresponding to parameter in deposit_value_model(), optional
+        REVENUE_B            | value corresponding to parameter in deposit_value_model(), optional
+        REVENUE_C            | value corresponding to parameter in deposit_value_model(), optional
+        REVENUE_D            | value corresponding to parameter in deposit_value_model(), optional
+        COST_MODEL           | string corresponding to models in deposit.value_model(), optional
+        COST_A               | value corresponding to parameter in deposit_value_model(), optional
+        COST_B               | value corresponding to parameter in deposit_value_model(), optional
+        COST_C               | value corresponding to parameter in deposit_value_model(), optional
+        COST_D               | value corresponding to parameter in deposit_value_model(), optional
+
+    Any optional missing values will be autogenerated from input_exploration_production_factors.csv
     """
     # Tracking of missing values in input_projects.csv debugging purposes
     # and to track automated input generation processes.
@@ -335,8 +389,22 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
     Imports and adds coproduct parameters to projects from input_project_coproducts.csv located in the working directory.
     f = exploration_production_factors
     generate_all | If 1, update projects only listed in input_project_coproducts.csv. If 0, also update all other projects with data from exploration_production_factors.csv.
-    TODO: Update docstrings
-    TODO: Describe input file format, see import_postprocessing
+
+    File will be copied to copy_path if specified.
+
+    Expected csv format:
+        KEYS                |   ACCEPTABLE INPUT VALUES
+        P_ID_NUMBER         |   ID number of project to be updated, can be blank if generate_all == True
+        NAME                |   string, isn't used currently. Just for readability of csv.
+        REGION              |   string, must specify
+        DEPOSIT_TYPE        |   string, must specify
+        COPRODUCT_COMMODITY |   string, must specify
+        COPRODUCT_GRADE     |   float, or will autogenerate if blank.
+        COPRODUCT_RECOVERY  |   float, or will autogenerate if blank.
+        SUPPLY_TRIGGER      |   1 or 0, or will autogenerate if blank.
+        COPRODUCT_BROWNFIELD_GRADE_FACTOR       |   float, or will autogenerate if blank.
+
+    Currently autogenerates value models from data in input_exploration_production_factors.csv
     """
 
     with open(path+r'\\input_project_coproducts.csv', mode='r') as input_file:
@@ -391,7 +459,6 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                                     else:
                                         # Use inputted brownfield grade factor
                                         bgf = float(row['COPRODUCT_BROWNFIELD_GRADE_FACTOR'])
-                                    # TODO: check indentation level
                                     vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
                                                       'a': float(f['coproduct_revenue_a'][index][x]),
                                                       'b': float(f['coproduct_revenue_b'][index][x]),
@@ -442,10 +509,12 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
     """
     import_exploration_production_factors()
     Imports parameters from input_exploration_production_factors.csv located in the working directory.
-    Output is a dictionary, imported_factors['key'][i], where 'key' is the deposit type [i].
-    TODO: Update docstrings
-    TODO: Return variables described incorrectly.
-    TODO: Describe input file format, see import_postprocessing
+    Returns a dictionary, imported_factors[variable][index]
+
+    Files will be copied to copy_path_folder if specified.
+
+    Expected csv format: header is import_factors.keys.upper()
+    For column description see in-line comments.
     """
     imported_factors = {'index': [], 'weighting': [], 'region': [], 'deposit_type': [], 'commodity_primary': [],
                         'grade_model': [], 'grade_a': [], 'grade_b': [], 'grade_c': [], 'grade_d': [],
@@ -467,63 +536,63 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
-            imported_factors['index'].append(int(row['INDEX']))
-            imported_factors['weighting'].append(float(row['WEIGHTING']))
-            imported_factors['region'].append(row['REGION'])
-            imported_factors['deposit_type'].append(row['DEPOSIT_TYPE'])
-            imported_factors['commodity_primary'].append(row['COMMODITY_PRIMARY'])
-            imported_factors['grade_model'].append(row['GRADE_MODEL'])
-            imported_factors['grade_a'].append(float(row['GRADE_A']))
-            imported_factors['grade_b'].append(float(row['GRADE_B']))
-            imported_factors['grade_c'].append(float(row['GRADE_C']))
-            imported_factors['grade_d'].append(float(row['GRADE_D']))
-            imported_factors['tonnage_model'].append(row['TONNAGE_MODEL'])
-            imported_factors['tonnage_a'].append(float(row['TONNAGE_A']))
-            imported_factors['tonnage_b'].append(float(row['TONNAGE_B']))
-            imported_factors['tonnage_c'].append(float(row['TONNAGE_C']))
-            imported_factors['tonnage_d'].append(float(row['TONNAGE_D']))
-            imported_factors['brownfield_tonnage_factor'].append(float(row['BROWNFIELD_TONNAGE_FACTOR']))
-            imported_factors['brownfield_grade_factor'].append(float(row['BROWNFIELD_GRADE_FACTOR']))
-            imported_factors['taylor_a'].append(float(row['TAYLOR_A']))
-            imported_factors['taylor_b'].append(float(row['TAYLOR_B']))
-            imported_factors['taylor_min'].append(float(row['TAYLOR_MIN']))
-            imported_factors['taylor_max'].append(float(row['TAYLOR_MAX']))
-            imported_factors['default_recovery'].append(float(row['DEFAULT_RECOVERY']))
-            imported_factors['revenue_model'].append(row['REVENUE_MODEL'])
-            imported_factors['revenue_a'].append(float(row['REVENUE_A']))
-            imported_factors['revenue_b'].append(float(row['REVENUE_B']))
-            imported_factors['revenue_c'].append(float(row['REVENUE_C']))
-            imported_factors['revenue_d'].append(float(row['REVENUE_D']))
-            imported_factors['cost_model'].append(row['COST_MODEL'])
-            imported_factors['cost_a'].append(float(row['COST_A']))
-            imported_factors['cost_b'].append(float(row['COST_B']))
-            imported_factors['cost_c'].append(float(row['COST_C']))
-            imported_factors['cost_d'].append(float(row['COST_D']))
-            imported_factors['mine_cost_model'].append(row['MINE_COST_MODEL'])
-            imported_factors['mine_cost_a'].append(float(row['MINE_COST_A']))
-            imported_factors['mine_cost_b'].append(float(row['MINE_COST_B']))
-            imported_factors['mine_cost_c'].append(float(row['MINE_COST_C']))
-            imported_factors['mine_cost_d'].append(float(row['MINE_COST_D']))
-            imported_factors['development_period'].append(int(row['DEVELOPMENT_PERIOD']))
-            imported_factors['coproduct_commodity'].extend([row['COPRODUCT_COMMODITY'].split(';')])
-            imported_factors['coproduct_grade_model'].extend([row['COPRODUCT_GRADE_MODEL'].split(';')])
-            imported_factors['coproduct_a'].extend([row['COPRODUCT_A'].split(';')])
-            imported_factors['coproduct_b'].extend([row['COPRODUCT_B'].split(';')])
-            imported_factors['coproduct_c'].extend([row['COPRODUCT_C'].split(';')])
-            imported_factors['coproduct_d'].extend([row['COPRODUCT_D'].split(';')])
-            imported_factors['coproduct_default_recovery'].extend([row['COPRODUCT_DEFAULT_RECOVERY'].split(';')])
-            imported_factors['coproduct_supply_trigger'].extend([row['COPRODUCT_SUPPLY_TRIGGER'].split(';')])
-            imported_factors['coproduct_brownfield_grade_factor'].extend([row['COPRODUCT_BROWNFIELD_GRADE_FACTOR'].split(';')])
-            imported_factors['coproduct_revenue_model'].extend([row['COPRODUCT_REVENUE_MODEL'].split(';')])
-            imported_factors['coproduct_revenue_a'].extend([row['COPRODUCT_REVENUE_A'].split(';')])
-            imported_factors['coproduct_revenue_b'].extend([row['COPRODUCT_REVENUE_B'].split(';')])
-            imported_factors['coproduct_revenue_c'].extend([row['COPRODUCT_REVENUE_C'].split(';')])
-            imported_factors['coproduct_revenue_d'].extend([row['COPRODUCT_REVENUE_D'].split(';')])
-            imported_factors['coproduct_cost_model'].extend([row['COPRODUCT_COST_MODEL'].split(';')])
-            imported_factors['coproduct_cost_a'].extend([row['COPRODUCT_COST_A'].split(';')])
-            imported_factors['coproduct_cost_b'].extend([row['COPRODUCT_COST_B'].split(';')])
-            imported_factors['coproduct_cost_c'].extend([row['COPRODUCT_COST_C'].split(';')])
-            imported_factors['coproduct_cost_d'].extend([row['COPRODUCT_COST_D'].split(';')])
+            imported_factors['index'].append(int(row['INDEX']))  # Sequential integers starting at 0
+            imported_factors['weighting'].append(float(row['WEIGHTING']))  # Probability of greenfield discovery, float
+            imported_factors['region'].append(row['REGION'])  # string
+            imported_factors['deposit_type'].append(row['DEPOSIT_TYPE'])  # string
+            imported_factors['commodity_primary'].append(row['COMMODITY_PRIMARY'])  # string, corresponding commodities in input_demand.csv
+            imported_factors['grade_model'].append(row['GRADE_MODEL'])  # string, corresponding to models in deposit.grade_generate()
+            imported_factors['grade_a'].append(float(row['GRADE_A']))  # value, see model parameter in deposit.grade_generate()
+            imported_factors['grade_b'].append(float(row['GRADE_B']))  # value, see model parameter in deposit.grade_generate()
+            imported_factors['grade_c'].append(float(row['GRADE_C']))  # value, see model parameter in deposit.grade_generate()
+            imported_factors['grade_d'].append(float(row['GRADE_D']))  # value, see model parameter in deposit.grade_generate()
+            imported_factors['tonnage_model'].append(row['TONNAGE_MODEL'])  # string, corresponding to models in deposit.tonnage_generate()
+            imported_factors['tonnage_a'].append(float(row['TONNAGE_A']))  # value, see model parameter in deposit.tonnage_generate()
+            imported_factors['tonnage_b'].append(float(row['TONNAGE_B']))  # value, see model parameter in deposit.tonnage_generate()
+            imported_factors['tonnage_c'].append(float(row['TONNAGE_C']))  # value, see model parameter in deposit.tonnage_generate()
+            imported_factors['tonnage_d'].append(float(row['TONNAGE_D']))  # value, see model parameter in deposit.tonnage_generate()
+            imported_factors['brownfield_tonnage_factor'].append(float(row['BROWNFIELD_TONNAGE_FACTOR']))  # Ratio of remaining resource added each time period, float, see deposit.Mine.resource_expansion()
+            imported_factors['brownfield_grade_factor'].append(float(row['BROWNFIELD_GRADE_FACTOR']))  # Ratio, grade adjuster for added ore, float, see deposit.Mine.resource_expansion()
+            imported_factors['taylor_a'].append(float(row['TAYLOR_A']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
+            imported_factors['taylor_b'].append(float(row['TAYLOR_B']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
+            imported_factors['taylor_min'].append(float(row['TAYLOR_MIN']))  # float, minimum production capacity, see deposit.capacity_generate()
+            imported_factors['taylor_max'].append(float(row['TAYLOR_MAX']))  # float, maximum production capacity, see deposit.capacity_generate()
+            imported_factors['default_recovery'].append(float(row['DEFAULT_RECOVERY']))  # Ratio, mine recovery for commodity_primary
+            imported_factors['revenue_model'].append(row['REVENUE_MODEL'])  # string, corresponding to models in deposit.value_model()
+            imported_factors['revenue_a'].append(float(row['REVENUE_A']))  # value, see model parameter in deposit.value_model()
+            imported_factors['revenue_b'].append(float(row['REVENUE_B']))  # value, see model parameter in deposit.value_model()
+            imported_factors['revenue_c'].append(float(row['REVENUE_C']))  # value, see model parameter in deposit.value_model()
+            imported_factors['revenue_d'].append(float(row['REVENUE_D']))  # value, see model parameter in deposit.value_model()
+            imported_factors['cost_model'].append(row['COST_MODEL'])  # string, corresponding to models in deposit.value_model()
+            imported_factors['cost_a'].append(float(row['COST_A']))  # value, see model parameter in deposit.value_model()
+            imported_factors['cost_b'].append(float(row['COST_B']))  # value, see model parameter in deposit.value_model()
+            imported_factors['cost_c'].append(float(row['COST_C']))  # value, see model parameter in deposit.value_model()
+            imported_factors['cost_d'].append(float(row['COST_D']))  # value, see model parameter in deposit.value_model()
+            imported_factors['mine_cost_model'].append(row['MINE_COST_MODEL'])  # string, corresponding to models in deposit.value_model()
+            imported_factors['mine_cost_a'].append(float(row['MINE_COST_A']))  # value, see model parameter in deposit.value_model()
+            imported_factors['mine_cost_b'].append(float(row['MINE_COST_B']))  # value, see model parameter in deposit.value_model()
+            imported_factors['mine_cost_c'].append(float(row['MINE_COST_C']))  # value, see model parameter in deposit.value_model()
+            imported_factors['mine_cost_d'].append(float(row['MINE_COST_D']))  # value, see model parameter in deposit.value_model()
+            imported_factors['development_period'].append(int(row['DEVELOPMENT_PERIOD']))  # integer, minimum time period between discovery and production
+            imported_factors['coproduct_commodity'].extend([row['COPRODUCT_COMMODITY'].split(';')])  # string separated by semicolons for each commodity, don't include whitespace
+            imported_factors['coproduct_grade_model'].extend([row['COPRODUCT_GRADE_MODEL'].split(';')])  # strings separated by semicolons for each commodity, don't include whitespace, corresponding to models in deposit.grade_generate()
+            imported_factors['coproduct_a'].extend([row['COPRODUCT_A'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
+            imported_factors['coproduct_b'].extend([row['COPRODUCT_B'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
+            imported_factors['coproduct_c'].extend([row['COPRODUCT_C'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
+            imported_factors['coproduct_d'].extend([row['COPRODUCT_D'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
+            imported_factors['coproduct_default_recovery'].extend([row['COPRODUCT_DEFAULT_RECOVERY'].split(';')])  # mine recovery as a ratio, floats separated by semicolons for each commodity, don't include whitespace
+            imported_factors['coproduct_supply_trigger'].extend([row['COPRODUCT_SUPPLY_TRIGGER'].split(';')])  # 1 or 0 separated by semicolons for each commodity
+            imported_factors['coproduct_brownfield_grade_factor'].extend([row['COPRODUCT_BROWNFIELD_GRADE_FACTOR'].split(';')])  # values separated by semicolons for each commodity
+            imported_factors['coproduct_revenue_model'].extend([row['COPRODUCT_REVENUE_MODEL'].split(';')])  # strings separated by semicolons for each commodity, don't include whitespace, corresponding to models in deposit.value_model()
+            imported_factors['coproduct_revenue_a'].extend([row['COPRODUCT_REVENUE_A'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+            imported_factors['coproduct_revenue_b'].extend([row['COPRODUCT_REVENUE_B'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+            imported_factors['coproduct_revenue_c'].extend([row['COPRODUCT_REVENUE_C'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+            imported_factors['coproduct_revenue_d'].extend([row['COPRODUCT_REVENUE_D'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+            imported_factors['coproduct_cost_model'].extend([row['COPRODUCT_COST_MODEL'].split(';')])  # strings separated by semicolons for each commodity, don't include whitespace, corresponding to models in deposit.value_model()
+            imported_factors['coproduct_cost_a'].extend([row['COPRODUCT_COST_A'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+            imported_factors['coproduct_cost_b'].extend([row['COPRODUCT_COST_B'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+            imported_factors['coproduct_cost_c'].extend([row['COPRODUCT_COST_C'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+            imported_factors['coproduct_cost_d'].extend([row['COPRODUCT_COST_D'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
             region_key = imported_factors['region'][-1]
             deposit_type_key = imported_factors['deposit_type'][-1]
             if region_key in imported_factors['lookup_table']:
@@ -541,11 +610,20 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
 def import_exploration_production_factors_timeseries(path, copy_path=None, log_path=None):
     """
     Import parameter overrides for each point in time from input_exploration_production_factors_timeseries.csv
-    Output is two dictionaries (project updates, exploration_production_factors updates)
+    Returns two dictionaries (project updates, exploration_production_factors updates)
         of structure {year: {'region': {'deposit_type': {'variable': {'commodity': value}}}}}
-    TODO: Update docstrings
-    TODO: add input argument file structure description
-    TODO: DDescribe input file format, see import_postprocessing
+
+    Files will be copied to copy_path_folder if specified.
+
+    Expected csv format:
+        KEYS                 | ACCEPTABLE INPUT VALUES
+        UPDATE_PROJECTS      | 1 or 0. Indicates whether Mine objects with matching REGION and DEPOSIT_TYPE will be updated each time period.
+        UPDATE_EXPLORATION_PRODUCTION_FACTORS  | 1 or 0. Indicates whether exploration_production_factors data structure will be updated each time period.
+        REGION               | string
+        DEPOSIT_TYPE         | string
+        VARIABLE             | string, variable to be updated
+        COMMODITY            | string
+        t0, t1, t2, ..., tn  | value to update to in year t
     """
     project_updates = {}
     exploration_production_factors_updates = {}
@@ -570,8 +648,7 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
 def timeseries_dictionary_merge_row(dictionary, row):
     """
     Merges a new row into an existing timeseries factor update dictionary.
-    TODO: Describe use case -- currently used by file_import.import_exploration_production_factors_timeseries()
-    TODO: Update docstrings
+    Currently used by file_import.import_exploration_production_factors_timeseries()
     """
     for key in row.keys():
         if key not in ('UPDATE_PROJECTS', 'UPDATE_EXPLORATION_PRODUCTION_FACTORS', 'REGION',
@@ -594,10 +671,23 @@ def timeseries_dictionary_merge_row(dictionary, row):
 def import_demand(path, copy_path=None, log_path=None):
     """
     import_demand()
-    Imports parameters from input_demand.csv located in the working directory.
-    Outputs is a dictionary, imported_demand{scenario_name: {commodity: {'balance_supply': 1 or 0,'intermediate_recovery': 0 to 1, 'demand_threshold': 0 to 1, 'demand_carry': float(), year: commodity demand}}}
-    TODO: Update docstrings to include functionality, inputs and correct path description
-    TODO: Describe input file format, see import_postprocessing
+    Imports parameters from input_demand.csv located at 'path'.
+    Typical path is \WORKING_DIRECTORY\input_files\input_demand.csv
+
+    Returns a dictionary, imported_demand{scenario_name: {commodity: {'balance_supply': 1 or 0,'intermediate_recovery': 0 to 1, 'demand_threshold': 0 to 1, 'demand_carry': float(), year: commodity demand}}}
+
+    Files will be copied to copy_path_folder if specified.
+
+    Expected csv format:
+        KEYS                    | ACCEPTABLE INPUT VALUES
+        SCENARIO_NAME           | string. Must correspond to values in input_parameters.csv
+        COMMODITY               | string
+        BALANCE_SUPPLY          | 1 or 0. Indicates whether supply-demand balancing will be attempted for that commodity
+        INTERMEDIATE_RECOVERY   | Ratio between 0 and 1. Recovery between mine outputs and final demand commodity (e.g. at smelter).
+        DEMAND_THRESHOLD        | Absolute unmet demand required to end commodity supply-demand balance loop.
+        DEMAND_CARRY            | Ratio of unmet demand that will be carried to the next year. Can be negative to model supply-demand elasticity.
+        t0, t1, t2, ..., tn     | Commodity demand in year t
+
     """
     imported_demand = {}
 
@@ -632,32 +722,31 @@ def import_graphs(path, copy_path=None, log_path=None):
     """
     import_graphs(()
     Imports graph generation parameters from input_graphs.csv located at 'path'.
-    Typical path is \WORKING DIRECTORY\input_files\
-    Ouputs is a list of dictionaries, imported_graphs[{}, {}...]
-    
+    Typical path is \WORKING DIRECTORY\input_files\input_graphs.csv
+
+    Returns a list of dictionaries [{row0_keys: row0_values}, {row1_keys: row1_values}, etc.
+
+    Files will be copied to copy_path_folder if specified.
+
+    Expected csv format:
         KEYS            |   ACCEPTABLE INPUT VALUES
-        file_prefix     |   No hard restrictions (keep short though)
-        plot_algorithm  |   statistics_cs_plots_i_subplots, statistics_ij_plots_c_subplots
-        subplot_type    |   line, scatter, stacked
-        plot_keys       |   one of i,j,a,r,d,c,s or separated by ';' (e.g. i;c;s)
-        subplot_keys    |   one of i,j,a,r,d,c,s or separated by ';' (e.g. i;c;s)
-        i_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
-        j_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
-        a_keys          |
-        r_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
-        d_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
-        c_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
-        s_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
-        t_keys          |   -1 (will generate all keys) or key0;key1;key2;key3;etc.
-        labels_on       |   x;x;x;x;x;x   where x = 0 (off) and x = 1 (on)
+        file_prefix     |   No hard restrictions (best practice would be to keep short though)
+        plot_algorithm  |   plot_subplot_default
+        subplot_type    |   line, scatter, stacked, fill, fill_line
+        plot_keys       |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s)
+        subplot_keys    |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s)
+        i_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        j_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        a_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        r_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        d_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        c_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        s_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        t_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
         share_scale     |   True or False (can be 1 or 0 and will automatically convert to boolean True or False)
-        y_axis_label    |   -1 (will generate all keys) or a string
+        y_axis_label    |   False (will autogenerate y_axis_label based on plot_keys) or a string
         cumulative      |   True or False
-    TODO: Change i_keys et al description based upon postprocessing._include_key() definitions
-    TODO: Add docstring description of copy_path and log_path
-    TODO: Add a_keys description to docstring
-    TODO: Check labels format
-    TODO: Describe input file format, see import_postprocessing
+        labels_on       |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s). This acts as a grouping to share series and legend formatting.
     """
     imported_graphs = []
 
@@ -686,28 +775,21 @@ def import_graphs(path, copy_path=None, log_path=None):
                                         'cumulative': row['CUMULATIVE']
                                         })
 
-            # Convert values to integers
-
-            #FIXME: converting from "-1" to -1
+            # Convert 'true' and 'false' inputs to booleans.
             for k in ['i_keys', 'j_keys', 'a_keys', 'r_keys', 'd_keys', 'c_keys', 's_keys', 't_keys']:
-                if imported_graphs[-1][k][0] == "-1":
-                    imported_graphs[-1][k] = -1
-                elif imported_graphs[-1][k][0] in ['FALSE','false','False']:
+                if imported_graphs[-1][k][0].lower() == 'false':
                     imported_graphs[-1][k] = False
-                elif imported_graphs[-1][k][0] in ['TRUE', 'true', 'True']:
+                elif imported_graphs[-1][k][0].lower() == 'true':
                     imported_graphs[-1][k] = True
-
-                    # FIXME: Also consider altering to True, False and lists for argument alignment with the new x_y_labels_generate_flat function
-
-            if imported_graphs[-1]['share_scale'] == "false" or imported_graphs[-1]['share_scale'] == "0" or imported_graphs[-1]['share_scale'] == "FALSE":
+            if imported_graphs[-1]['share_scale'].lower() == "false":
                 imported_graphs[-1]['share_scale'] = False
-            elif imported_graphs[-1]['share_scale'] == "true" or imported_graphs[-1]['share_scale'] == "1" or imported_graphs[-1]['share_scale'] == "TRUE":
+            elif imported_graphs[-1]['share_scale'].lower() == "true":
                 imported_graphs[-1]['share_scale'] = True
-            if imported_graphs[-1]['y_axis_label'] == "-1":
-                imported_graphs[-1]['y_axis_label'] = -1
-            if imported_graphs[-1]['cumulative'].lower() == "false" or imported_graphs[-1]['cumulative'] == "0":
+            if imported_graphs[-1]['y_axis_label'].lower() == "false":
+                imported_graphs[-1]['y_axis_label'] = False
+            if imported_graphs[-1]['cumulative'].lower() == "false":
                 imported_graphs[-1]['cumulative'] = False
-            elif imported_graphs[-1]['cumulative'].lower() == "true" or imported_graphs[-1]['cumulative'] == "1":
+            elif imported_graphs[-1]['cumulative'].lower() == "true":
                 imported_graphs[-1]['cumulative'] = True
 
     if copy_path is not None:
@@ -730,14 +812,18 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
 
     Expected input csv format:
          HEADER ROW           | ACCEPTABLE INPUT ROW VALUES
-         LABEL                |
-         LEGEND_TEXT_OVERRIDE |
-         COLOR                |
-         LINEWIDTH            |
-         LINESTYLE            |
+         LABEL                | grouping label corresponding to import_graphs / input_graphs.csv [labels_on] column
+         LEGEND_TEXT          | string for use in figure legends
+         LEGEND_SUPPRESS      | Boolean (True, False, 1, 0)
+         COLOR                | Matplotlib colors
+         ALPHA                | 0 to 1
+         FILL_ALPHA           | 0 to 1
+         LINEWIDTH            | decimal / float, linewidth in pt
+         LINESTYLE            | Matplotlib linestyles
+         MARKER               | Matplotlib markers
+         SIZE                 | decimal / float, marker size in pt
 
     Header row should be capitalised in input file. Output dictionary has lowercase keys.
-
     """
     imported_graphs_formatting = {}
 
@@ -766,24 +852,17 @@ def import_postprocessing(path, copy_path=None, log_path=None):
     import_postprocessing()
     Imports postprocessing parameters from a csv located at 'path'.
     Typical path is \WORKING_DIRECTORY\input_files\input_postprocessing.csv
-    Output is a dictionaries {statistic: {header, value}] for statistics where 'POSTPROCESS' == 1
+    Output is a dictionaries {statistic: {'postprocess': True}] for statistics where 'POSTPROCESS' csv column == True
                               
     Copies input_parameters if copy_path directory specified.
                               
     Expected input csv format:
          HEADER ROW  | ACCEPTABLE INPUT ROW VALUES
-         STATISTIC   | 
-         POSTPROCESS | 1 (will filter statistic and build a merged csv the from _statistics.csv files) or 0 (will exclude from postprocessing)
-         MEAN        | 1 (generate the mean of a scenario's iteration values for each time period) or 0 (will exclude)
-         MEDIAN      | 1 (generate the median of a scenario's iteration values for each time period) or 0 (will exclude)
-         STDEV       | 1 (generate the standard deviation of a scenario's iteration values for each time period') or 0 (will exclude)
-         MIN         | 1 (generate the minimum of a scenario's iteration values for each time period') or 0 (will exclude)
-         MAX         | 1 (generate the maximum of a scenario's iteration values for each time period') or 0 (will exclude)
-         CUMULATIVE  | 1 (generate a cumulative time series of each iteration time series' values) or 0 (will exclude)
-         
+         STATISTIC   | Primarily results.generate_statistics() return dictionary keys.
+         POSTPROCESS | TRUE (will filter statistic and build a merged csv the from _statistics.csv files) or 0 (will exclude from postprocessing)
+
     Header row should be capitalised in input file. Output dictionary has lowercase keys.
 
-    TODO: Docstrings, describe STATISTIC input and matching to statistics data structure.
     """
     imported_postprocessing = {}
 
@@ -791,14 +870,8 @@ def import_postprocessing(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
-            if row['POSTPROCESS'] == '1':
-                imported_postprocessing.update({row["STATISTIC"]: {'postprocess': row['POSTPROCESS'],
-                                                                   'mean': row['MEAN'],
-                                                                   'median': row['MEDIAN'],
-                                                                   'stdev': row['STDEV'],
-                                                                   'min': row['MIN'],
-                                                                   'max': row['MAX'],
-                                                                   'cumulative': row['CUMULATIVE']}})
+            if row['POSTPROCESS'].lower() == 'true':
+                imported_postprocessing.update({row["STATISTIC"]: {'postprocess': True}})
 
     if copy_path is not None:
         copyfile(path + r'\\input_postprocessing.csv', copy_path + r'\\input_postprocessing.csv')
@@ -813,7 +886,14 @@ def import_historic(path, copy_path=None, log_path=None):
     Returns a shallow nested dictionary {(a,r,d,c,s): {time: values}}
     Copies input_historic.csv if copy_path directory specified.
 
-    TODO: Describe input file format, see import_postprocessing
+    Expected input csv format:
+         HEADER ROW    | ACCEPTABLE INPUT ROW VALUES
+         AGGREGATION   |
+         DEPOSIT_TYPE  |
+         REGION        |
+         COMMODITY     |
+         STATISTIC     |
+         t0, t1, ..., tn  | values
     """
     imported_historic = import_statistics(path + r'\\input_historic.csv', custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC'])
     
@@ -828,15 +908,26 @@ def import_historic(path, copy_path=None, log_path=None):
 
 def import_statistics(path, log_path=None, custom_keys=False, convert_values=False):
     """
-    import_statistics_flat()
+    import_statistics()
     Imports csv file with a flat statistics data structure.
-    custom_keys | Default is (i,j,a,r,d,c,s).
+    custom_keys | Default (False) will generate (i,j,a,r,d,c,s).
                 | For input_historic.csv use:
                 | custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
     convert_values | True will convert values in the time dictionaries to float and missing values to None
     Returns a shallow nested dictionary {(i,j,a,r,d,c,s): {time: values}}
     ## Usage Note. For historic.csv import convert_values should be False.
-    TODO: Describe input file format, see import_postprocessing
+
+    Expected input csv format if custom_keys is False:
+         HEADER ROW       | ACCEPTABLE INPUT ROW VALUES
+         SCENARIO_INDEX   |
+         ITERATION        |
+         AGGREGATION      |
+         REGION           |
+         DEPOSIT_TYPE     |
+         COMMODITY        |
+         STATISTIC        |
+         t0, t1, ..., tn  | values
+
     """
     imported_statistics = {}
     
@@ -870,14 +961,27 @@ def import_statistics(path, log_path=None, custom_keys=False, convert_values=Fal
 
     return imported_statistics
 
-def import_statistics_filter(path, stats_included, log_path=None):
+def import_statistics_keyed(path, base_key='STATISTIC', log_path=None):
     """
-    import_statistics_filter()
-    Imports a _statistics.csv file with a flatter data structure for post-processing.
-    stats_included is a list of statistics to include
-    Returns a nested dictionary {s:{(i,j,a,r,d,c,s): {time: values}}} and the time keys.
-    ## top level {s} is a default dictionary
-    TODO: Describe input file format, see import_postprocessing
+    import_statistics_keyed()
+    Imports a _statistics.csv file, current use is when merging scenario data.
+
+    Returns a nested dictionary {base_key:{(i,j,a,r,d,c,s): {time: values}}} and the time keys.
+
+    ARGUMENT | EXPECTED VALUES
+    base_key | 'SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC' (default)
+    ## top level {base_key} is a defaultdict
+
+    Expected input csv format:
+         HEADER ROW       | ACCEPTABLE INPUT ROW VALUES
+         SCENARIO_INDEX   |
+         ITERATION        |
+         AGGREGATION      |
+         REGION           |
+         DEPOSIT_TYPE     |
+         COMMODITY        |
+         STATISTIC        |
+         t0, t1, ..., tn  | values
     """
     
     imported_statistics = defaultdict(dict)
@@ -893,16 +997,16 @@ def import_statistics_filter(path, stats_included, log_path=None):
             if i == 0:
                 time_keys = row['TIME']
                 
-            # Filter statistics
-            if row['STATISTIC'] in stats_included:
+            # Add row to nested stats
+            else:
                 time_dict = dict(zip(time_keys,row['TIME']))
-                imported_statistics[row['STATISTIC']].update({(row['SCENARIO_INDEX'],
+                imported_statistics[row[base_key]].update({(row['SCENARIO_INDEX'],
                                                               row['ITERATION'],
                                                               row['AGGREGATION'],
                                                               row['REGION'],
                                                               row['DEPOSIT_TYPE'],
                                                               row['COMMODITY'],
-                                                              row['STATISTIC']): time_dict})                
+                                                              row['STATISTIC']): time_dict})
     if log_path is not None:
         export_log('Imported_statistics.csv', output_path=log_path, print_on=1)
     return imported_statistics, time_keys

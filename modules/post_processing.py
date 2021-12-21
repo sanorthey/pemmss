@@ -1,18 +1,21 @@
 # -*- coding: utf-8 -*-
 """
 Module with routines for post_processing of results data.
-    generate_figures()
-    generate_plot_keys()
-    statistics_ij_plots_c_subplots()
-    statistics_cs_plots_i_subplots()
-    plot_subplot_generator()
-    post_processing_old()
     merge_scenarios()
-
-TODO: 1. Add copywrite statement
-TODO: 2. Finish writing and testing module functionality
-TODO: 3. Add cross-refernces to the journal article
-TODO: 4. Check docstrings after functionality finalised
+    generate_figure()
+    filter_statistics()
+    filter_key_tuple()
+    _include_key()
+    plot_subplot()
+    plot_subplot_generator()
+    generate_stackplot()
+    generate_scatter()
+    generate_line()
+    generate_fill()
+    series_modify()
+    label_format()
+    build_plot_subplot_label_xy_data()
+    build_plot_key()
 """
 
 # Import standard packages
@@ -28,28 +31,25 @@ from numpy import nan
 
 # Import custom modules
 
-from modules.results import key_all_expand, key_generate_filter, x_y_labels_generate_flat, key_include_filter
-from modules.file_export import export_statistics
-from modules.file_import import import_statistics_filter, import_statistics
+from modules.file_export import export_statistics, export_plot_subplot_data
+from modules.file_import import import_statistics_keyed, import_statistics
 
 
 def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder):
     """
     merge_scenarios()
-    # Merges statistics from scenario statistics.csv and outputs as individuals CSVs in a new folder
-    imported_postprocessing =
+    # Merges scenario statistics.csv files and outputs as individual statistic csv files in a new folder
+    imported_postprocessing | {s: statistic:}
     scenario_folders =
     output_stats_folder =
 
-    TODO: Update docstrings
-    #TODO: optimise. Possibly can use import_statistics rather than import_statistics_filter. Then change 'for s in stats_list'
     """
 
     updated_postprocessing = imported_postprocessing
 
     # Iterate scenario CSVs and rewrite to files for each statistic.
     for folder in scenario_folders:
-        stats_list, time_keys = import_statistics_filter((folder + r'\_statistics.csv'), updated_postprocessing.keys())
+        stats_list, time_keys = import_statistics_keyed((folder + r'\_statistics.csv'), base_key='STATISTIC')
         ## stats_list is {s: {(i,j,a,r,d,s): {t: value}}}
         ## time_keys is [t1, t2, etc.]
 
@@ -62,14 +62,11 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
 
 def generate_figure(statistics_files, graph, graph_formatting, output_folder):
     """
-
     post_processing.generate_figure(statistics_files, graph, output_graphs_folder)
     graph = {'file_prefix', 'plot_algorithm', 'subplot_type', 'i_keys, 'j_keys', 'a_keys', 'r_keys', 'd_keys', 'c_keys',
-                s_keys', 't_keys': -1, 'labels_on', 'include_all', 'share_scale', 'y_axis_label'}
-    graph_formatting = {label: {'color': value, 'linewidth': value, 'linestyle':value}}
+                s_keys', 't_keys': -1, 'labels_on', 'include_all', 'share_scale', 'y_axis_label', 'cumulative'}
+    graph_formatting = {label: {'legend_text': val, 'legend_suppress': val, 'color':val, 'alpha': val, 'fill_alpha': val:, 'marker':, 'size':, 'linewidth': value, 'linestyle':value, '}}
     returns a path to the output figure
-    TODO: Write docstrings
-    TODO: Add figure types
     """
     g_statistics = {}
 
@@ -83,6 +80,7 @@ def generate_figure(statistics_files, graph, graph_formatting, output_folder):
     # Filter statistics
     filtered_data = filter_statistics(g_statistics, graph)
 
+    # Execute plot algorithm
     if graph['plot_algorithm'] == 'plot_subplot_default':
         output_path = plot_subplot(filtered_data, output_folder, graph, graph_formatting)
 
@@ -91,8 +89,12 @@ def generate_figure(statistics_files, graph, graph_formatting, output_folder):
 
 def filter_statistics(statistics, g):
     """
-    TODO: considered removing filtered_key_dict if not used.
-    TODO: consider filtering for t_keys.
+    Will filter and include any statistics matching the key lists defined in g.
+    g keys            | 'i_keys', 'j_keys', 'a_keys', 'r_keys', 'd_keys', 'c_keys', 's_keys', 't_keys'
+    g possible values | True = include any key except 'ALL'
+                      | False = only include key if 'ALL'
+                      | [k1, k2, k3, etc.] = return any statistic matching listed keys
+    Returns {(i, j, a, r, d, c, s): {t: val}}
     """
     i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys =\
         g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys']
@@ -106,9 +108,9 @@ def filter_statistics(statistics, g):
 
 def filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys):
     """
+    Checks if key (i,j,a,r,d,c) included in keys.
     Returns True if key included or False if key excluded
     """
-
     i, j, a, r, d, c, s = key
 
     if _include_key(i, i_keys):
@@ -151,6 +153,9 @@ def _include_key(key, include_keys):
 
 def plot_subplot(statistics, path, g, g_formatting):
     """
+    Generates multiple plots with subplots based on figure data defined in input_graphs.csv and input_graphs_formatting.csv
+
+    Returns list of figure and figure data file paths.
     """
 
     file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label, cumulative = (
@@ -173,7 +178,7 @@ def plot_subplot(statistics, path, g, g_formatting):
         v_panels = ceil(num_subplots / h_panels)
 
         # Generate y labels
-        if y_axis_label == -1:
+        if y_axis_label == False:
             y_label = str(plot)
             y_label = y_label[0].upper() + y_label[1:]
         else:
@@ -181,9 +186,11 @@ def plot_subplot(statistics, path, g, g_formatting):
 
         # Generate file path
         output_filepath = path + r'\_' + file_prefix + '-' + str(plot) + '.png'
+        output_filepath_data = output_filepath + '.csv'
 
-        path_outputs.append(plot_subplot_generator(output_filepath, str(title), plot_subplot_label_xy_data[plot], h_panels, v_panels, subplot_type, share_scale, y_label, cumulative, g_formatting))
-        path_outputs.append(plot_subplot_data_export(output_filepath + '.csv', plot))
+        fig_path, fig_data = plot_subplot_generator(output_filepath, str(title), plot_subplot_label_xy_data[plot], h_panels, v_panels, subplot_type, share_scale, y_label, cumulative, g_formatting)
+        path_outputs.append(fig_path)
+        path_outputs.append(export_plot_subplot_data(output_filepath_data, fig_data))
 
     return path_outputs
 
@@ -191,9 +198,7 @@ def plot_subplot(statistics, path, g, g_formatting):
 def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plot_type, share_scale, y_axis_label, cumulative, g_formatting):
     """
     Returns a plot with an arbitrary number of subplots.
-    plot_type can equal 'stacked', 'scatter', 'line'
-    iterator must be ordered to generate horizontal then vertical.
-    TODO: Update docstrings
+    plot_type can equal 'stacked', 'scatter', 'line', 'fill', 'fill_line'
 
     x | for stacked plots x[0] should equal any x[any]
     """
@@ -220,22 +225,24 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                 # Sort to ensure labels are alphabetical in legend. Does this based on label, not legend_text.
                 for label, data in sorted(plot[sp].items()):
                     l_format = label_format(label, g_formatting)
+                    data.update(l_format)
+                    data.update({'cumulative': cumulative})
                     if plot_type == 'stacked':
-                        y = series_modify(data['y'], cumulative, replace_none=float(0))
-                        generate_stackplot(ax[h, v], data['x'], y, l_format)
+                        data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
+                        generate_stackplot(ax[h, v], data['x'], data['y'], l_format)
                     elif plot_type == 'scatter':
-                        y = series_modify(data['y'], cumulative)
-                        generate_scatter(ax[h, v], data['x'], y, l_format)
+                        data['y'] = series_modify(data['y'], cumulative)
+                        generate_scatter(ax[h, v], data['x'], data['y'], l_format)
                     elif plot_type == 'line':
-                        y = series_modify(data['y'], cumulative)
-                        generate_line(ax[h, v], data['x'], y, l_format)
+                        data['y'] = series_modify(data['y'], cumulative)
+                        generate_line(ax[h, v], data['x'], data['y'], l_format)
                     elif plot_type == 'fill':
-                        y = series_modify(data['y'], cumulative)
-                        generate_fill(ax[h, v], data['x'], y, l_format)
+                        data['y'] = series_modify(data['y'], cumulative)
+                        generate_fill(ax[h, v], data['x'], data['y'], l_format)
                     elif plot_type == 'fill_line':
-                        y = series_modify(data['y'], cumulative)
-                        generate_fill(ax[h, v], data['x'], y, l_format)
-                        generate_line(ax[h, v], data['x'], y, l_format, force_legend_suppress=True)
+                        data['y'] = series_modify(data['y'], cumulative)
+                        generate_fill(ax[h, v], data['x'], data['y'], l_format)
+                        generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
@@ -249,11 +256,11 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     fig.savefig(fname=output_filename, dpi=300)
     plt.close('all')
 
-    return output_filename
+    return output_filename, plot
 
 
 def generate_stackplot(axis, x, y, l_format, force_legend_suppress=False):
-    # Rebuild y for stacked plot. [[y series 0],[y series 1], ...]
+    # Must rebuild y for stacked plot. [[y series 0],[y series 1], ...]
     axis.stackplot(x[0], y, color=l_format['color'], alpha=l_format['fill_alpha'])  # Assumes all x series are the same.
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
         axis.stackplot([], [], labels=[l_format['legend_text']], color=l_format['color'], alpha=l_format['fill_alpha'])
@@ -334,7 +341,6 @@ def build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels
     """
     Build x, y, labels and subtitles of format
     Returns nested dictionary of key structure: [plot][subplot][label]['x' or 'y'] = [[series_1 values], [series_2 values], etc.]
-    TODO: update docstrings with all input arguments described.
     """
     plot_subplot_label_xy_data = defaultdict(dict)  #[(plot_keys)][subplot_keys][label][[x_lists],[y_lists], FORMAT_KWARGS]
     key_map = {'i': 0, 'j': 1, 'a': 2, 'r': 3, 'd': 4, 'c': 5, 's': 6}
@@ -372,12 +378,6 @@ def build_plot_key(k, key_map, plot_keys):
     return return_key
 
 
-def plot_subplot_data_export(output_filename, plot):
-    """
-    Exports data to subplot series data to a .csv file.
-    """
-    path = 'dummy.csv'
-    return output_filename
 
 
 

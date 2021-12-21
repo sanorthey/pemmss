@@ -8,10 +8,6 @@ Module with routines for exporting PEMMSS model results and data files.
   export_demand()
   export_statistics()
 
-  TODO: 1. Add copyright to docstring
-  TODO: 2. Add cross-references to journal article
-  TODO: 3. Check this docstring after all other todos removed
-
 """
 
 # Import standard packages
@@ -132,14 +128,13 @@ def export_project_dictionary(path, project_list, variable, header='None', id_ke
 
 def export_demand(output_path, demand):
     """
-    Exports a .csv with demand data
-    hearder =
+    Exports a .csv with a timeseries of residual commodity demand data
+    output_path | file path of export .csv
     imported_demand{scenario_name: {commodity: {'balance_supply': 1 or 0,
                                                 'intermediate_recovery': 0 to 1,
                                                 'demand_threshold': 0 to 1,
                                                 'demand_carry': float(),
                                                 year: commodity demand}}}
-    TODO: Update docstrings
     """
     header = ['commodity']
     for c in demand:
@@ -155,13 +150,13 @@ def export_demand(output_path, demand):
             w.writerow(dict_to_write)
     output_file.close()
 
+
 def export_statistics(path, stats_flat_dict, time_range):
     """
-    Exports values to a csv from a flat stats data structure
+    Exports values to a csv from the stats data structure
     exp_stats = {(i,j,a,r,d,c,s):{t:}}
     header = ([i,j,a,r,d,c,s], [t1,t2,t3,etc.])
     i.e. header[0] = key     |    header[1] = time keys
-    TODO: update docstrings to describe variable naming
     """
     if os.path.isfile(path) == 0:
         existing = 0
@@ -185,3 +180,26 @@ def export_statistics(path, stats_flat_dict, time_range):
                     # This check required because some stats can be generated outside of scenario time range.
                     dict_to_write.update({t: time_dict[t]})
             w.writerow(dict_to_write)
+
+
+def export_plot_subplot_data(path, plot_data):
+    """
+    Exports plot and subplot series to a .csv file.
+    path |  file path of export .csv
+    data = {plot: {subplot: {label: {x: [values],
+                                     y: [values]}}}
+    """
+    with open(path, 'w+', newline='') as output_file:
+        w = csv.writer(output_file, delimiter=',')
+        w.writerow(['SUBPLOT', 'LABEL', 'LEGEND_TEXT', 'CUMULATIVE', 'SERIES', 'AXIS', 'VALUES'])
+        for subplot in plot_data:
+            for label in plot_data[subplot]:
+                for n, x_series in enumerate(plot_data[subplot][label]['x']):
+                    x_row = [str(subplot), str(label), plot_data[subplot][label]['legend_text'], plot_data[subplot][label]['cumulative'], n, 'x']
+                    y_row = [str(subplot), str(label), plot_data[subplot][label]['legend_text'], plot_data[subplot][label]['cumulative'], n, 'y']
+                    x_row.extend(x_series)
+                    y_row.extend(plot_data[subplot][label]['y'][n])
+                    w.writerow(x_row)
+                    w.writerow(y_row)
+    output_file.close()
+

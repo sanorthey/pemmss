@@ -22,11 +22,6 @@ Module with data structures and functions for handling deposit data
   capacity_generate()
   update_exploration_production_factors()
 
-# TODO: 1. Add copyright to docstring
-# TODO: 2. Modify docstring to include description of modulee use and application.
-# TODO: 3. Add cross-references to journal article
-# TODO: 4. Check this docstring after all other todos removed
-
 """
 
 # Import standard packages
@@ -125,7 +120,7 @@ class Mine:
         self.expansion_contained = {commodity: {}}
         self.brownfield_tonnage = brownfield_tonnage
         self.brownfield_grade = {commodity: brownfield_grade}
-        self.end_year = -1
+        self.end_year = None
         self.value_factors = value_factors
         self.aggregation = aggregation
         self.key_set = {('ALL', 'ALL', 'ALL', 'ALL'),
@@ -289,30 +284,6 @@ class Mine:
         return key_dict
 
 
-    def check_key_set(self, key_set, check_aggregation=True, check_region=True, check_deposit_type=True):
-        """
-        If key_set matches the instances key set, then return self.
-        Setting check_aggregation, check_region and check_deposit_type to False
-            will assign these instance keys to 'ALL'.
-            So this requires 'ALL' values to be present in the key_set to work.
-            # Possibly not needed anymore...
-        TODO: Consider removing after updating graph functionality. Doesn't seem to be used within anything.
-        """
-        if check_aggregation and check_region and check_deposit_type:
-            if (self.aggregation, self.region, self.deposit_type, self.commodity) in key_set:
-                return self
-        else:
-            self_key_set = [self.aggregation, self.region, self.deposit_type]
-            if not check_aggregation:
-                self_key_set[0] = 'ALL'
-            if not check_region:
-                self_key_set[1] = 'ALL'
-            if not check_deposit_type:
-                self_key_set[2] = 'ALL'
-            if (self_key_set[0], self_key_set[1], self_key_set[2]) in key_set:
-                return self
-
-
     def update_by_region_deposit_type(self, update_factors):
         """
         Mine.update_by_region_deposit_type(ext_factors)
@@ -335,46 +306,47 @@ class Mine:
               in the input files, then update later on.
         - If global parameter 'update_values' is true than any direct updates to Mine.value will be immediately
               overridden in the time loop by the models defined in Mine.value_factors.
+        - If wanting to update grades in both Mine objects and exploration_production_factors then best to have separate
+              inputs in input_exploration_production_factors_timeseries.csv
         """
         # Check if region and deposit type pair is present in update_factors
         if self.region in update_factors.keys():
             if self.deposit_type in update_factors[self.region].keys():
 
-                # Change the appropriate variable
-                variable = update_factors[self.region][self.deposit_type]
-                if variable == 'production_capacity':
-                    self.production_capacity = float(variable[''])
-                elif variable == 'status':
-                    self.status = int(variable[''])
-                elif variable == 'value':
+                # Change the appropriate variables
+                variables = update_factors[self.region][self.deposit_type]
+                if 'production_capacity' in variables:
+                    self.production_capacity = float(variables['production_capacity'][''])
+                elif 'status' in variables:
+                    self.status = int(variables['status'][''])
+                elif 'value' in variables:
                     # Unpack commodity structure
-                    for c in variable:
+                    for c in variables['value']:
                         if c in self.value:
-                            self.value[c] = float(variable[c])
+                            self.value[c] = float(variables['value'][c])
                         else:
                             export_log('Attempted to update a project value for a non-existent project commodity. Variable update skipped.', print_on=0)
-                    self.value = float(variable[''])
-                elif variable == 'discovery_year':
-                    self.discovery_year = int(variable[''])
-                elif variable == 'start_year':
-                    self.start_year = int(variable[''])
-                elif variable == 'grade':
+                elif 'discovery_year' in variables:
+                    self.discovery_year = int(variables['discovery_year'][''])
+                elif 'start_year' in variables:
+                    self.start_year = int(variables['start_year'][''])
+                elif 'grade' in variables:
                     # Unpack commodity structure
-                    for c in variable:
+                    for c in variables['grade']:
                         if c in self.grade:
-                            self.grade[c] = float(variable[c])
+                            self.grade[c] = float(variables['grade'][c])
                         else:
                             export_log('Attempted to update a project grade for a non-existent project commodity. Variable update skipped.', print_on=0)
-                elif variable == 'recovery':
-                    for c in variable:
+                elif 'recovery' in variables:
+                    for c in variables['recovery']:
                         if c in self.recovery:
-                            self.recovery[c] = float(variable[c])
+                            self.recovery[c] = float(variables['recovery'][c])
                         else:
                             export_log('Attempted to update a project recovery for a non-existent project commodity. Variable update skipped.', print_on=0)
-                elif variable == 'end_year':
-                    self.end_year = int(variable[''])
-                elif variable == 'aggregation':
-                    self.aggregation = variable['']
+                elif 'end_year' in variables:
+                    self.end_year = int(variables['end_year'][''])
+                elif 'aggregation' in variables:
+                    self.aggregation = variables['end_year']['']
 
 
     def supply(self, ext_demand, year, ext_demand_commodity):
@@ -620,7 +592,6 @@ def grade_generate(grade_model, factors, grade_dictionary={}):
         a = mu, mean
         b = sigma, standard deviation
         c = max grade
-    grade_model = 'user' | Placeholder for user-defined grade distribution
 
     Note | Factors passed from coproduct_grade_generate are likely to be strings and need type conversion.
     """
@@ -638,13 +609,9 @@ def grade_generate(grade_model, factors, grade_dictionary={}):
     elif grade_model == "lognormal":
         # Lognormal grade distribution
         # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
-        grade = abs(random.lognormvariate(float(a),float(b)))
+        grade = random.lognormvariate(float(a),float(b))
         if grade > float(c):
             grade = float(c)
-    elif grade_model == "user":
-        # User-defined grade distribution
-        # grade = "ENTER USER DEFINED DISTRIBUTION HERE"
-        grade = "ENTER USER DEFINED GRADE DISTRIBUTION HERE"
     else:
         export_log('Invalid grade model ' + str(grade_model), print_on=1)
     return grade
@@ -688,7 +655,7 @@ def tonnage_generate(size_model, factors, grade):
     elif size_model == "lognormal":
         # Lognormal tonnage distribution
         # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
-        tonnage = abs(random.lognormvariate(float(a), float(b)))
+        tonnage = random.lognormvariate(float(a), float(b))
         if tonnage > float(c):
             tonnage = float(c)
     elif size_model == "user":
@@ -825,7 +792,6 @@ def update_exploration_production_factors(factors, updates):
                     else:
                         # Replicated incase ever want to add functionality for selective changes to a commodities values. This section would need modifying to allow that.
                         # Should work but not tested.
-                        # TODO: test
                         variable_split = updates[r][d][v][c].split(';')
                         if len(variable_split) == 1:
                             try:

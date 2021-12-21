@@ -38,11 +38,22 @@ initialise()
 scenario()
 _main_()
 
+---File Structure---
+CITATION.cff
+pemmss.py
+input_files/
+    input_
+    input_
+    input_
+    input_
+modules/
+    deposit.py
+    file_export.py
+    file_import.py
+    post_processing.py
+    results.py
 # TODO: 1. Add copywrite statement
-# TODO: 2. Add file structure
-# TODO: 3. Update PEMMSS_flowcharts.drawio incl. correct output path and input file copies. Update cross-refs.
-# TODO: 4. Update this docstring after all module todos are completed.
-# TODO: 5. Check supply routines and demand carry to make sure supply/demand balancing correctly.
+
 """
 
 # Import standard packages
@@ -158,7 +169,7 @@ def scenario(i, constants):
     output_files\[RUN_TIME]\[scenario_name]\[iteration]-Production_Intermediate_[commodity].csv
 
     --- Journal article cross-references ---
-    P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, R2, W1
+    P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, R2, W1
     """
     parameters = constants['parameters'][i]
     imported_factors = constants['imported_factors']
@@ -264,7 +275,7 @@ def scenario(i, constants):
                                     demand[p_commodity][year_current] -= projects[-1].production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
 
             # Adjust next years commodity demand by a ratio of any under or over commodity supply.
-            # P10
+            # P11
             for c in demand:
                 if year_current + 1 in demand[c].keys():
                     if demand[c]['demand_carry'] != 0:
@@ -273,13 +284,13 @@ def scenario(i, constants):
                     log_message.append('\nFinal unmet '+str(c)+' demand at end of '+str(year_current)+' = '+str(demand[c][year_current]))
 
             # Reset project status for active mines. Note this must be done before the ranking algorithm, but after the supply and greenfield algorithms.
-            # P11
+            # P12
             for project in projects:
                 if project.status == 2:
                     project.status = 1
             
             # Brownfield Resource Expansion Algorithm
-            # P12
+            # P13
             if parameters['brownfield_exploration_on'] == 1:
                 for project in projects:
                     if project.status == 1:
@@ -307,9 +318,10 @@ def scenario(i, constants):
             
         year_set = set(range(year_start, year_end+1))
 
+        # Update stats to include any historic values present in input_historic.csv
+        # P14
         for a_r_d_c_s_key, time_dict in imported_historic.items():
-            # Update stats to include any historic values present in input_historic.csv
-            # P13
+
             stats[(parameters['scenario_name'],j,)+(a_r_d_c_s_key)].update(time_dict)
             year_set.update(time_dict.keys())
         
@@ -318,7 +330,7 @@ def scenario(i, constants):
         log_message.append('\nIteration statistics generation duration '+str((jt2-jt1))+' seconds.')
 
         ### Results Export
-        # P14
+        # P15
         # W1
         # Define file export paths
         output_path_projects = output_folder_scenario + '\\' + str(j) + '-Projects.csv'
@@ -356,8 +368,7 @@ def scenario(i, constants):
 
 def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path):
     """
-
-    FIXME: Write docstrings
+    Merges and filters scenario data, generate and export graphs and final results files.
 
     Files read:
     output_files/[RUN_TIME]/[scenario]/_statistics.csv
@@ -365,47 +376,25 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     Files & directories written:
     output_files/[RUN_TIME]/_statistics/
     output_files/[RUN_TIME]/_statistics/_[statistic].csv
+    output_files/[RUN_TIME]/_graphs/
     for file_prefix, plot_key in input_files/input_graphs.csv
         output_files/[RUN_TIME]/_graphs/_[file_prefix] [plot_key].png
         output_files/[RUN_TIME]/_graphs/_[file_prefix] [plot_key].csv
 
-
     --- Journal article cross-references ---
-    P15, P16
-
-
-
+    P16, P17, R3, R4, W2, W3
     """
     pt0=(time())
 
-    # Filter and merge scenario and iteration statistics
-    # P15
+    # P16, R3, W2 - Filter and merge scenario and iteration statistics
     file_export.export_log('Merging scenario data', output_path=log_path, print_on=1)
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
     pt1=(time())
     file_export.export_log('Merge duration '+str((pt1-pt0))+' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Merged data exported to ' + str(output_stats_folder), output_path=log_path, print_on=1)
 
-    # Generate optional summary files
-    """
-    # FIXME: handling of optional stats
-    for s in statistics_files:
-        if s['mean'] == '1':
-            post_processing.stat_mean
-        if s['median'] == '1':
 
-        if s['stdev'] == '0':
-
-        if s['min'] == '1':
-
-        if s['max'] == '1':
-
-        if s['cumulative'] == '0':
-    """
-
-    # Generate figures
-    # P16
-
+    # P17, R4, W3 - Generate figures
     file_export.export_log('\nGenerating Figures:', output_path=log_path, print_on=1)
     figure_paths_objects = []
     figure_paths = []
@@ -421,8 +410,9 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
         figure_paths.append(o.get())
 
     pt2 = (time())
-    file_export.export_log('Figure generation duration '+str((pt2-pt1))+' seconds.\n', output_path=log_path, print_on=1)
+    file_export.export_log('Figure generation duration '+str((pt2-pt1))+' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Exported to '+str(output_graphs_folder), output_path=log_path, print_on=1)
+
 
 def main():
     """
@@ -431,9 +421,8 @@ def main():
     --- Journal article cross-references ---
     P1 - Import input files
     P2 - Execute scenario modelling concurrently amongst pooled cpu processes
-    P13 - Check for pooled process errors and exceptions
-    P14 - Post-processing of scenario output files to produce summary graphs
-
+    P16 - Post-processing of scenario output files to produce summary graphs
+    P17 - Post-processing of scenario output files to generate graphs
     """
     t0 = (time())
 
@@ -462,8 +451,8 @@ def main():
     file_export.export_log('\nScenario modelling duration ' + str(t1 - t0) + ' seconds.\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.\n',
                            output_path=CONSTANTS['log'], print_on=1)
 
-    # P15 - Post-processing of scenario output files to produce summary files
-    # P16 - Post-processing of output files to generate graphs
+    # P16 - Filter and Merge Results
+    # P17 - Generate Graphs
     post_process(scenario_folders=scenario_folders,
                  output_stats_folder=CONSTANTS['output_folder_statistics'],
                  output_graphs_folder=CONSTANTS['output_folder_graphs'],
@@ -473,7 +462,7 @@ def main():
                  log_path=CONSTANTS['log'])
 
     t2 = (time())
-    log_message = ('Post-processing duration ' + str(t2 - t1) +
+    log_message = ('\nPost-processing duration ' + str(t2 - t1) +
                    '\n--- Post-Processing Complete---\n\nResults available in:\n' + str(CONSTANTS['output_folder']) +
                    '\nExecution time (s): ' + str(t2 - t0))
     file_export.export_log(log_message, output_path=CONSTANTS['log'], print_on=1)

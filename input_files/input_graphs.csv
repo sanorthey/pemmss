@@ -1,17 +1,48 @@
-FILE_PREFIX,PLOT_ALGORITHM,SUBPLOT_TYPE,PLOT_KEYS,SUBPLOT_KEYS,I_KEYS,J_KEYS,A_KEYS,R_KEYS,D_KEYS,C_KEYS,S_KEYS,T_KEYS,SHARE_SCALE,Y_AXIS_LABEL,LABELS_ON
-fig1_ic,plot_subplot_default,line,i,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,r
-fig1_ci,plot_subplot_default,line,c,i,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,r
-fig1_cs,plot_subplot_default,line,c,s,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,i
-fig1_sc,plot_subplot_default,line,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,i
-fig1_sc_i0,plot_subplot_default,line,s,c,TRUE,0,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,i
-fig2_i_only,plot_subplot_default,line,i,i,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),i
-fig2_i_only_r,plot_subplot_default,line,i,i,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),r
-fig2_is,plot_subplot_default,line,i,s,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),i
-fig2_sa,plot_subplot_default,line,s,a,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),i
-fig2_si_stacked_r,plot_subplot_default,stacked,s,i,TRUE,0,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),r
-fig2_ir_stacked_r,plot_subplot_default,stacked,s,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),r
-stacked_r,plot_subplot_default,stacked,i,s,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,-1,r
-stacked_d,plot_subplot_default,stacked,i,s,TRUE,TRUE,ALL,ALL,TRUE,ALL,production_ore_mass,TRUE,TRUE,-1,d
-deposits_discovered_by_type,plot_subplot_default,line,i,r,TRUE,TRUE,ALL,ALL,TRUE,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,d
-deposits_discovered_by_region,plot_subplot_default,line,i,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,r
-deposits_discovered_by_region,plot_subplot_default,line,s,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,i
+FILE_PREFIX,PLOT_ALGORITHM,SUBPLOT_TYPE,PLOT_KEYS,SUBPLOT_KEYS,I_KEYS,J_KEYS,A_KEYS,R_KEYS,D_KEYS,C_KEYS,S_KEYS,T_KEYS,SHARE_SCALE,Y_AXIS_LABEL,CUMULATIVE,LABELS_ON
+fig1_ic,plot_subplot_default,line,i,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,FALSE,r
+fig1_ci,plot_subplot_default,line,c,i,TRUE,TRUE,ALL;Historic,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,FALSE,r
+fig1_cs,plot_subplot_default,line,c,s,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Commodity Production,FALSE,i
+fig1_sc,plot_subplot_default,line,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,FALSE,i
+fig1_sc_i0,plot_subplot_default,line,s,c,TRUE,0,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,FALSE,i
+fig2_i_only,plot_subplot_default,line,i,i,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),FALSE,i
+fig2_i_only_r,plot_subplot_default,line,i,i,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),FALSE,r
+fig2_is,plot_subplot_default,line,i,s,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),FALSE,i
+fig2_sa,plot_subplot_default,line,s,a,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),FALSE,i
+fig2_si_stacked_r,plot_subplot_default,stacked,s,i,TRUE,0,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),FALSE,r
+fig2_ir_stacked_r,plot_subplot_default,stacked,s,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),FALSE,r
+stacked_r,plot_subplot_default,stacked,i,s,TRUE,TRUE,ALL,TRUE,ALL,ALL,production_ore_mass,TRUE,TRUE,FALSE,FALSE,r
+stacked_d,plot_subplot_default,stacked,i,s,TRUE,TRUE,ALL,ALL,TRUE,ALL,production_ore_mass,TRUE,TRUE,FALSE,FALSE,d
+deposits_discovered_by_type,plot_subplot_default,line,i,r,TRUE,TRUE,ALL,ALL,TRUE,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,FALSE,d
+deposits_discovered_by_region,plot_subplot_default,line,i,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,FALSE,r
+deposits_discovered_by_region,plot_subplot_default,line,s,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,FALSE,i
+unmet_demand,plot_subplot_default,line,i,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,unmet_demand,TRUE,TRUE,Unmet Demand,FALSE,c
+unmet_demand_production,plot_subplot_default,line,i,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,unmet_demand;production_commodity,TRUE,FALSE,Unmet Demand,FALSE,s
+mines_producing,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_producing_count,TRUE,TRUE,Mines Producing,FALSE,i
+mines_producing_deposit_type,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,TRUE,ALL,mines_producing_count,TRUE,TRUE,Mines Producing,FALSE,d
+mines_started_count,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_started_count,TRUE,TRUE,Mines Starting,FALSE,s
+mines_ended_count,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_ended_count,TRUE,TRUE,Mines Ending,FALSE,s
+deposits_discovered_grade_weighted_average,plot_subplot_default,line,i,c,TRUE,TRUE,ALL,ALL,TRUE,TRUE,deposits_discovered_grade_weighted_average,TRUE,TRUE,Deposits Discovered Grade Weighted Average,FALSE,d
+deposits_discovered_ore_mass,plot_subplot_default,line,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,deposits_discovered_ore_mass,TRUE,TRUE,Deposits Discovered Ore Mass,FALSE,r
+losses_commodity,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,losses_commodity,TRUE,TRUE,Losses Commodity,FALSE,s
+mines_ended_count,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_ended_count,TRUE,TRUE,Mines Ending,FALSE,s
+mines_care_maintenance_count,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_care_maintenance_count,TRUE,TRUE,Mines in Care and Maintenance,FALSE,s
+mined_grade_weighted_average,plot_subplot_default,line,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mined_grade_weighted_average,TRUE,TRUE,Mined grade weighted average,FALSE,s
+stacked_production,plot_subplot_default,stacked,i,c,TRUE,0,TRUE,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Production Commodity,FALSE,a
+mines_producing_fill,plot_subplot_default,fill,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_producing_count,TRUE,TRUE,Mines Producing,FALSE,i
+__fill_test,plot_subplot_default,fill,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,FALSE,i
+__fill_test_2,plot_subplot_default,fill,i,r,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,FALSE,r
+FILL_LINE,plot_subplot_default,fill_line,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,FALSE,i
+FILL_LINE_2,plot_subplot_default,fill_line,s,a,TRUE,TRUE,ALL,ALL,ALL,ALL,production_ore_mass,TRUE,TRUE,Annual Mined Ore (tonne/year),FALSE,i
+CUMULATIVE_TEST,plot_subplot_default,stacked,i,c,TRUE,0,ALL,ALL,ALL,TRUE,production_commodity,TRUE,TRUE,Production Commodity,TRUE,a
+CUMULATIVE_TEST_2,plot_subplot_default,fill,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,TRUE,i
+CUMULATIVE_TEST_3,plot_subplot_default,line,s,i,TRUE,TRUE,ALL,TRUE,ALL,ALL,deposits_discovered_count,TRUE,TRUE,Deposits Discovered,TRUE,r
+CUMULATIVE_TEST_4,plot_subplot_default,scatter,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_started_count,TRUE,TRUE,Mines Starting,TRUE,s
+CUMULATIVE_TEST_5,plot_subplot_default,fill_line,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production,TRUE,i
+ZERO_CUMULATIVE,plot_subplot_default,fill_line,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Cumulative Commodity Production (tonnes),TRUE,i
+ZERO,plot_subplot_default,fill_line,s,c,TRUE,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Commodity Production (tonnes / year),FALSE,i
+mines_producing_fill,plot_subplot_default,fill_line,s,i,TRUE,TRUE,ALL,ALL,ALL,ALL,mines_care_maintenance_count,TRUE,TRUE,Mines Producing,FALSE,i
+PRESENTATION_1,plot_subplot_default,fill_line,s,c,D_Exponential;D_Peaking;D_Declining;D_Flat_A,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Annual Commodity Production (kilotonnes per year),FALSE,i
+PRESENTATION_2,plot_subplot_default,line,s,c,D_Exponential;D_Peaking;D_Declining;D_Flat_A,TRUE,ALL,ALL,A_concentrated;A_diluted;AB_mixed;B_concentrated,ALL,deposits_discovered_count,TRUE,TRUE,Cumulative Deposits Discovered,TRUE,d
+PRESENTATION_3,plot_subplot_default,fill_line,s,c,D_Exponential;D_Peaking;D_Declining;D_Flat_A,TRUE,ALL,ALL,ALL,TRUE,mines_producing_count,TRUE,FALSE,Mines Producing,FALSE,i
+PRESENTATION_4,plot_subplot_default,fill_line,s,c,D_Exponential;D_Peaking;D_Declining;D_Flat_A,TRUE,ALL,ALL,ALL,TRUE,mines_producing_count,TRUE,FALSE,Mines Producing,FALSE,i
+PRESENTATION_5,plot_subplot_default,fill_line,s,c,D_Exponential;D_Peaking;D_Declining;D_Flat_A,TRUE,ALL,ALL,ALL,TRUE,production_commodity,TRUE,FALSE,Cumulative Commodity Production (kilotonnes),TRUE,i
