@@ -40,19 +40,25 @@ _main_()
 
 ---File Structure---
 CITATION.cff
+LICENSE.md
 pemmss.py
+README.md
 input_files/
-    input_
-    input_
-    input_
-    input_
+    input_demand.csv
+    input_input_exploration_production_factors.csv
+    input_input_exploration_production_factors_timeseries.csv
+    input_graphs.csv
+    input_historic.csv
+    input_parameters.csv
+    input_postprocessing.csv
 modules/
     deposit.py
     file_export.py
     file_import.py
     post_processing.py
     results.py
-# TODO: 1. Add copywrite statement
+output_files/
+    placeholder.txt
 
 """
 
@@ -127,14 +133,14 @@ def initialise():
     mkdir(constants['output_folder_graphs'])
 
     # Model version details for log and file writing
-    constants['version_number'] = (str(0.999))
-    constants['version_date'] = '2021-11-15'
+    constants['version_number'] = ('1.0.0')
+    constants['version_date'] = '2021-12-22'
 
-    file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS)\n" +
+    file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                    "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
                    "Developed by Stephen A. Northey " +
                    'in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco \n \n' +
-                   "For further information contact stephen.northey@uts.edu.au or stephen.northey@gmail.com.\n" +
+                   "For further information contact stephen.northey@uts.edu.au.\n" +
                    "- - - - - - - - - - - - - - - \n", output_path=constants['log'], print_on=1)
     file_export.export_log('Model executed at '+constants['run_time']+'\n', output_path=constants['log'], print_on=1)
 
@@ -203,8 +209,8 @@ def scenario(i, constants):
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
-        projects = file_import.import_projects(factors, input_folder, copy_path=output_folder_input_copy)
-        projects = file_import.import_project_coproducts(factors, input_folder, projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy)
+        projects = file_import.import_projects(factors, input_folder, copy_path=output_folder_input_copy, log_path=log)
+        projects = file_import.import_project_coproducts(factors, input_folder, projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
         log_message.append('\nScenario '+str(parameters['scenario_name'])+' Iteration '+str(j))
         
         
@@ -218,11 +224,11 @@ def scenario(i, constants):
             factors = deposit.update_exploration_production_factors(factors, timeseries_exploration_production_factors_updates[year_current])
             if parameters['update_values'] == 1:
                 for p in projects:
-                    p.update_by_region_deposit_type(timeseries_project_updates[year_current])
-                    p.value_update()
+                    p.update_by_region_deposit_type(timeseries_project_updates[year_current], log_file=log)
+                    p.value_update(log_file=log)
             else:
                 for p in projects:
-                    p.update_by_region_deposit_type(timeseries_project_updates[year_current])
+                    p.update_by_region_deposit_type(timeseries_project_updates[year_current], log_file=log)
 
             # Background greenfield discovery
             # P6
