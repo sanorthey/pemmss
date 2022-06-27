@@ -1,5 +1,5 @@
 cff-version: 1.1.0
-message: "If you use this model, please cite it as below."
+message: "Please cite this repository when using or describing this model."
 authors:
   - family-names: Northey
     given-names: Stephen A.
@@ -18,8 +18,7 @@ authors:
     orcid: https://orcid.org/0000-0002-1707-9531
 
 title: "Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) Model"
-version: TBC
+version: 1.0.0
 doi: TBC
-date-released: TBC
+date-released: 2022-07-01
 
-TODO: Update citation details
