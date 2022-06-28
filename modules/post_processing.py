@@ -221,16 +221,14 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
             # Generate next panel key and check if it exists.
             sp = next(subplot, False)
             if sp is not False:
+                data_height = [] # for use with stackplots
                 # Unpack plot[sp] = {label: {x: [[x0, x0], [x1, x1], ...], y: [[y0, y0], [y1, y1], ...]}}
                 # Sort to ensure labels are alphabetical in legend. Does this based on label, not legend_text.
                 for label, data in sorted(plot[sp].items()):
                     l_format = label_format(label, g_formatting)
                     data.update(l_format)
                     data.update({'cumulative': cumulative})
-                    if plot_type == 'stacked':
-                        data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
-                        generate_stackplot(ax[h, v], data['x'], data['y'], l_format)
-                    elif plot_type == 'scatter':
+                    if plot_type == 'scatter':
                         data['y'] = series_modify(data['y'], cumulative)
                         generate_scatter(ax[h, v], data['x'], data['y'], l_format)
                     elif plot_type == 'line':
@@ -243,6 +241,11 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                         data['y'] = series_modify(data['y'], cumulative)
                         generate_fill(ax[h, v], data['x'], data['y'], l_format)
                         generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
+                    elif plot_type == 'stacked':
+                        # Using generate_fill() here now because generate_stackplot() is buggy
+                        data['y'] = series_modify(data['y'], cumulative) # add replace_none=float(0) if reverting to generate_stackplot()
+                        stacked_y, data_height = series_stack(data['y'], data_height)
+                        generate_fill(ax[h, v], data['x'], stacked_y, l_format)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
@@ -260,7 +263,8 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
 
 def generate_stackplot(axis, x, y, l_format, force_legend_suppress=False):
-    # Must rebuild y for stacked plot. [[y series 0],[y series 1], ...]
+    # Must rebuild y for stacked plot. [[y series 0],[y series 1]+[y series 0], etc.]
+    # Note this needs debugging. Currently using generate_fill() instead.
     axis.stackplot(x[0], y, color=l_format['color'], alpha=l_format['fill_alpha'])  # Assumes all x series are the same.
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
         axis.stackplot([], [], labels=[l_format['legend_text']], color=l_format['color'], alpha=l_format['fill_alpha'])
@@ -318,6 +322,25 @@ def series_modify(data_series, cumulative=False, replace_none=False):
             modified_series.append(series_list)
     return modified_series
 
+def series_stack(data_series, data_height):
+    # For use with stack plots
+    # data_height = [h0, h1, h2]
+    # data_series = [[y0,y1,y2], [y0,y1,y2], etc.]
+
+    stacked_data_series = []
+    height = data_height
+
+    # Create new zeroed height list if not same length as stacked_data_series.
+    if len(data_series[0]) is not len(data_height):
+        height = [0 for _ in data_series[0]]
+
+    # Build stacked_data_series starting at the height.
+    stacked_data_series.append(height)
+    for data_list in data_series:
+        height = [x + y for x, y in zip(data_list, height)]
+        stacked_data_series.append(height)
+
+    return stacked_data_series, height
 
 def label_format(label, g_formatting):
     l = {}
