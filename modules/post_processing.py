@@ -210,10 +210,10 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     # Generating plot with subplots
     if share_scale == True:
         # Subplots have common scale
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(h_panels * 7, v_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 7, h_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
     elif share_scale == False:
         # Subplots have independent scales
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(h_panels * 7, v_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 7, h_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
 
     fig.suptitle(title)
     for h in range(h_panels):
@@ -243,13 +243,16 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                         generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
                     elif plot_type == 'stacked':
                         # Using generate_fill() here now because generate_stackplot() is buggy
-                        data['y'] = series_modify(data['y'], cumulative) # add replace_none=float(0) if reverting to generate_stackplot()
+                        data['y'] = series_modify(data['y'], cumulative, replace_none=float(0)) # add replace_none=float(0) if reverting to generate_stackplot()
                         stacked_y, data_height = series_stack(data['y'], data_height)
                         generate_fill(ax[h, v], data['x'], stacked_y, l_format)
 
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
-                ax[h, v].set_title(sp, pad=-15)
+                if sp in g_formatting:
+                    ax[h, v].set_title(g_formatting[sp]['legend_text'], pad=-15)
+                else:
+                    ax[h, v].set_title(sp, pad=-15)
                 ax[h, v].set_ylabel(y_axis_label)
                 ax[h, v].tick_params(labelbottom=1, labelleft=1)
 
