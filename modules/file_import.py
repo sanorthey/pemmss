@@ -235,7 +235,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 commodity = row['COMMODITY']
             if row['GRADE'] == "":
                 no_grade += 1
-                grade = deposit.grade_generate(f['grade'][index], {'a': f['grade_a'][index],
+                grade = deposit.grade_generate(f['grade_model'][index], {'a': f['grade_a'][index],
                                                                    'b': f['grade_b'][index],
                                                                    'c': f['grade_c'][index],
                                                                    'd': f['grade_d'][index]},
@@ -244,7 +244,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 grade = float(row['GRADE'])
             if row['REMAINING_RESOURCE'] == "":
                 no_remaining_resource += 1
-                remaining_resource = deposit.tonnage_generate(f['size_model'][index],
+                remaining_resource = deposit.tonnage_generate(f['tonnage_model'][index],
                                                               {'a': f['tonnage_a'][index],
                                                                'b': f['tonnage_b'][index],
                                                                'c': f['tonnage_c'][index],
