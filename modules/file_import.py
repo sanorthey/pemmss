@@ -748,6 +748,7 @@ def import_graphs(path, copy_path=None, log_path=None):
         y_axis_label    |   False (will autogenerate y_axis_label based on plot_keys) or a string
         cumulative      |   True or False
         labels_on       |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s). This acts as a grouping to share series and legend formatting.
+        columns         |   False (will default to 2 subplot columns) or number
     """
     imported_graphs = []
 
@@ -773,7 +774,8 @@ def import_graphs(path, copy_path=None, log_path=None):
                                         'share_scale': row['SHARE_SCALE'],
                                         'y_axis_label': row['Y_AXIS_LABEL'],
                                         'labels_on': row['LABELS_ON'].split(';'),
-                                        'cumulative': row['CUMULATIVE']
+                                        'cumulative': row['CUMULATIVE'],
+                                        'columns': row['COLUMNS']
                                         })
 
             # Convert 'true' and 'false' inputs to booleans.
@@ -792,6 +794,10 @@ def import_graphs(path, copy_path=None, log_path=None):
                 imported_graphs[-1]['cumulative'] = False
             elif imported_graphs[-1]['cumulative'].lower() == "true":
                 imported_graphs[-1]['cumulative'] = True
+            if imported_graphs[-1]['columns'].lower() == "false":
+                imported_graphs[-1]['columns'] = 2
+            else:
+                imported_graphs[-1]['columns'] = int(imported_graphs[-1]['columns'])
 
     if copy_path is not None:
         copyfile(path + r'\\input_graphs.csv', copy_path + r'\\input_graphs.csv')

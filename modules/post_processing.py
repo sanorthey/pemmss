@@ -64,7 +64,7 @@ def generate_figure(statistics_files, graph, graph_formatting, output_folder):
     """
     post_processing.generate_figure(statistics_files, graph, output_graphs_folder)
     graph = {'file_prefix', 'plot_algorithm', 'subplot_type', 'i_keys, 'j_keys', 'a_keys', 'r_keys', 'd_keys', 'c_keys',
-                s_keys', 't_keys': -1, 'labels_on', 'include_all', 'share_scale', 'y_axis_label', 'cumulative'}
+                s_keys', 't_keys': -1, 'labels_on', 'include_all', 'share_scale', 'y_axis_label', 'cumulative', 'columns'}
     graph_formatting = {label: {'legend_text': val, 'legend_suppress': val, 'color':val, 'alpha': val, 'fill_alpha': val:, 'marker':, 'size':, 'linewidth': value, 'linestyle':value, '}}
     returns a path to the output figure
     """
@@ -158,8 +158,8 @@ def plot_subplot(statistics, path, g, g_formatting):
     Returns list of figure and figure data file paths.
     """
 
-    file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label, cumulative = (
-        g['file_prefix'], g['plot_keys'], g['subplot_keys'], g['labels_on'], g['subplot_type'], g['share_scale'], g['y_axis_label'], g['cumulative'])
+    file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label, cumulative, columns = (
+        g['file_prefix'], g['plot_keys'], g['subplot_keys'], g['labels_on'], g['subplot_type'], g['share_scale'], g['y_axis_label'], g['cumulative'], g['columns'])
 
     # Build x, y and labels of format
     plot_subplot_label_xy_data = build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on)
@@ -174,7 +174,7 @@ def plot_subplot(statistics, path, g, g_formatting):
 
         # Generate subplot panels
         num_subplots = len(plot_subplot_label_xy_data[plot])
-        h_panels = ceil(num_subplots / 2)
+        h_panels = ceil(num_subplots / columns)
         v_panels = ceil(num_subplots / h_panels)
 
         # Generate y labels
