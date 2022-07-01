@@ -250,9 +250,9 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                 # Subplot formatting
                 ax[h, v].legend(loc='upper left')
                 if sp in g_formatting:
-                    ax[h, v].set_title(g_formatting[sp]['legend_text'], pad=-15)
+                    ax[h, v].set_title(g_formatting[sp]['legend_text'], pad=None)
                 else:
-                    ax[h, v].set_title(sp, pad=-15)
+                    ax[h, v].set_title(sp, pad=None)
                 ax[h, v].set_ylabel(y_axis_label)
                 ax[h, v].tick_params(labelbottom=1, labelleft=1)
 
