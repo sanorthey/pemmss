@@ -23,11 +23,14 @@ from math import ceil
 from collections import defaultdict
 from random import choice
 from itertools import accumulate
+import os
 
 # Import external packages
 import matplotlib
 import matplotlib.pyplot as plt
 from numpy import nan
+import imageio
+
 
 # Import custom modules
 
@@ -158,14 +161,21 @@ def plot_subplot(statistics, path, g, g_formatting):
     Returns list of figure and figure data file paths.
     """
 
-    file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label, cumulative, columns = (
-        g['file_prefix'], g['plot_keys'], g['subplot_keys'], g['labels_on'], g['subplot_type'], g['share_scale'], g['y_axis_label'], g['cumulative'], g['columns'])
+    file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label, cumulative, columns, gif, fps, delete_frames = (
+        g['file_prefix'], g['plot_keys'], g['subplot_keys'], g['labels_on'], g['subplot_type'], g['share_scale'], g['y_axis_label'], g['cumulative'], g['columns'], g['gif'], g['gif_fps'], g['gif_delete_frames'])
 
     # Build x, y and labels of format
     plot_subplot_label_xy_data = build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on)
 
     # Generate plot path holder
-    path_outputs = []
+    plot_paths = []
+    plot_data_paths = []
+
+    # Assign plot directory or create a directory for holding gif frames
+    plot_folder_path = path
+    if g['gif'] is True:
+        plot_folder_path = path + r'\_' + file_prefix
+        os.mkdir(plot_folder_path)
 
     # Generate plots
     for plot in plot_subplot_label_xy_data:
@@ -185,14 +195,23 @@ def plot_subplot(statistics, path, g, g_formatting):
             y_label = y_axis_label
 
         # Generate file path
-        output_filepath = path + r'\_' + file_prefix + '-' + str(plot) + '.png'
+        output_filepath = plot_folder_path + r'\_' + file_prefix + '-' + str(plot) + '.png'
         output_filepath_data = output_filepath + '.csv'
 
         fig_path, fig_data = plot_subplot_generator(output_filepath, str(title), plot_subplot_label_xy_data[plot], h_panels, v_panels, subplot_type, share_scale, y_label, cumulative, g_formatting)
-        path_outputs.append(fig_path)
-        path_outputs.append(export_plot_subplot_data(output_filepath_data, fig_data))
+        plot_paths.append(fig_path)
+        export_plot_subplot_data(output_filepath_data, fig_data)
+        plot_data_paths.append(output_filepath_data)
 
-    return path_outputs
+    # Generate GIF
+    if g['gif'] is True:
+        gif_filepath = path + r'\_' + file_prefix + '.gif'
+        plot_paths = generate_gif(plot_paths, gif_filepath, fps=fps, delete_frames=delete_frames)
+
+    # Generate final returned output paths list
+    output_paths = plot_paths + plot_data_paths
+
+    return output_paths
 
 
 def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plot_type, share_scale, y_axis_label, cumulative, g_formatting):
@@ -403,6 +422,27 @@ def build_plot_key(k, key_map, plot_keys):
     """
     return_key = ' '.join([k[key_map[plt_key]] for plt_key in plot_keys])
     return return_key
+
+
+def generate_gif(frame_path_list, gif_path, fps=5, delete_frames=True):
+    """
+    Builds a .gif from image files included in frame_path_list.
+    frame_path_list | List of filepaths for each frame [image0, image1, image2, image3, etc.]
+    gif_path | Path where gif will be saved
+    fps | Frames per second
+    delete_frames | True (will delete original frame files) or False (will preserve frame files)
+    Returns list of path of the .gif file and any preserved frame files.
+    """
+    return_paths = [gif_path]
+    with imageio.v2.get_writer(gif_path, mode='I', fps=fps, subrectangles=True) as writer:
+        for frame_path in frame_path_list:
+            frame = imageio.v2.imread(frame_path)
+            writer.append_data(frame)
+            if delete_frames is True:
+                os.remove(frame_path)
+            else:
+                return_paths.append(frame_path)
+    return return_paths
 
 
 

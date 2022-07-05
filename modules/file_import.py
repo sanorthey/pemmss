@@ -749,6 +749,9 @@ def import_graphs(path, copy_path=None, log_path=None):
         cumulative      |   True or False
         labels_on       |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s). This acts as a grouping to share series and legend formatting.
         columns         |   False (will default to 2 subplot columns) or number
+        gif             |   True (will combine plots into a GIF) or False
+        gif_fps         |   Frames per second in generate gif. Default = 10.
+        gif_delete_frames|  True (will delete plots after generating GIF) or False (will preserve plot and GIF files)
     """
     imported_graphs = []
 
@@ -775,7 +778,10 @@ def import_graphs(path, copy_path=None, log_path=None):
                                         'y_axis_label': row['Y_AXIS_LABEL'],
                                         'labels_on': row['LABELS_ON'].split(';'),
                                         'cumulative': row['CUMULATIVE'],
-                                        'columns': row['COLUMNS']
+                                        'columns': row['COLUMNS'],
+                                        'gif': row['GIF'],
+                                        'gif_fps': int(row['GIF_FPS']),
+                                        'gif_delete_frames': row['GIF_DELETE_FRAMES']
                                         })
 
             # Convert 'true' and 'false' inputs to booleans.
@@ -798,6 +804,15 @@ def import_graphs(path, copy_path=None, log_path=None):
                 imported_graphs[-1]['columns'] = 2
             else:
                 imported_graphs[-1]['columns'] = int(imported_graphs[-1]['columns'])
+            if imported_graphs[-1]['gif'].lower() == 'false':
+                imported_graphs[-1]['gif'] = False
+            elif imported_graphs[-1]['gif'].lower() == "true":
+                imported_graphs[-1]['gif'] = True
+            if imported_graphs[-1]['gif_delete_frames'].lower() == 'false':
+                imported_graphs[-1]['gif_delete_frames'] = False
+            elif imported_graphs[-1]['gif_delete_frames'].lower() == "true":
+                imported_graphs[-1]['gif_delete_frames'] = True
+
 
     if copy_path is not None:
         copyfile(path + r'\\input_graphs.csv', copy_path + r'\\input_graphs.csv')
