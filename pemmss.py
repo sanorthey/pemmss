@@ -211,7 +211,7 @@ def scenario(i, constants):
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
         projects = file_import.import_projects(factors, input_folder, copy_path=output_folder_input_copy, log_path=log)
         projects = file_import.import_project_coproducts(factors, input_folder, projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
-        log_message.append('\nScenario '+str(parameters['scenario_name'])+' Iteration '+str(j))
+        log_message.append('\nScenario '+str(parameters['scenario_name'])+' Iteration '+str(j)+'\nImported input_projects.csv\nImported input_project_coproducts.csv')
         
         
         # Time Loop - Iterates model through each time period
