@@ -95,7 +95,7 @@ def export_list_of_dictionary(path, list_of_dictionary, header='None', id_key='N
     output_file.close()
 
 
-def export_project_dictionary(path, project_list, variable, header='None', id_key='id_number', commodity='None'):
+def export_project_dictionary(path, project_list, variable, header='None', id_key='id_number', commodity='None', log_path='None'):
     """
     Generates a list of project dictionaries
     path                 | file path of export .csv
@@ -121,8 +121,8 @@ def export_project_dictionary(path, project_list, variable, header='None', id_ke
         p_dictionary = p.get(variable, commodity)
         if type(p_dictionary) == dict:
             list_of_dictionary[-1].update(p_dictionary)
-        else:
-            export_log('Unable to export Mine.'+str(variable)+' as the type is not dict.',print_on=1)
+        elif log_path is not None:
+            export_log('Unable to export Mine.'+str(variable)+' as the type is not dict.', output_path=log_path, print_on=1)
     export_list_of_dictionary(path, list_of_dictionary, header, key)
 
 
