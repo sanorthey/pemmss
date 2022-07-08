@@ -180,7 +180,7 @@ def plot_subplot(statistics, path, g, g_formatting):
     # Generate plots
     for plot in plot_subplot_label_xy_data:
         # Generate plot title
-        title = ' '.join(plot)
+        title = ''.join(plot)
 
         # Generate subplot panels
         num_subplots = len(plot_subplot_label_xy_data[plot])
@@ -226,15 +226,29 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     # Create an iterator for the subplots (e.g. commodity keys)
     subplot = iter(sorted(plot))
 
+    # Plot text formatting
+    TEXT_SIZE_DEFAULT = 7
+    TEXT_SIZE_PLOT_TITLE = 10
+    TEXT_SIZE_SUBPLOT_TITLE = 7
+    TEXT_SIZE_LEGEND = 7
+    TEXT_SIZE_X_Y = 7
+
+    plt.rc('font', size=7)  # controls default text sizes
+    plt.rc('axes', titlesize=TEXT_SIZE_SUBPLOT_TITLE)  # fontsize of the axes title
+    plt.rc('axes', labelsize=TEXT_SIZE_X_Y)  # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=TEXT_SIZE_X_Y)  # fontsize of the tick labels
+    plt.rc('ytick', labelsize=TEXT_SIZE_X_Y)  # fontsize of the tick labels
+    plt.rc('legend', fontsize=TEXT_SIZE_LEGEND)  # legend fontsize
+    plt.rc('figure', titlesize=TEXT_SIZE_PLOT_TITLE)  # fontsize of the figure title
+
     # Generating plot with subplots
     if share_scale == True:
         # Subplots have common scale
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 7, h_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
     elif share_scale == False:
         # Subplots have independent scales
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 7, h_panels * 7), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
 
-    fig.suptitle(title)
     for h in range(h_panels):
         for v in range(v_panels):
             # Generate next panel key and check if it exists.
@@ -270,7 +284,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                 ax[h, v].legend(loc='upper left')
                 if sp in g_formatting:
                     if g_formatting[sp]['legend_suppress'] is False:
-                        ax[h, v].set_title(g_formatting[sp]['legend_text'], pad=None)
+                        ax[h, v].set_title(g_formatting[sp]['title_text'], pad=None)
                 else:
                     ax[h, v].set_title(sp, pad=None)
                 ax[h, v].set_ylabel(y_axis_label)
@@ -278,6 +292,15 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
             else:
                 fig.delaxes(ax[h, v])
+
+    # Final figure format
+    if title in g_formatting:
+        print(g_formatting[title])
+        if g_formatting[title]['title_suppress'] is False:
+            fig.suptitle(g_formatting[title]['title_text'])
+    else:
+        fig.suptitle(title)
+    plt.tight_layout(rect=[0, 0, 1, 0.98])
     # Export file
     fig.savefig(fname=output_filename, dpi=300)
     plt.close('all')
@@ -371,12 +394,14 @@ def label_format(label, g_formatting):
         l.update(g_formatting[label])
     else:
         l['legend_text'] = str(label)
+        l['legend_suppress'] = False
+        l['title_text'] = str(label)
+        l['title_suppress'] = False
         l['color'] = choice(['b', 'g', 'r', 'c', 'm', 'y', 'k'])
         l['alpha'] = 1
         l['fill_alpha'] = 1
         l['linewidth'] = 0.5
         l['linestyle'] = 'solid'
-        l['legend_suppress'] = False
         l['marker'] = '.'
         l['size'] = 1
         g_formatting.update({label: l})

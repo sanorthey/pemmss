@@ -828,7 +828,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
     import_graphs_formatting()
     Imports postprocessing parameters from a csv located at 'path'.
     Typical path is \WORKING_DIRECTORY\input_files\input_graphs_formatting.csv
-    Output is a dictionary {label: {color: value, line: value, linestyle: value}}
+    Output is a dictionary {label: {color: value, line: value, linestyle: value, etc.}}
 
     Copies file if copy_path directory specified.
 
@@ -836,7 +836,9 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
          HEADER ROW           | ACCEPTABLE INPUT ROW VALUES
          LABEL                | grouping label corresponding to import_graphs / input_graphs.csv [labels_on] column
          LEGEND_TEXT          | string for use in figure legends
-         LEGEND_SUPPRESS      | Boolean (True, False, 1, 0)
+         LEGEND_SUPPRESS      | Boolean (True, False, 1, 0), prevents inclusion in legend - useful for grouping labels
+         TITLE_TEXT           | string for use in figure and subplot titles
+         TITLE_SUPPRESS       | Boolean (True, False, 1, 0), prevents title being generated
          COLOR                | Matplotlib colors
          ALPHA                | 0 to 1
          FILL_ALPHA           | 0 to 1
@@ -846,6 +848,8 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
          SIZE                 | decimal / float, marker size in pt
 
     Header row should be capitalised in input file. Output dictionary has lowercase keys.
+
+    NOTE: Any change to the output dictionary structure requires change to post_processing.label_format()
     """
     imported_graphs_formatting = {}
 
@@ -855,6 +859,8 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
         for row in csv_reader:
             imported_graphs_formatting.update({str(row["LABEL"]): {'legend_text': str(row['LEGEND_TEXT']),
                                                                    'legend_suppress': bool(strtobool(str(row['LEGEND_SUPPRESS']))),
+                                                                   'title_text': str(row['TITLE_TEXT']),
+                                                                   'title_suppress': bool(strtobool(str(row['TITLE_SUPPRESS']))),
                                                                    'color': row['COLOR'],
                                                                    'alpha': float(row['ALPHA']),
                                                                    'fill_alpha': float(row['FILL_ALPHA']),
