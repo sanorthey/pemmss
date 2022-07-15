@@ -60,6 +60,8 @@ modules/
 output_files/
     placeholder.txt
 
+Copyright and license information available in LICENSE.md
+Attribution and citation information available in CITATION.cff
 """
 
 # Import standard packages
@@ -134,7 +136,7 @@ def initialise():
 
     # Model version details for log and file writing
     constants['version_number'] = ('1.0.0')
-    constants['version_date'] = '2022-07-05'
+    constants['version_date'] = '2022-07-15'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                    "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +

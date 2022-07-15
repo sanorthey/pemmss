@@ -1,8 +1,1 @@
-AGGREGATION,REGION,DEPOSIT_TYPE,COMMODITY,STATISTIC,1990,1991,1992,1993,1994,1995,1996,1997,1998,1999
-Historic,ALL,ALL,D,losses_mine,20,30,40,50,60,70,80,90,100,110
-Historic,B_concentrated,ALL,C,losses_mine,10,20,30,40,50,60,70,80,90,100
-Existing Mines,ALL,ALL,D,production_ore_content,1,2,3,4,5,6,7,8,9,10
-Historic,ALL,ALL,A,production_commodity,10,20,30,40,50,60,70,80,90,100
-Historic,ALL,ALL,B,production_commodity,140,120,100,80,60,40,60,80,90,100
-Historic,ALL,ALL,C,production_commodity,5,6,7,8,9,10,11,12,13,8
-Historic,ALL,ALL,D,production_commodity,10,15,20,15,17,18,16,15,11,10
+AGGREGATION,REGION,DEPOSIT_TYPE,COMMODITY,STATISTIC,2000
