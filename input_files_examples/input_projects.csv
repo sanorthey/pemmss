@@ -1,0 +1,22 @@
+P_ID_NUMBER,NAME,REGION,DEPOSIT_TYPE,COMMODITY,REMAINING_RESOURCE,PRODUCTION_CAPACITY,STATUS,DISCOVERY_YEAR,START_YEAR,GRADE,RECOVERY,BROWNFIELD_TONNAGE_FACTOR,BROWNFIELD_GRADE_FACTOR,VALUE,MINE_COST_MODEL,MINE_COST_A,MINE_COST_B,MINE_COST_C,MINE_COST_D,REVENUE_MODEL,REVENUE_A,REVENUE_B,REVENUE_C,REVENUE_D,COST_MODEL,COST_A,COST_B,COST_C,COST_D
+0,Deposit_0,Baden-Württemberg,Carbonatite,A,10000,500,1,,1999,0.02,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+1,Deposit_1,Baden-Württemberg,Carbonatite,A,9000,500,1,,1999,0.02,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+2,Deposit_2,Baden-Württemberg,Magmatic,A,8000,500,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+3,Deposit_3,Baden-Württemberg,Magmatic,A,7000,500,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+4,Deposit_4,Baden-Württemberg,Sedimentary,A,6000,500,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+5,Deposit_5,New South Wales,Carbonatite,A,5000,500,1,,1999,0.02,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+6,Deposit_6,New South Wales,Carbonatite,A,4000,400,1,,1999,0.02,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+7,Deposit_7,New South Wales,Magmatic,A,3000,300,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+8,Deposit_8,New South Wales,Magmatic,A,2000,200,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+9,Deposit_9,New South Wales,Sedimentary,A,1000,100,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+10,Deposit_10,Victoria,Carbonatite,A,1000,90,1,,1999,0.02,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+11,Deposit_11,Victoria,Carbonatite,A,1000,80,1,,1999,0.02,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+12,Deposit_12,Victoria,Magmatic,A,1000,70,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+13,Deposit_13,Victoria,Magmatic,A,1000,60,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+14,Deposit_14,Victoria,Sedimentary,A,1000,50,1,,1999,0.03,0.9,0.01,0.99,,fixed,100,0,0,0,contained_recoverable_value,1500,0,0,0,contained_recoverable_value,500,0,0,0
+15,Deposit_15,Baden-Württemberg,Carbonatite,A,,,0,,1999,,,,,,,,,,,,,,,,,,,,
+16,Deposit_16,Baden-Württemberg,Magmatic,A,,,0,,1999,,,,,,,,,,,,,,,,,,,,
+17,Deposit_17,New South Wales,Carbonatite,A,,,0,,1999,,,,,,,,,,,,,,,,,,,,
+18,Deposit_18,New South Wales,Sedimentary,A,,,0,,1999,,,,,,,,,,,,,,,,,,,,
+19,Deposit_19,Victoria,Magmatic,A,,,0,,1999,,,,,,,,,,,,,,,,,,,,
+20,Deposit_20,Victoria,Sedimentary,A,,,0,,1999,,,,,,,,,,,,,,,,,,,,

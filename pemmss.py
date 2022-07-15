@@ -48,9 +48,12 @@ input_files/
     input_input_exploration_production_factors.csv
     input_input_exploration_production_factors_timeseries.csv
     input_graphs.csv
+    input_graphs_formatting.csv
     input_historic.csv
     input_parameters.csv
     input_postprocessing.csv
+    input_project_coproducts.csv
+    input_projects.csv
 modules/
     deposit.py
     file_export.py
