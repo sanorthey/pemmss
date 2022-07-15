@@ -60,6 +60,8 @@ modules/
 output_files/
     placeholder.txt
 
+Copyright and license information available in LICENSE.md
+Attribution and citation information available in CITATION.cff
 """
 
 # Import standard packages
@@ -134,7 +136,7 @@ def initialise():
 
     # Model version details for log and file writing
     constants['version_number'] = ('1.0.0')
-    constants['version_date'] = '2021-12-22'
+    constants['version_date'] = '2022-07-15'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                    "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
@@ -211,7 +213,7 @@ def scenario(i, constants):
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
         projects = file_import.import_projects(factors, input_folder, copy_path=output_folder_input_copy, log_path=log)
         projects = file_import.import_project_coproducts(factors, input_folder, projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
-        log_message.append('\nScenario '+str(parameters['scenario_name'])+' Iteration '+str(j))
+        log_message.append('\nScenario '+str(parameters['scenario_name'])+' Iteration '+str(j)+'\nImported input_projects.csv\nImported input_project_coproducts.csv')
         
         
         # Time Loop - Iterates model through each time period
@@ -347,15 +349,17 @@ def scenario(i, constants):
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
         file_export.export_projects(output_path_projects, projects)
-        file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None')
-        file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None')
+        file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
+        file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None', log_path=log)
         for c in demand:
             output_path_production_intermediate = output_folder_scenario + '\\' +str(j) + '-Production_Intermediate_'+str(c)+'.csv'
-            file_export.export_project_dictionary(output_path_production_intermediate, projects, 'production_intermediate', header='None', id_key='id_number', commodity=c)
+            file_export.export_project_dictionary(output_path_production_intermediate, projects, 'production_intermediate', header='None', id_key='id_number', commodity=c, log_path=log)
             output_path_expansion_contained = output_folder_scenario + '\\' + str(j) + '-Expansion_Contained_'+str(c)+'.csv'
-            file_export.export_project_dictionary(output_path_expansion_contained, projects, 'expansion_contained', header='None', id_key='id_number', commodity=c)
+            file_export.export_project_dictionary(output_path_expansion_contained, projects, 'expansion_contained', header='None', id_key='id_number', commodity=c, log_path=log)
+            output_path_grade_timeseries = output_folder_scenario + '\\' + str(j) + '-Grade_Timeseries_'+str(c)+'.csv'
+            file_export.export_project_dictionary(output_path_grade_timeseries, projects, 'grade_timeseries', header='None', id_key='id_number', commodity=c, log_path=log)
 
-        # Export original demand
+        # Export unmet demand timeseries
         file_export.export_demand(output_path_demand, demand)
 
         # Export statistics

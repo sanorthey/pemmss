@@ -69,8 +69,8 @@ def generate_statistics(key, project_list, time_range, demand_factors):
 
         if commodity != 'ALL':
             # Commodity dependent. Not time dependent.
-            return_stats[key+('deposits_discovered_ore_content',)][p.discovery_year] += p.initial_resource * p.grade[commodity]
-            discovery_grade_dict_list[p.discovery_year].append(p.grade[commodity])
+            return_stats[key+('deposits_discovered_ore_content',)][p.discovery_year] += p.initial_resource * p.initial_grade[commodity]
+            discovery_grade_dict_list[p.discovery_year].append(p.initial_grade[commodity])
 
         for t, ore in p.production_ore.items():
             # Time dependent. Not commodity dependent.
@@ -83,10 +83,17 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                 # Using try-except may be faster than an if statement.
                 return_stats[key+('brownfield_expansion_ore_mass',)][t] += p.expansion[t]
 
+                if commodity != 'ALL':
+                    # Time and commodity dependent
+                    # In the year a mine depletes, p.production_ore[t] exists, but not p.expansion[t]
+                    # Also somehow p.expansion[t] might not exist in initial year, despite p.production_ore[t] existing.
+                    # Using try-except here would be slightly faster than if statement.
+                    return_stats[key + ('brownfield_expansion_ore_content',)][t] += p.expansion_contained[commodity][t]
+
             if commodity != 'ALL':
                 # Time and commodity dependent.
                 ## Note a try except here may possibly be faster, but less readable
-                grade_dict_list[t].append(p.grade[commodity])
+                grade_dict_list[t].append(p.grade_timeseries[commodity][t])
                 return_stats[key+('production_ore_content',)][t] += ore * grade_dict_list[t][-1]
                 return_stats[key+('production_intermediate',)][t] += p.production_intermediate[commodity][t]
                 return_stats[key+('production_commodity',)][t] += p.production_intermediate[commodity][t] * intermediate_recovery
@@ -94,11 +101,7 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                 return_stats[key+('losses_intermediate',)][t] += p.production_intermediate[commodity][t] * (1 - intermediate_recovery)
                 return_stats[key+('losses_commodity',)][t] += ore * grade_dict_list[t][-1] - p.production_intermediate[commodity][t] + p.production_intermediate[commodity][t] * (1 - intermediate_recovery)
 
-                if t in p.expansion:
-                    # In the year a mine depletes, p.production_ore[t] exists, but not p.expansion[t]
-                    # Also somehow p.expansion[t] might not exist in initial year, despite p.production_ore[t] existing.
-                    # Using try-except here would be slightly faster than if statement.
-                    return_stats[key + ('brownfield_expansion_ore_content',)][t] += p.expansion[t] * grade_dict_list[t][-1]
+
 
     if commodity != 'ALL':
         # Median grade processing

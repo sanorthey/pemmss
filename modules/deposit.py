@@ -49,7 +49,9 @@ class Mine:
                    | Where balanced = 1 indicates demand for this commodity can trigger mine supply
                    | Where balanced = 0 indicates demand for this commodity cannot trigger mine supply
     Mine.remaining_resource | Size of the remaining mineral resource, ore basis
-    Mine.grade | Dictionary of commodity ore grades. Ratio of total ore mass. {commodity: grade}
+    Mine.grade | Dictionary of current remaining resource ore grade for each commodity. Ratio of total ore mass. {commodity: grade}
+    Mine.initial_grade | Dictionary of initial resource ore grade for each commodity. Ratio of total ore mass. {commodity: grade}
+    Mine.grade_timeseries | Dictionary of grade of produced ore. Ratio of total ore mass. {commodity: {t: grade}}
     Mine.recovery | Dictionary of commodity recoveries. Ratio of total ore content. {commodity: recovery}
     Mine.production_capacity | Maximum extraction rate per period, ore basis.
     Mine.status | Already Produced in Time Period = 2
@@ -89,8 +91,8 @@ class Mine:
     Mine.resource_expansion(year)
     """
     __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
-                 'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'recovery',
-                 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
+                 'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
+                 'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
                  'expansion_contained', 'status', 'initial_status', 'value', 'discovery_year',
                  'start_year', 'production_ore', 'brownfield_tonnage', 'brownfield_grade',
                  'end_year', 'value_factors', 'aggregation', 'key_set')
@@ -109,6 +111,7 @@ class Mine:
         self.initial_resource = remaining_resource
         self.grade = {commodity: grade}
         self.initial_grade = {commodity: grade}
+        self.grade_timeseries = {commodity: {}}
         self.recovery = {commodity: recovery}
         self.production_capacity = production_capacity
         self.status = status
@@ -157,6 +160,7 @@ class Mine:
         self.commodity.update({add_commodity: int(is_balanced)})
         self.grade.update({add_commodity: float(add_grade)})
         self.initial_grade.update({add_commodity: float(add_grade)})
+        self.grade_timeseries.update({add_commodity: {}})
         self.recovery.update({add_commodity: float(add_recovery)})
         self.brownfield_grade.update({add_commodity: float(add_brownfield_grade)})
         self.value_factors.update({add_commodity: add_value_factors})
@@ -208,6 +212,13 @@ class Mine:
                 return self.initial_grade
             elif get_commodity in self.commodity:
                 return self.initial_grade[get_commodity]
+        elif variable == "grade_timeseries":
+            if get_commodity is None:
+                return self.grade_timeseries
+            elif get_commodity in self.commodity:
+                return self.grade_timeseries[get_commodity]
+            else:
+                return {}
         elif variable == 'recovery':
             if get_commodity is None:
                 return self.recovery
@@ -436,6 +447,7 @@ class Mine:
 
             # Convert ore production to commodity production
             for c in self.production_intermediate:
+                self.grade_timeseries[c][year] = self.grade[c]
                 if self.value[c] >= 0:
                     # Recovery of c generates positive or neutral value
                     self.production_intermediate[c][year] = self.production_ore[year]*self.recovery[c]*self.grade[c]
