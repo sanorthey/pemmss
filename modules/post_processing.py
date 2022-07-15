@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Module with routines for post_processing of results data.
     merge_scenarios()
@@ -295,7 +294,6 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
     # Final figure format
     if title in g_formatting:
-        print(g_formatting[title])
         if g_formatting[title]['title_suppress'] is False:
             fig.suptitle(g_formatting[title]['title_text'])
     else:
