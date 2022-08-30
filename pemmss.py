@@ -226,14 +226,18 @@ def scenario(i, constants):
             # Update project variables and exploration_production_factors for timeseries overrides in input_exploration_production_factors_timeseries.csv
             # Update project value if enabled
             # P5
-            factors = deposit.update_exploration_production_factors(factors, timeseries_exploration_production_factors_updates[year_current])
-            if parameters['update_values'] == 1:
-                for p in projects:
-                    p.update_by_region_deposit_type(timeseries_project_updates[year_current], log_file=log)
-                    p.value_update(log_file=log)
-            else:
-                for p in projects:
-                    p.update_by_region_deposit_type(timeseries_project_updates[year_current], log_file=log)
+            # TODO - Optimisation. Modify imports so year_current always in timeseries_exploration_production_factors_updates
+            if year_current in timeseries_exploration_production_factors_updates:
+                factors = deposit.update_exploration_production_factors(factors, timeseries_exploration_production_factors_updates[year_current])
+            # TODO - Optimisation. Modify imports so year_current always in timeseries_project_updates
+            if year_current in timeseries_project_updates:
+                if parameters['update_values'] == 1:
+                    for p in projects:
+                        p.update_by_region_deposit_type(timeseries_project_updates[year_current], log_file=log)
+                        p.value_update(log_file=log)
+                else:
+                    for p in projects:
+                        p.update_by_region_deposit_type(timeseries_project_updates[year_current], log_file=log)
 
             # Background greenfield discovery
             # P6
