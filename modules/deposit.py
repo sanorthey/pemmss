@@ -759,16 +759,17 @@ def value_model(value_factors, ore, ore_grade, recovery, log_file=None):
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
 
 
-def capacity_generate(resource_tonnage, a, b, minimum, maximum):
+def capacity_generate(resource_tonnage, a, b, minimum_life, maximum_life):
     """
     Returns a production capacity based upon the taylor rule factors in input_exploration_production_factors.csv
-    production_capacity = a * resource_tonnage ** b, constrained to between min and max
+    production_capacity = a * resource_tonnage ** b, constrained to between the min and max mine life
     """
     production_capacity = a * resource_tonnage ** b
-    if production_capacity < minimum:
-        production_capacity = minimum
-    elif production_capacity > maximum:
-        production_capacity = maximum
+    mine_life = resource_tonnage / production_capacity
+    if mine_life < minimum_life:
+        production_capacity = resource_tonnage / minimum_life
+    elif mine_life > maximum_life:
+        production_capacity = resource_tonnage / maximum_life
 
     return production_capacity
 
