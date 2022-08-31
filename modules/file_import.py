@@ -254,16 +254,16 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 remaining_resource = float(row['REMAINING_RESOURCE'])
             if row['RECOVERY'] == "":
                 no_recovery += 1
-                recovery = float(f['default_recovery'][index])
+                recovery = float(f['recovery'][index])
             else:
                 recovery = float(row['RECOVERY'])
             if row['PRODUCTION_CAPACITY'] == "":
                 no_production_capacity += 1
                 production_capacity = deposit.capacity_generate(remaining_resource,
-                                                                f['taylor_a'][index],
-                                                                f['taylor_b'][index],
-                                                                f['taylor_min'][index],
-                                                                f['taylor_max'][index])
+                                                                f['capacity_a'][index],
+                                                                f['capacity_b'][index],
+                                                                f['life_min'][index],
+                                                                f['life_max'][index])
             else:
                 production_capacity = float(row['PRODUCTION_CAPACITY'])
             if row['STATUS'] == "":
@@ -441,7 +441,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                                         g = float(row['COPRODUCT_GRADE'])
                                     if row['COPRODUCT_RECOVERY'] == '':
                                         # Use default coproduct recovery for the region and deposit type
-                                        r = float(f['coproduct_default_recovery'][index][x])
+                                        r = float(f['coproduct_recovery'][index][x])
                                         generated_recovery += 1
                                     else:
                                         # Use inputted coproduct recovery
@@ -478,7 +478,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                             c = f['coproduct_commodity'][index][x]
                             if c != '':
                                 g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)
-                                r = float(f['coproduct_default_recovery'][index][x])
+                                r = float(f['coproduct_recovery'][index][x])
                                 st = float(f['coproduct_supply_trigger'][index][x])
                                 bgf = float(f['coproduct_brownfield_grade_factor'][index][x])
                                 vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
@@ -514,21 +514,21 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
 
     Files will be copied to copy_path_folder if specified.
 
-    Expected csv format: header is import_factors.keys.upper()
+    Expected csv format: header is imported_factors.keys.upper(), excluding 'lookup_table' key.
     For column description see in-line comments.
     """
     imported_factors = {'index': [], 'weighting': [], 'region': [], 'deposit_type': [], 'commodity_primary': [],
                         'grade_model': [], 'grade_a': [], 'grade_b': [], 'grade_c': [], 'grade_d': [],
                         'tonnage_model': [], 'tonnage_a': [], 'tonnage_b': [], 'tonnage_c': [], 'tonnage_d': [],
                         'brownfield_tonnage_factor': [], 'brownfield_grade_factor': [],
-                        'taylor_a': [], 'taylor_b': [], 'taylor_min': [], 'taylor_max': [],
-                        'default_recovery': [],
+                        'capacity_a': [], 'capacity_b': [], 'life_min': [], 'life_max': [],
+                        'recovery': [],
                         'revenue_model': [], 'revenue_a': [], 'revenue_b': [], 'revenue_c': [], 'revenue_d': [],
                         'cost_model': [], 'cost_a': [], 'cost_b': [], 'cost_c': [], 'cost_d': [],
                         'mine_cost_model': [], 'mine_cost_a': [], 'mine_cost_b': [], 'mine_cost_c': [], 'mine_cost_d': [],
                         'development_period': [], 'coproduct_commodity': [],
                         'coproduct_grade_model': [], 'coproduct_a': [], 'coproduct_b': [], 'coproduct_c': [], 'coproduct_d': [],
-                        'coproduct_default_recovery': [], 'coproduct_supply_trigger': [], 'coproduct_brownfield_grade_factor': [],
+                        'coproduct_recovery': [], 'coproduct_supply_trigger': [], 'coproduct_brownfield_grade_factor': [],
                         'coproduct_revenue_model': [], 'coproduct_revenue_a': [], 'coproduct_revenue_b': [], 'coproduct_revenue_c': [], 'coproduct_revenue_d': [],
                         'coproduct_cost_model': [], 'coproduct_cost_a': [], 'coproduct_cost_b': [], 'coproduct_cost_c': [], 'coproduct_cost_d': [],
                         'lookup_table': {}}
@@ -554,11 +554,11 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['tonnage_d'].append(float(row['TONNAGE_D']))  # value, see model parameter in deposit.tonnage_generate()
             imported_factors['brownfield_tonnage_factor'].append(float(row['BROWNFIELD_TONNAGE_FACTOR']))  # Ratio of remaining resource added each time period, float, see deposit.Mine.resource_expansion()
             imported_factors['brownfield_grade_factor'].append(float(row['BROWNFIELD_GRADE_FACTOR']))  # Ratio, grade adjuster for added ore, float, see deposit.Mine.resource_expansion()
-            imported_factors['taylor_a'].append(float(row['TAYLOR_A']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
-            imported_factors['taylor_b'].append(float(row['TAYLOR_B']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
-            imported_factors['taylor_min'].append(float(row['TAYLOR_MIN']))  # float, minimum production capacity, see deposit.capacity_generate()
-            imported_factors['taylor_max'].append(float(row['TAYLOR_MAX']))  # float, maximum production capacity, see deposit.capacity_generate()
-            imported_factors['default_recovery'].append(float(row['DEFAULT_RECOVERY']))  # Ratio, mine recovery for commodity_primary
+            imported_factors['capacity_a'].append(float(row['CAPACITY_A']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
+            imported_factors['capacity_b'].append(float(row['CAPACITY_B']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
+            imported_factors['life_min'].append(float(row['LIFE_MIN']))  # float, minimum mine life, see deposit.capacity_generate()
+            imported_factors['life_max'].append(float(row['LIFE_MAX']))  # float, maximum mine life, see deposit.capacity_generate()
+            imported_factors['recovery'].append(float(row['RECOVERY']))  # Ratio, mine recovery for commodity_primary
             imported_factors['revenue_model'].append(row['REVENUE_MODEL'])  # string, corresponding to models in deposit.value_model()
             imported_factors['revenue_a'].append(float(row['REVENUE_A']))  # value, see model parameter in deposit.value_model()
             imported_factors['revenue_b'].append(float(row['REVENUE_B']))  # value, see model parameter in deposit.value_model()
@@ -581,7 +581,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['coproduct_b'].extend([row['COPRODUCT_B'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
             imported_factors['coproduct_c'].extend([row['COPRODUCT_C'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
             imported_factors['coproduct_d'].extend([row['COPRODUCT_D'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
-            imported_factors['coproduct_default_recovery'].extend([row['COPRODUCT_DEFAULT_RECOVERY'].split(';')])  # mine recovery as a ratio, floats separated by semicolons for each commodity, don't include whitespace
+            imported_factors['coproduct_recovery'].extend([row['COPRODUCT_RECOVERY'].split(';')])  # mine recovery as a ratio, floats separated by semicolons for each commodity, don't include whitespace
             imported_factors['coproduct_supply_trigger'].extend([row['COPRODUCT_SUPPLY_TRIGGER'].split(';')])  # 1 or 0 separated by semicolons for each commodity
             imported_factors['coproduct_brownfield_grade_factor'].extend([row['COPRODUCT_BROWNFIELD_GRADE_FACTOR'].split(';')])  # values separated by semicolons for each commodity
             imported_factors['coproduct_revenue_model'].extend([row['COPRODUCT_REVENUE_MODEL'].split(';')])  # strings separated by semicolons for each commodity, don't include whitespace, corresponding to models in deposit.value_model()

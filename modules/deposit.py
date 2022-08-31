@@ -546,10 +546,10 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     tonnage = tonnage_generate(f['tonnage_model'][index], tonnage_factors, grade, log_file=log_file)
 
     # Lookup default recovery factor for deposit type
-    recovery = f['default_recovery'][index]
+    recovery = f['recovery'][index]
 
-    # Estimate supply capacity, check that within min and max
-    capacity = capacity_generate(tonnage, f['taylor_a'][index], f['taylor_b'][index], f['taylor_min'][index], f['taylor_max'][index])
+    # Estimate supply capacity, check that within mine life constraints
+    capacity = capacity_generate(tonnage, f['capacity_a'][index], f['capacity_b'][index], f['life_min'][index], f['life_max'][index])
 
     # Generate Value
     generated_value = value_generate(value_factors, tonnage, {commodity: grade}, {commodity: recovery}, log_file=log_file)
@@ -574,7 +574,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
             c = f['coproduct_commodity'][index][x]
             if c != '':
                 g = coproduct_grade_generate(new_project, f, index, x, log_file=log_file)
-                r = f['coproduct_default_recovery'][index][x]
+                r = f['coproduct_recovery'][index][x]
                 st = f['coproduct_supply_trigger'][index][x]
                 bgf = f['coproduct_brownfield_grade_factor'][index][x]
                 vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
