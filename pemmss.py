@@ -247,10 +247,10 @@ def scenario(i, constants):
             # P7
             if parameters['priority_active'] == 1:
                 # Sort then prioritise existing mines
-                projects.sort(key=lambda x: x.value['ALL'])
+                projects.sort(key=lambda x: x.value['ALL'], reverse=True)
                 projects.sort(key=lambda x: x.status, reverse=True)
             else:
-                projects.sort(key=lambda x: x.value['ALL'])
+                projects.sort(key=lambda x: x.value['ALL'], reverse=True)
 
             # Commodity Supply-Demand Balance Algorithm
             # P8
