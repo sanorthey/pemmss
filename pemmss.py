@@ -226,10 +226,8 @@ def scenario(i, constants):
             # Update project variables and exploration_production_factors for timeseries overrides in input_exploration_production_factors_timeseries.csv
             # Update project value if enabled
             # P5
-            # TODO - Optimisation. Modify imports so year_current always in timeseries_exploration_production_factors_updates
             if year_current in timeseries_exploration_production_factors_updates:
                 factors = deposit.update_exploration_production_factors(factors, timeseries_exploration_production_factors_updates[year_current])
-            # TODO - Optimisation. Modify imports so year_current always in timeseries_project_updates
             if year_current in timeseries_project_updates:
                 if parameters['update_values'] == 1:
                     for p in projects:
