@@ -824,7 +824,21 @@ def update_exploration_production_factors(factors, updates):
     """
     for r in updates:
         for d in updates[r]:
-            index = factors['lookup_table'][r][d]
+            # Build a set of factor indexes to be updates
+            # Check if update for "ALL" regions or deposit types
+            index_set = set()
+            if r == "ALL" and d == "ALL":
+                for reg in factors['lookup_table']:
+                    for dep in factors['lookup_table'][reg]:
+                        index_set.add(factors['lookup_table'][reg][dep])
+            elif r == "ALL":
+                for reg in factors['lookup_table']:
+                    index_set.add(factors['lookup_table'][reg][d])
+            elif d == "ALL":
+                for dep in factors['lookup_table'][r]:
+                    index_set.add(factors['lookup_table'][r][dep])
+            else:
+                index_set.add(factors['lookup_table'][r][d])
             for v in updates[r][d]:
                 for c in updates[r][d][v]:
                     if c == '':
@@ -832,9 +846,11 @@ def update_exploration_production_factors(factors, updates):
                         if len(variable_split) == 1:
                             # Attempt to convert to float, otherwise store as string.
                             try:
-                                factors[v][index] = float(variable_split[0])
+                                for i in index_set:
+                                    factors[v][i] = float(variable_split[0])
                             except:
-                                factors[v][index] = variable_split[0]
+                                for i in index_set:
+                                    factors[v][i] = variable_split[0]
                         else:
                             variable_rebuilt = []
                             # Attempt to convert values to floats
@@ -843,16 +859,19 @@ def update_exploration_production_factors(factors, updates):
                                     variable_rebuilt.append(float(variable_split[x]))
                                 except:
                                     variable_rebuilt.append(variable_split[x])
-                            factors[v][index] = variable_rebuilt
+                            for i in index_set:
+                                factors[v][i] = variable_rebuilt
                     else:
                         # Replicated incase ever want to add functionality for selective changes to a commodities values. This section would need modifying to allow that.
                         # Should work but not tested.
                         variable_split = updates[r][d][v][c].split(';')
                         if len(variable_split) == 1:
                             try:
-                                factors[v][index][c] = float(variable_split[0])
+                                for i in index_set:
+                                    factors[v][i][c] = float(variable_split[0])
                             except:
-                                factors[v][index][c] = variable_split[0]
+                                for i in index_set:
+                                    factors[v][i][c] = variable_split[0]
                         else:
                             variable_rebuilt = []
                             for x in range(0, len(variable_split)):
@@ -860,5 +879,6 @@ def update_exploration_production_factors(factors, updates):
                                     variable_rebuilt.append(float(variable_split[x]))
                                 except:
                                     variable_rebuilt.append(variable_split[x])
-                            factors[v][index][c] = variable_rebuilt
+                            for i in index_set:
+                                factors[v][i][c] = variable_rebuilt
     return factors
