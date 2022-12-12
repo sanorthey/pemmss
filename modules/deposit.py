@@ -320,43 +320,81 @@ class Mine:
               overridden in the time loop by the models defined in Mine.value_factors.
         - If wanting to update grades in both Mine objects and exploration_production_factors then best to have separate
               inputs in input_exploration_production_factors_timeseries.csv
+        - Update override / priority when using "ALL" wildcard
+                            1. [self.region][self.deposit_type] - Won't be overriden
+                            2. [self.region]["ALL"]
+                            3. ["ALL"][self.deposit_type]
+                            4. ["ALL"]["ALL"] - Will be overriden
         """
-        # Check if region and deposit type pair is present in update_factors
+        variables = {}
+        # Check if region and deposit_type pair is present in update_factors. "ALL" can be used as a wildcard also.
+        # Generate set of update variables
+        if "ALL" in update_factors.keys():
+            if "ALL" in update_factors["ALL"].keys():
+                variables.update(update_factors["ALL"]["ALL"])
+            if self.deposit_type in update_factors["ALL"].keys():
+                variables.update(update_factors["ALL"][self.deposit_type])
         if self.region in update_factors.keys():
+            if "ALL" in update_factors[self.region].keys():
+                variables.update(update_factors[self.region]["ALL"])
             if self.deposit_type in update_factors[self.region].keys():
+                variables.update(update_factors[self.region][self.deposit_type])
 
-                # Change the appropriate variables
-                variables = update_factors[self.region][self.deposit_type]
-                if 'production_capacity' in variables:
-                    self.production_capacity = float(variables['production_capacity'][''])
-                elif 'status' in variables:
-                    self.status = int(variables['status'][''])
-                elif 'value' in variables:
-                    # Unpack commodity structure
-                    for c in variables['value']:
-                        if c in self.value:
-                            self.value[c] = float(variables['value'][c])
-                        else:
-                            export_log('Attempted to update a project value for a non-existent project commodity. Variable update skipped.', output_path=log_file, print_on=0)
-                elif 'discovery_year' in variables:
-                    self.discovery_year = int(variables['discovery_year'][''])
-                elif 'start_year' in variables:
-                    self.start_year = int(variables['start_year'][''])
-                elif 'grade' in variables:
-                    # Unpack commodity structure
-                    for c in variables['grade']:
-                        if c in self.grade:
-                            self.grade[c] = float(variables['grade'][c])
-                        else:
-                            export_log('Attempted to update a project grade for a non-existent project commodity. Variable update skipped.', output_path=log_file, print_on=0)
-                elif 'recovery' in variables:
-                    for c in variables['recovery']:
-                        if c in self.recovery:
-                            self.recovery[c] = float(variables['recovery'][c])
-                        else:
-                            export_log('Attempted to update a project recovery for a non-existent project commodity. Variable update skipped.', output_path=log_file, print_on=0)
-                elif 'end_year' in variables:
-                    self.end_year = int(variables['end_year'][''])
+        self.update_variables(variables, log_file=log_file)
+
+
+    def update_variables(self, variables, log_file=None):
+        """
+        Mine.update_variables(variables)
+        Updates a Mine object variables based upon a passed dictionary.
+        variables = {variable: value OR {commodity: value}}
+
+        Variables that can be updated:
+            Mine.production_capacity
+            Mine.status
+            Mine.value
+            Mine.discovery_year
+            Mine.start_year
+            Mine.grade
+            Mine.recovery
+            Mine.end_year
+        """
+        if 'production_capacity' in variables:
+            self.production_capacity = float(variables['production_capacity'][''])
+        if 'status' in variables:
+            self.status = int(variables['status'][''])
+        if 'value' in variables:
+            # Unpack commodity structure
+            for c in variables['value']:
+                if c in self.value:
+                    self.value[c] = float(variables['value'][c])
+                else:
+                    export_log(
+                        'Attempted to update a project value for a non-existent project commodity. Variable update skipped.',
+                        output_path=log_file, print_on=0)
+        if 'discovery_year' in variables:
+            self.discovery_year = int(variables['discovery_year'][''])
+        if 'start_year' in variables:
+            self.start_year = int(variables['start_year'][''])
+        if 'grade' in variables:
+            # Unpack commodity structure
+            for c in variables['grade']:
+                if c in self.grade:
+                    self.grade[c] = float(variables['grade'][c])
+                else:
+                    export_log(
+                        'Attempted to update a project grade for a non-existent project commodity. Variable update skipped.',
+                        output_path=log_file, print_on=0)
+        if 'recovery' in variables:
+            for c in variables['recovery']:
+                if c in self.recovery:
+                    self.recovery[c] = float(variables['recovery'][c])
+                else:
+                    export_log(
+                        'Attempted to update a project recovery for a non-existent project commodity. Variable update skipped.',
+                        output_path=log_file, print_on=0)
+        if 'end_year' in variables:
+            self.end_year = int(variables['end_year'][''])
 
 
     def supply(self, ext_demand, year, ext_demand_commodity):
