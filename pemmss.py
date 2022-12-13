@@ -296,11 +296,15 @@ def scenario(i, constants):
                 else:
                     log_message.append('\nFinal unmet '+str(c)+' demand at end of '+str(year_current)+' = '+str(demand[c][year_current]))
 
-            # Reset project status for active mines. Note this must be done before the ranking algorithm, but after the supply and greenfield algorithms.
+            # Reset project status. Note this must be done before the ranking algorithm, but after the supply and greenfield algorithms.
             # P12
             for project in projects:
+                # Active mine status reset
                 if project.status == 2:
                     project.status = 1
+                # Deposits failing development probability test reset
+                if project.status == -3:
+                    project.status = 0
             
             # Brownfield Resource Expansion Algorithm
             # P13

@@ -59,6 +59,7 @@ class Mine:
                   Undeveloped = 0
                   Depleted = -1
                   Not valuable enough to mine = -2
+                  Development probability test failed = -3
     Mine.value | Dictionary of net recovery value for each commodity. Used to sequence mine supply.
     Mine.discovery_year | Year of deposit generation
     Mine.start_year | Year of first mine production
@@ -378,6 +379,7 @@ class Mine:
         Does the mine produce the demanded commodity?
         Does demand for this commodity trigger this mine's supply?
         Does the mine have a start year and has this been passed?
+        Has the mine passed the development probability test?
         Has the mine already produced during this time period?
 
         *** Updates ***
@@ -409,9 +411,15 @@ class Mine:
             return 0
 
         if self.status == 0:
-            # Record year of mine becoming active
-            self.status = 1
-            self.start_year = year
+            if self.development_probability < random.random():
+                # Mine development probability test
+                # Record year of mine becoming active
+                self.status = 1
+                self.start_year = year
+            else:
+                # Deposit failed the development probability test
+                self.status = -3
+                return 0
 
         if self.status == -1:
             # Mine is depleted
