@@ -526,7 +526,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'revenue_model': [], 'revenue_a': [], 'revenue_b': [], 'revenue_c': [], 'revenue_d': [],
                         'cost_model': [], 'cost_a': [], 'cost_b': [], 'cost_c': [], 'cost_d': [],
                         'mine_cost_model': [], 'mine_cost_a': [], 'mine_cost_b': [], 'mine_cost_c': [], 'mine_cost_d': [],
-                        'development_period': [], 'coproduct_commodity': [],
+                        'development_period': [], 'development_probability': [], 'coproduct_commodity': [],
                         'coproduct_grade_model': [], 'coproduct_a': [], 'coproduct_b': [], 'coproduct_c': [], 'coproduct_d': [],
                         'coproduct_recovery': [], 'coproduct_supply_trigger': [], 'coproduct_brownfield_grade_factor': [],
                         'coproduct_revenue_model': [], 'coproduct_revenue_a': [], 'coproduct_revenue_b': [], 'coproduct_revenue_c': [], 'coproduct_revenue_d': [],
@@ -575,6 +575,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['mine_cost_c'].append(float(row['MINE_COST_C']))  # value, see model parameter in deposit.value_model()
             imported_factors['mine_cost_d'].append(float(row['MINE_COST_D']))  # value, see model parameter in deposit.value_model()
             imported_factors['development_period'].append(int(row['DEVELOPMENT_PERIOD']))  # integer, minimum time period between discovery and production
+            imported_factors['development_probability'].append(float(row['DEVELOPMENT_PROBABILITY'])) # value (ratio), probability of deposit development when supply triggered in a given time period
             imported_factors['coproduct_commodity'].extend([row['COPRODUCT_COMMODITY'].split(';')])  # string separated by semicolons for each commodity, don't include whitespace
             imported_factors['coproduct_grade_model'].extend([row['COPRODUCT_GRADE_MODEL'].split(';')])  # strings separated by semicolons for each commodity, don't include whitespace, corresponding to models in deposit.grade_generate()
             imported_factors['coproduct_a'].extend([row['COPRODUCT_A'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
