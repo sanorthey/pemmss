@@ -312,6 +312,7 @@ class Mine:
         Mine.grade
         Mine.recovery
         Mine.end_year
+        Mine.development_probability
 
         Important Notes:
         - Cannot be used to add a new commodity. Use Mine.add_commodity() for this or insert '0' values for a commodity
@@ -358,6 +359,7 @@ class Mine:
             Mine.grade
             Mine.recovery
             Mine.end_year
+            Mine.development_probability
         """
         if 'production_capacity' in variables:
             self.production_capacity = float(variables['production_capacity'][''])
@@ -395,6 +397,8 @@ class Mine:
                         output_path=log_file, print_on=0)
         if 'end_year' in variables:
             self.end_year = int(variables['end_year'][''])
+        if 'development_probability' in variables:
+            self.development_probability = float(variables['development_probability'][''])
 
 
     def supply(self, ext_demand, year, ext_demand_commodity):
