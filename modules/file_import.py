@@ -138,6 +138,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
         STATUS               | integer, 1 or 0
         DISCOVERY_YEAR       | integer, optional
         START_YEAR           | integer, optional
+        DEVELOPMENT_PROBABILITY    | float, optional
         GRADE                | float, optional
         RECOVERY             | float, optional
         BROWNFIELD_TONNAGE_FACTOR  | float, optional
@@ -179,6 +180,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
     no_cost_model = 0
     no_discovery_year = 0
     no_start_year = 0
+    no_development_probability = 0
     no_brownfield_grade_factor = 0
     no_brownfield_tonnage_factor = 0
     # Open and generate projects from input_projects.csv
@@ -332,6 +334,10 @@ def import_projects(f, path, copy_path=None, log_path=None):
                     start_year = None
             else:
                 start_year = int(row['START_YEAR'])
+            if row['DEVELOPMENT_PROBABILITY'] == "":
+                no_development_probability += 1
+            else:
+                development_probability = float(row['DEVELOPMENT_PROBABILITY'])
             if row['BROWNFIELD_TONNAGE_FACTOR'] == "":
                 no_brownfield_tonnage_factor += 1
                 brownfield_tonnage = f['brownfield_tonnage_factor'][index]
@@ -357,7 +363,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
             imported_projects.append(
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
-                             start_year, brownfield_tonnage, brownfield_grade, value_factors, aggregation))
+                             start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation))
 
     if copy_path is not None:
         copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
@@ -378,6 +384,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
         export_log(str(no_value) + ' : value. Missing values assigned using the value, revenue and cost models for the specific region and deposit type.', output_path=log_path)
         export_log(str(no_discovery_year) + ' : discovery_year. Missing discovery year set to -9999', output_path=log_path)
         export_log(str(no_start_year) + ' : start_year. Missing start year left blank for inactive mines or set to -9999 for active mines', output_path=log_path)
+        export_log(str(no_development_probability) + ' : development_probability. Missing values from input_exploration_production_factors.csv', output_path=log_path)
         export_log(str(no_brownfield_grade_factor) + ' : brownfield_grade_factor. Missing values assigned from input_exploration_production_factors.csv', output_path=log_path)
         export_log(str(no_brownfield_tonnage_factor) + ' : brownfield_grade_factor. Missing values assigned from input_exploration_production_factors.csv', output_path=log_path)
 

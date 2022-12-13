@@ -94,13 +94,13 @@ class Mine:
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
                  'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
                  'expansion_contained', 'status', 'initial_status', 'value', 'discovery_year',
-                 'start_year', 'production_ore', 'brownfield_tonnage', 'brownfield_grade',
+                 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
                  'end_year', 'value_factors', 'aggregation', 'key_set')
 
     # Initialise mine variables
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
-                 status, value, discovery_year, start_year, brownfield_tonnage, brownfield_grade,
+                 status, value, discovery_year, start_year, development_probability, brownfield_tonnage, brownfield_grade,
                  value_factors, aggregation):
         self.id_number = id_number
         self.name = name
@@ -119,6 +119,7 @@ class Mine:
         self.value = value  # {'ALL': value, commodity: value}
         self.discovery_year = discovery_year
         self.start_year = start_year
+        self.development_probability = development_probability
         self.production_ore = {}
         self.production_intermediate = {commodity: {}}
         self.expansion = {}
@@ -239,6 +240,8 @@ class Mine:
             return self.discovery_year
         elif variable == 'start_year':
             return self.start_year
+        elif variable == 'development_probability':
+            return self.development_probability
         elif variable == 'production_ore':
             return self.production_ore
         elif variable == 'production_intermediate':
@@ -539,6 +542,8 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
 
     development_period = f['development_period'][index]
 
+    development_probability = f['development_probability'][index]
+
     # Generate an ore grade based upon the deposit type's grade distribution model.
     grade = grade_generate(f['grade_model'][index], grade_factors, log_file=log_file)
 
@@ -566,7 +571,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
 
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
-                       generated_value, discovery_time, start_time, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation)
+                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation)
 
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
