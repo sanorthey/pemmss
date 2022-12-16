@@ -628,8 +628,8 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
         KEYS                 | ACCEPTABLE INPUT VALUES
         UPDATE_PROJECTS      | 1 or 0. Indicates whether Mine objects with matching REGION and DEPOSIT_TYPE will be updated each time period.
         UPDATE_EXPLORATION_PRODUCTION_FACTORS  | 1 or 0. Indicates whether exploration_production_factors data structure will be updated each time period.
-        REGION               | string
-        DEPOSIT_TYPE         | string
+        REGION               | string or "ALL"
+        DEPOSIT_TYPE         | string or "ALL"
         VARIABLE             | string, variable to be updated
         COMMODITY            | string
         t0, t1, t2, ..., tn  | value to update to in year t
