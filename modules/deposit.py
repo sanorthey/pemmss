@@ -48,8 +48,12 @@ class Mine:
     Mine.commodity | Dictionary of commodities in the project {commodity: balanced}
                    | Where balanced = 1 indicates demand for this commodity can trigger mine supply
                    | Where balanced = 0 indicates demand for this commodity cannot trigger mine supply
+    # Todo: update Mine.remaining_resource definition
     Mine.remaining_resource | Size of the remaining mineral resource, ore basis
+    # Todo update Mine.grade_definition
     Mine.grade | Dictionary of current remaining resource ore grade for each commodity. Ratio of total ore mass. {commodity: grade}
+    # Todo: add Mine.current_tranche variable definition
+    # Todo: update Mine.initial_grade definition
     Mine.initial_grade | Dictionary of initial resource ore grade for each commodity. Ratio of total ore mass. {commodity: grade}
     Mine.grade_timeseries | Dictionary of grade of produced ore. Ratio of total ore mass. {commodity: {t: grade}}
     Mine.recovery | Dictionary of commodity recoveries. Ratio of total ore content. {commodity: recovery}
@@ -91,6 +95,7 @@ class Mine:
     Mine.supply(ext_demand,year,ext_demand_commodity)
     Mine.resource_expansion(year)
     """
+    # Todo: add to Mine.__slots__ 'current_tranche'
     __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
                  'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
@@ -99,6 +104,8 @@ class Mine:
                  'end_year', 'value_factors', 'aggregation', 'key_set')
 
     # Initialise mine variables
+    # Todo: add type hint for grade to be a list []
+    # Todo: add type hint for remaining_resource to be a list []
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
                  status, value, discovery_year, start_year, development_probability, brownfield_tonnage, brownfield_grade,
@@ -113,6 +120,7 @@ class Mine:
         self.grade = {commodity: grade}
         self.initial_grade = {commodity: grade}
         self.grade_timeseries = {commodity: {}}
+        # Todo: add self.current_tranche assignment in Mine.__init__()
         self.recovery = {commodity: recovery}
         self.production_capacity = production_capacity
         self.status = status
@@ -160,7 +168,9 @@ class Mine:
         update_value == True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
         """
         self.commodity.update({add_commodity: int(is_balanced)})
+        # Todo: modify add_commodity() self.grade assignment to handle grade tranches
         self.grade.update({add_commodity: float(add_grade)})
+        # Todo: modify add_commodity() self.initial_grade assignment to handle grade tranches
         self.initial_grade.update({add_commodity: float(add_grade)})
         self.grade_timeseries.update({add_commodity: {}})
         self.recovery.update({add_commodity: float(add_recovery)})
@@ -436,6 +446,7 @@ class Mine:
                 | 1 if mine did supply
 
         """
+        # Todo: Modify net value check in mine.supply() to be tranche specific
         if self.value['ALL'] < 0:
             # Deposit is not valuable enough to mine.
             self.status = -2
@@ -471,6 +482,7 @@ class Mine:
             return 0
         else:
             # Convert external demand into ore demand by accounting for recovery factors
+            # Todo: modify supply requirement calculation
             supply_requirement = ext_demand / self.grade[ext_demand_commodity] / self.recovery[ext_demand_commodity]
             if supply_requirement <= self.remaining_resource:
                 # Not resource constrained
@@ -501,6 +513,7 @@ class Mine:
             # Convert ore production to commodity production
             for c in self.production_intermediate:
                 self.grade_timeseries[c][year] = self.grade[c]
+                # Todo: modify commodity value check for tranches
                 if self.value[c] >= 0:
                     # Recovery of c generates positive or neutral value
                     self.production_intermediate[c][year] = self.production_ore[year]*self.recovery[c]*self.grade[c]
@@ -511,7 +524,7 @@ class Mine:
             # Return Mine as having supplied
             return 1
 
-
+    # Todo: modify resource_expansion() to add a tranche of ore and grade
     def resource_expansion(self, year):
         """
         Mine.resource_expansion(year)
@@ -521,6 +534,7 @@ class Mine:
         Grade of added ore = grade[commodity] * brownfield grade factor[commodity]
         """
         # Determine the amount of added ore
+        # Todo: modify resource_expansion() assignment of self.expansion to be based on the sum of grade tranches
         self.expansion[year] = self.remaining_resource * self.brownfield_tonnage
 
         expansion_grade = {}
@@ -532,9 +546,11 @@ class Mine:
             self.expansion_contained[c][year] = expansion_grade[c] * self.expansion[year]
 
             # Adjust grade of the remaining resource
+            # Todo: modify resource_expansion() assignment of self.grade[c] to handle grade tranches
             self.grade[c] = (self.grade[c] * self.remaining_resource + self.expansion_contained[c][year])/(self.remaining_resource + self.expansion[year])
 
         # Adjust size of the remaining resource
+        # Todo: modify resource_expansion() assignment of self.remaining_resources to handle ore tranches
         self.remaining_resource += self.expansion[year]
 
     def value_update(self, log_file=None):
@@ -645,7 +661,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
                 new_project.add_commodity(c, g, r, st, bgf, vf)
     return new_project
 
-
+# Todo: Modify grade_generate() to handle tranches and return a list
 def grade_generate(grade_model, factors, grade_dictionary={}, log_file=None):
     """
     grade_generate()
@@ -682,6 +698,7 @@ def grade_generate(grade_model, factors, grade_dictionary={}, log_file=None):
         export_log('Invalid grade model ' + str(grade_model), output_path=log_file, print_on=1)
     return grade
 
+# Todo: Modify coproduct_grade_generate() to handle tranches and return a list
 def coproduct_grade_generate(project, factors, factor_index, commodity_index, log_file=None):
     """
     coproduct_grade_generate_
@@ -737,6 +754,9 @@ def lognormal_factors(value_list):
     standard_dev = stdev(log_transformed_list)
     return mu, standard_dev
 
+
+# Todo: modify value_generate() to handle tranche inputs
+# Todo: modify value_generate() to return value tranche list
 def value_generate(value_factors, ore, ore_grade, recovery, log_file=None):
     """
     value_generate()

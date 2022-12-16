@@ -75,6 +75,7 @@ def import_parameters(path, copy_path=None, log_path=None):
 
     Files will be copied to copy_path_folder if specified.
 
+    # Todo: Add PRIORITY_TRANCHE to expected input_parameters.csv format
     Expected input csv format:
 
         KEYS              |   ACCEPTABLE INPUT VALUES
@@ -97,6 +98,7 @@ def import_parameters(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
+            # TODO: Add assignment of priority_tranche in import_parameters()
             imported_parameters.update({row['SCENARIO_NAME']: {'scenario_name': str(row['SCENARIO_NAME']),
                                                                'year_start': int(row['YEAR_START']),
                                                                'year_end': int(row['YEAR_END']),
@@ -235,6 +237,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 commodity = f['commodity_primary'][index]
             else:
                 commodity = row['COMMODITY']
+            # Todo: modify import_projects() to import grade tranches
             if row['GRADE'] == "":
                 no_grade += 1
                 grade = deposit.grade_generate(f['grade_model'][index], {'a': f['grade_a'][index],
@@ -244,6 +247,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                                                log_file=log_path)
             else:
                 grade = float(row['GRADE'])
+            # Todo: modify import_projects() to import resource tranches
             if row['REMAINING_RESOURCE'] == "":
                 no_remaining_resource += 1
                 remaining_resource = deposit.tonnage_generate(f['tonnage_model'][index],
@@ -439,6 +443,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                         for x in range(0, len(f['coproduct_commodity'][index])):
                             if len(f['coproduct_commodity'][index]) != 0:
                                 if f['coproduct_commodity'][index][x] == row['COPRODUCT_COMMODITY']:
+                                    # Todo: modify import_project_coproducts() to import grade tranches
                                     if row['COPRODUCT_GRADE'] == '':
                                         # Generate grade from the region and deposit type grade model
                                         g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)

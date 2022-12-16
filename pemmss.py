@@ -4,7 +4,7 @@ Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
 Developed by Stephen A. Northey
 in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco
 For further information email:
-    stephen.northey@uts.edu.au or stephen.northey@gmail.com
+    stephen.northey@uts.edu.au
 
 This scenario model evaluates the rates of mine development, mineral exploration
 and co-product recovery required to meet primary demand over-time.
@@ -245,8 +245,10 @@ def scenario(i, constants):
 
             # Priority Ranking Algorithm
             # P7
+            # Todo: add priority ranking algorithm option to sort by next tranche value, using global parameter priority_tranche and p.current_tranche
             if parameters['priority_active'] == 1:
                 # Sort then prioritise existing mines
+                # Todo: modify projects.sort() function to account for value tranches
                 projects.sort(key=lambda x: x.value['ALL'], reverse=True)
                 projects.sort(key=lambda x: x.status, reverse=True)
             else:
