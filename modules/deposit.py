@@ -26,6 +26,7 @@ Module with data structures and functions for handling deposit data
 
 # Import standard packages
 import random
+import copy
 from collections import defaultdict
 from math import log
 from statistics import mean, stdev
@@ -115,14 +116,14 @@ class Mine:
         self.commodity = {commodity: 1}  # All Mine objects should have at least one balanced commodity.
         self.remaining_resource = remaining_resource  # List of ore tranches {c: [tranche 0, tranche 1, etc.]}
         self.grade = {commodity: grade}  # List of grades for each ore tranche {c: [tranche 0, tranche 1, etc.]}
-        self.initial_resource = remaining_resource
-        self.initial_grade = {commodity: grade}
+        self.initial_resource = copy.deepcopy(self.remaining_resource)
+        self.initial_grade = copy.deepcopy(self.grade)
         self.grade_timeseries = {commodity: {}}
         self.current_tranche = 0
         self.recovery = {commodity: recovery}
         self.production_capacity = production_capacity
         self.status = status
-        self.initial_status = status
+        self.initial_status = copy.deepcopy(self.status)
         self.discovery_year = discovery_year
         self.start_year = start_year
         self.development_probability = development_probability
@@ -173,12 +174,12 @@ class Mine:
         # Note assumes all commodities would initially be added in the first year
         """
         self.commodity.update({add_commodity: int(is_balanced)})
-        self.grade.update({add_commodity: add_grade[tranche]})
-        self.initial_grade.update({add_commodity: add_grade})
+        self.grade.update({add_commodity: add_grade})
+        self.initial_grade.update(copy.deepcopy({add_commodity: add_grade}))
         self.grade_timeseries.update({add_commodity: {}})
         self.recovery.update({add_commodity: float(add_recovery)})
         self.brownfield_grade.update({add_commodity: float(add_brownfield_grade)})
-        self.value_factors[tranche].update({add_commodity: add_value_factors})
+        self.value_factors.update({add_commodity: add_value_factors})
         if update_value == True:
             self.value_update(log_file=log_file)
         self.production_intermediate.update({add_commodity: {}})
@@ -474,7 +475,7 @@ class Mine:
             return 0
 
         if self.status == 0:
-            if self.development_probability < random.random():
+            if random.random() <= self.development_probability:
                 # Mine development probability test
                 # Record year of mine becoming active
                 self.status = 1
@@ -494,7 +495,8 @@ class Mine:
             demand_residual = ext_demand
             production_capacity_residual = self.production_capacity
             self.production_ore[year] = 0
-            production_ore_content = {c: 0 for c in self.production_intermediate}
+            production_ore_content = {c: float(0) for c in self.production_intermediate}
+            production_intermediate = {c: float(0) for c in self.production_intermediate}
 
             for tranche, _ in enumerate(self.remaining_resource):
                 if self.status != 2:
@@ -513,7 +515,7 @@ class Mine:
                             self.status = 2
                     else:
                         # Resource constrained
-                        if self.remaining_resource <= production_capacity_residual:
+                        if self.remaining_resource[tranche] <= production_capacity_residual:
                             # Not supply capacity constrained, resource will be fully depleted, supply requirements not fully met
                             tranche_production_ore = self.remaining_resource[tranche]
                             self.status = -1
@@ -527,31 +529,31 @@ class Mine:
                     self.production_ore[year] += tranche_production_ore
 
                     # Convert ore production to commodity production
-                    tranche_production_ore_content = {c: 0 for c in self.production_intermediate}
-                    tranche_production_intermediate = {c: 0 for c in self.production_intermediate}
+                    tranche_production_ore_content = {c: float(0) for c in self.production_intermediate}
+                    tranche_production_intermediate = {c: float(0) for c in self.production_intermediate}
                     for c in self.production_intermediate:
                         # Record mined ore content
                         tranche_production_ore_content[c] = tranche_production_ore * self.grade[c][tranche]
-                        production_ore_content[c] += tranche_production_ore_content
+                        production_ore_content[c] += tranche_production_ore_content[c]
                         # Extract intermediate commodities with a positive value
                         if marginal_recovery is False:
                             if self.value['ALL'][c] >= 0:
                                 # Recovery of c from this project generates positive or neutral value. c recovered from ore and supplied
                                 tranche_production_intermediate[c] = tranche_production_ore_content[c] * self.recovery[c]
-                                self.production_intermediate[c][year] += tranche_production_intermediate
+                                production_intermediate[c] += tranche_production_intermediate[c]
                         else:
                             if self.value[tranche][c] >= 0:
                                 # Recovery of c from this ore tranche generates positive or neutral value. c recovered from ore and supplied
                                 tranche_production_intermediate[c] = tranche_production_ore_content[c] * self.recovery[c]
-                                self.production_intermediate[c][year] += tranche_production_intermediate
+                                production_intermediate[c] += tranche_production_intermediate[c]
 
                     # Adjust residuals for next tranche
                     production_capacity_residual -= tranche_production_ore
                     demand_residual -= tranche_production_intermediate[ext_demand_commodity]
-
            # Record mined ore grade
             for c in production_ore_content:
                 self.grade_timeseries[c][year] = production_ore_content[c] / self.production_ore[year]
+                self.production_intermediate[c][year] = production_intermediate[c]
 
             # Return Mine as having supplied
             return 1
@@ -584,7 +586,9 @@ class Mine:
         # Add ore tranche to the remaining resource
         self.remaining_resource.append(self.expansion[year])
 
-        self.value.append(self.value[-1])
+        last_tranche = len(self.remaining_resource) - 2
+
+        self.value.update({last_tranche + 1: self.value[last_tranche]})
 
     def value_update(self, log_file=None):
         """
@@ -594,8 +598,8 @@ class Mine:
         """
         self.value['ALL'] = defaultdict(float)
 
-        for tranche, ore in enumerate(self.remaining_resource):
-            tranche_value_dict = value_generate(self.value_factors, ore, self.grade[tranche], self.recovery, log_file=log_file)
+        for tranche, _ in enumerate(self.remaining_resource):
+            tranche_value_dict = value_generate(self.value_factors, self.remaining_resource, self.grade, self.recovery, tranche=tranche, log_file=log_file)
             self.value.update({tranche: tranche_value_dict})
             for c in tranche_value_dict:  # should include 'ALL'
                 self.value['ALL'][c] += tranche_value_dict[c]
@@ -660,10 +664,10 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     recovery = f['recovery'][index]
 
     # Estimate supply capacity, check that within mine life constraints
-    capacity = capacity_generate(tonnage, f['capacity_a'][index], f['capacity_b'][index], f['life_min'][index], f['life_max'][index])
+    capacity = capacity_generate(tonnage[0], f['capacity_a'][index], f['capacity_b'][index], f['capacity_sigma'][index], f['life_min'][index], f['life_max'][index])
 
     # Generate Value
-    value = value_generate(value_factors, tonnage[0], {commodity: grade[0]}, {commodity: recovery}, log_file=log_file)
+    value = value_generate(value_factors, tonnage, {commodity: grade}, {commodity: recovery}, tranche=0, log_file=log_file)
     generated_value = {'ALL': value,
                        0: value}
 
@@ -686,7 +690,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
         if len(f['coproduct_commodity'][index]) != 0:
             c = f['coproduct_commodity'][index][x]
             if c != '':
-                g = [coproduct_grade_generate(new_project, f, index, x, log_file=log_file)]
+                g = coproduct_grade_generate(new_project, f, index, x, log_file=log_file)
                 r = f['coproduct_recovery'][index][x]
                 st = f['coproduct_supply_trigger'][index][x]
                 bgf = f['coproduct_brownfield_grade_factor'][index][x]
@@ -704,7 +708,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     return new_project
 
 
-def grade_generate(grade_model, factors, grade_dictionary={}, log_file=None):
+def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_file=None):
     """
     grade_generate()
     Returns a mass ratio of commodity mass to total mass of the ore deposit, generated in accordance with defined grade
@@ -729,7 +733,7 @@ def grade_generate(grade_model, factors, grade_dictionary={}, log_file=None):
         grade = float(a)
     elif grade_model == "multiple":
         # Multiple of main commodity grade | 'a' = commodity name, 'b' = grade multiplier, grade_dictionary = {commodity: value}
-        grade = grade_dictionary[a] * float(b)
+        grade = grade_dictionary[a][tranche] * float(b)
     elif grade_model == "lognormal":
         # Lognormal grade distribution
         # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
@@ -758,7 +762,9 @@ def coproduct_grade_generate(project, factors, factor_index, commodity_index, lo
          'b': factors['coproduct_b'][factor_index][commodity_index],
          'c': factors['coproduct_c'][factor_index][commodity_index],
          'd': factors['coproduct_d'][factor_index][commodity_index]}
-    grade = grade_generate(grade_model, f, project.grade, log_file)
+    grade = []
+    for tranche in project.remaining_resource:
+        grade.append(grade_generate(grade_model, f, project.grade, tranche=tranche, log_file=log_file))
     return grade
 
 
@@ -797,7 +803,7 @@ def lognormal_factors(value_list):
     return mu, standard_dev
 
 
-def value_generate(value_factors, ore, ore_grade, recovery, log_file=None):
+def value_generate(value_factors, resource, ore_grade, recovery, tranche=int(0), log_file=None):
     """
     value_generate()
     Generates net value based upon the current Mine object variables and value model.
@@ -815,16 +821,18 @@ def value_generate(value_factors, ore, ore_grade, recovery, log_file=None):
 
         # Check for 'MINE' costs to avoid passing c to ore_grade and recovery.
         if c == 'MINE':
+            res = resource
             grade = ore_grade
             rec = recovery
         else:
-            grade = ore_grade[c]
+            res = resource[tranche]
+            grade = ore_grade[c][tranche]
             rec = recovery[c]
 
         # Loop through revenue and cost models
         for k in value_factors[c]:
 
-            value = (value_model(value_factors[c][k], ore, grade, rec, log_file=log_file))
+            value = (value_model(value_factors[c][k], res, grade, rec, log_file=log_file))
             if k == "revenue":
                 return_value[c] += value
                 return_value['ALL'] += value

@@ -268,7 +268,7 @@ def scenario(i, constants):
                             break
 
                         # Determine intermediate supply for all the project's commodities. Note project will not supply for certain project.status values.
-                        supplied = project.supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=factors['marginal_recovery'])
+                        supplied = project.supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                         # Subtract supply from demand for all commodities produced by the project.
                         if supplied == 1:
                             for p_commodity in project.commodity:
@@ -283,7 +283,7 @@ def scenario(i, constants):
                         while demand[c][year_current] > demand[c]['demand_threshold']:
                             projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1))
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
-                            supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=factors['marginal_recovery'])
+                            supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                             if supplied == 1:
                                 for p_commodity in projects[-1].commodity.keys():
                                     demand[p_commodity][year_current] -= projects[-1].production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']

@@ -265,7 +265,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 recovery = float(row['RECOVERY'])
             if row['PRODUCTION_CAPACITY'] == "":
                 no_production_capacity += 1
-                production_capacity = deposit.capacity_generate(remaining_resource,
+                production_capacity = deposit.capacity_generate(sum([remaining_resource[x] for x in f['capacity_basis'][index]]),
                                                                 f['capacity_a'][index],
                                                                 f['capacity_b'][index],
                                                                 f['capacity_sigma'][index],
@@ -454,7 +454,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                                 if f['coproduct_commodity'][index][x] == row['COPRODUCT_COMMODITY']:
                                     if row['COPRODUCT_GRADE'] == '':
                                         # Generate grade from the region and deposit type grade model
-                                        g = [deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)]
+                                        g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)
                                         generated_grades += 1
                                     else:
                                         # Use inputted coproduct grade
@@ -497,7 +497,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                         if len(f['coproduct_commodity'][index]) != 0:
                             c = f['coproduct_commodity'][index][x]
                             if c != '':
-                                g = [deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)]
+                                g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)
                                 r = float(f['coproduct_recovery'][index][x])
                                 st = float(f['coproduct_supply_trigger'][index][x])
                                 bgf = float(f['coproduct_brownfield_grade_factor'][index][x])
@@ -541,6 +541,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'grade_model': [], 'grade_a': [], 'grade_b': [], 'grade_c': [], 'grade_d': [],
                         'tonnage_model': [], 'tonnage_a': [], 'tonnage_b': [], 'tonnage_c': [], 'tonnage_d': [],
                         'brownfield_tonnage_factor': [], 'brownfield_grade_factor': [],
+                        'capacity_basis': [],
                         'capacity_a': [], 'capacity_b': [], 'capacity_sigma': [], 'life_min': [], 'life_max': [],
                         'recovery': [],
                         'revenue_model': [], 'revenue_a': [], 'revenue_b': [], 'revenue_c': [], 'revenue_d': [],
@@ -574,6 +575,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['tonnage_d'].append(float(row['TONNAGE_D']))  # value, see model parameter in deposit.tonnage_generate()
             imported_factors['brownfield_tonnage_factor'].append(float(row['BROWNFIELD_TONNAGE_FACTOR']))  # Ratio of remaining resource added each time period, float, see deposit.Mine.resource_expansion()
             imported_factors['brownfield_grade_factor'].append(float(row['BROWNFIELD_GRADE_FACTOR']))  # Ratio, grade adjuster for added ore, float, see deposit.Mine.resource_expansion()
+            imported_factors['capacity_basis'].append([int(x) for x in row['CAPACITY_BASIS'].split(';')])  # integer values separated by semicolons for each resource tranche to include in production capacity estimation
             imported_factors['capacity_a'].append(float(row['CAPACITY_A']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
             imported_factors['capacity_b'].append(float(row['CAPACITY_B']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
             imported_factors['capacity_sigma'].append(float(row['CAPACITY_SIGMA']))  # float, standard deviation, see deposit.capacity_generate()
