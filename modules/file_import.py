@@ -268,6 +268,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 production_capacity = deposit.capacity_generate(remaining_resource,
                                                                 f['capacity_a'][index],
                                                                 f['capacity_b'][index],
+                                                                f['capacity_sigma'][index],
                                                                 f['life_min'][index],
                                                                 f['life_max'][index])
             else:
@@ -540,7 +541,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'grade_model': [], 'grade_a': [], 'grade_b': [], 'grade_c': [], 'grade_d': [],
                         'tonnage_model': [], 'tonnage_a': [], 'tonnage_b': [], 'tonnage_c': [], 'tonnage_d': [],
                         'brownfield_tonnage_factor': [], 'brownfield_grade_factor': [],
-                        'capacity_a': [], 'capacity_b': [], 'life_min': [], 'life_max': [],
+                        'capacity_a': [], 'capacity_b': [], 'capacity_sigma': [], 'life_min': [], 'life_max': [],
                         'recovery': [],
                         'revenue_model': [], 'revenue_a': [], 'revenue_b': [], 'revenue_c': [], 'revenue_d': [],
                         'cost_model': [], 'cost_a': [], 'cost_b': [], 'cost_c': [], 'cost_d': [],
@@ -575,6 +576,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['brownfield_grade_factor'].append(float(row['BROWNFIELD_GRADE_FACTOR']))  # Ratio, grade adjuster for added ore, float, see deposit.Mine.resource_expansion()
             imported_factors['capacity_a'].append(float(row['CAPACITY_A']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
             imported_factors['capacity_b'].append(float(row['CAPACITY_B']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
+            imported_factors['capacity_sigma'].append(float(row['CAPACITY_SIGMA']))  # float, standard deviation, see deposit.capacity_generate()
             imported_factors['life_min'].append(float(row['LIFE_MIN']))  # float, minimum mine life, see deposit.capacity_generate()
             imported_factors['life_max'].append(float(row['LIFE_MAX']))  # float, maximum mine life, see deposit.capacity_generate()
             imported_factors['recovery'].append(float(row['RECOVERY']))  # Ratio, mine recovery for commodity_primary

@@ -875,12 +875,16 @@ def value_model(value_factors, ore, ore_grade, recovery, log_file=None):
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
 
 
-def capacity_generate(resource_tonnage, a, b, minimum_life, maximum_life):
+def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life):
     """
-    Returns a production capacity based upon the taylor rule factors in input_exploration_production_factors.csv
-    production_capacity = a * resource_tonnage ** b, constrained to between the min and max mine life
+    Returns a production capacity based upon the taylor rule factors and uncertainty given input_exploration_production_factors.csv
+    production_capacity = random gaussian distribution (a * resource_tonnage ** b, sigma), constrained to between the min and max mine life
+
+    sigma = standard deviation
     """
-    production_capacity = a * resource_tonnage ** b
+    capacity_mean = a * resource_tonnage ** b
+    production_capacity = random.gauss(capacity_mean, sigma)
+
     mine_life = resource_tonnage / production_capacity
     if mine_life < minimum_life:
         production_capacity = resource_tonnage / minimum_life
