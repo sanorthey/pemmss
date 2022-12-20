@@ -75,21 +75,21 @@ def import_parameters(path, copy_path=None, log_path=None):
 
     Files will be copied to copy_path_folder if specified.
 
-    # Todo: Add PRIORITY_TRANCHE to expected input_parameters.csv format
     Expected input csv format:
-
-        KEYS              |   ACCEPTABLE INPUT VALUES
-        SCENARIO_NAME     |   No hard restrictions (best practice would be to keep short though)
-        YEAR_START        |   plot_subplot_default
-        YEAR_END          |   line, scatter, stacked, fill, fill_line
-        ITERATIONS        |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s)
-        BROWNFIELD_EXPLORATION_ON    |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s)
-        GREENFIELD_EXPLORATION_ON    |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
-        GREENFIELD_BACKGROUND        |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
-        PRIORITY_ACTIVE   |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
-        RANDOM_SEED       |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
-        GENERATE_ALL_COPRODUCTS      |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
-        UPDATE_VALUES     |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
+        KEYS              |   ACCEPTABLE INPUT VALUES    |   Definition
+        SCENARIO_NAME     |   string, must match scenario name in input_demand.csv
+        YEAR_START        |   integer, must correspond to initial time period in input_demand.csv
+        YEAR_END          |   integer, must correspond to last time period in input_demand.csv
+        ITERATIONS        |   integer              |   Number of times each scenario is repeated
+        BROWNFIELD_EXPLORATION_ON    |   1 or 0    |   Turns brownfield exploration on or off
+        GREENFIELD_EXPLORATION_ON    |   1 or 0    |   Turns demand-triggered greenfield deposit discovery on or off
+        GREENFIELD_BACKGROUND        |   integer   |   Number of background greenfield deposit discoveries per time period
+        PRIORITY_ACTIVE   |   1 or 0               |   Whether active mines can be prioritised ahead of undeveloped mines/deposits
+        PRIORITY_MARGINAL |   1 or 0               |   Determines whether mines/deposits are prioritised based on the marginal net value of the current_tranche or their overall net value
+        MARGINAL_RECOVERY |   1 or 0               |   Determines whether commodity recovery only occurs when there is a positive marginal recovery value of the current_tranche or by the overall recovery value
+        RANDOM_SEED       |   float or integer     |   Seeds random functions for reproduceability of results
+        GENERATE_ALL_COPRODUCTS      |   1 or 0    |   Whether to only add coproducts to those in input_projects_coproducts.csv or instead generate for all projects. See import_project_coproducts()
+        UPDATE_VALUES     |   1 or 0               |   Whether to update mine/deposit values at each timestep
 
     """
     imported_parameters = {}
@@ -98,7 +98,6 @@ def import_parameters(path, copy_path=None, log_path=None):
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
-            # TODO: Add assignment of priority_tranche in import_parameters()
             imported_parameters.update({row['SCENARIO_NAME']: {'scenario_name': str(row['SCENARIO_NAME']),
                                                                'year_start': int(row['YEAR_START']),
                                                                'year_end': int(row['YEAR_END']),
@@ -107,6 +106,8 @@ def import_parameters(path, copy_path=None, log_path=None):
                                                                'greenfield_exploration_on': int(row['GREENFIELD_EXPLORATION_ON']),
                                                                'greenfield_background': int(row['GREENFIELD_BACKGROUND']),
                                                                'priority_active': int(row['PRIORITY_ACTIVE']),
+                                                               'priority_marginal': int(row['PRIORITY_MARGINAL']),
+                                                               'marginal_recovery': int(row['MARGINAL_RECOVERY']),
                                                                'random_seed': float(row['RANDOM_SEED']),
                                                                'generate_all_coproducts': int(row['GENERATE_ALL_COPRODUCTS']),
                                                                'update_values': int(row['UPDATE_VALUES'])}})
@@ -135,17 +136,18 @@ def import_projects(f, path, copy_path=None, log_path=None):
         REGION               | string, optional
         DEPOSIT_TYPE         | string, optional
         COMMODITY            | string, optional
-        REMAINING_RESOURCE   | float, optional
+        REMAINING_RESOURCE   | float, tranches separated by ";", optional
         PRODUCTION_CAPACITY  | float, optional
         STATUS               | integer, 1 or 0
         DISCOVERY_YEAR       | integer, optional
         START_YEAR           | integer, optional
         DEVELOPMENT_PROBABILITY    | float, optional
-        GRADE                | float, optional
+        GRADE                | float, tranches separated by ";", optional
         RECOVERY             | float, optional
         BROWNFIELD_TONNAGE_FACTOR  | float, optional
         BROWNFIELD_GRADE_FACTOR    | float, optional
-        VALUE                | float, optional
+        VALUE_NET            | float, tranches separated by ";", optional, Note: will autogenerate if VALUE_RECOVERY_NET is not specified
+        VALUE_RECOVERY_NET   | float, tranches separated by ";", optional, Note: will autogenerate if VALUE_NET is not specified
         MINE_COST_MODEL      | string corresponding to models in deposit.value_model(), optional
         MINE_COST_A          | value corresponding to parameter in deposit.value_model(), optional
         MINE_COST_B          | value corresponding to parameter in deposit.value_model(), optional
@@ -237,27 +239,25 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 commodity = f['commodity_primary'][index]
             else:
                 commodity = row['COMMODITY']
-            # Todo: modify import_projects() to import grade tranches
             if row['GRADE'] == "":
                 no_grade += 1
-                grade = deposit.grade_generate(f['grade_model'][index], {'a': f['grade_a'][index],
+                grade = [deposit.grade_generate(f['grade_model'][index], {'a': f['grade_a'][index],
                                                                    'b': f['grade_b'][index],
                                                                    'c': f['grade_c'][index],
                                                                    'd': f['grade_d'][index]},
-                                               log_file=log_path)
+                                                log_file=log_path)]
             else:
-                grade = float(row['GRADE'])
-            # Todo: modify import_projects() to import resource tranches
+                grade = [float(x) for x in row['GRADE'].split(';')]
             if row['REMAINING_RESOURCE'] == "":
                 no_remaining_resource += 1
-                remaining_resource = deposit.tonnage_generate(f['tonnage_model'][index],
+                remaining_resource = [deposit.tonnage_generate(f['tonnage_model'][index],
                                                               {'a': f['tonnage_a'][index],
                                                                'b': f['tonnage_b'][index],
                                                                'c': f['tonnage_c'][index],
                                                                'd': f['tonnage_d'][index]},
-                                                              grade, log_file=log_path)
+                                                               grade, log_file=log_path)]
             else:
-                remaining_resource = float(row['REMAINING_RESOURCE'])
+                remaining_resource = [float(x) for x in row['REMAINING_RESOURCE'].split(';')]
             if row['RECOVERY'] == "":
                 no_recovery += 1
                 recovery = float(f['recovery'][index])
@@ -319,12 +319,20 @@ def import_projects(f, path, copy_path=None, log_path=None):
                                                           'b': row['COST_B'],
                                                           'c': row['COST_C'],
                                                           'd': row['COST_D']}})
-            if row['VALUE'] == "":
+            if row['VALUE_NET'] == "" or row['VALUE_RECOVERY_NET']:
                 no_value += 1
-                v = deposit.value_generate(value_factors, remaining_resource, {commodity: grade}, {commodity: recovery}, log_file=log_path)
-                value = {'ALL': float(v['ALL']), commodity: float(v[commodity])}
+                value = {'ALL': {}, commodity: {}}
+                v_update = True
             else:
-                value = {'ALL': float(row['VALUE']), commodity: float(row['VALUE'])}
+                value = {'ALL': {'ALL': float(0), commodity: float(0)}}
+                net_values = [float(x) for x in row['VALUE_NET'].split(';')]
+                commodity_recovery_values = [float(x) for x in row['VALUE_NET'].split(';')]
+                for tranche, values in enumerate(zip(net_values, commodity_recovery_values)):
+                    value.update({tranche: {'ALL': values[0], commodity: values[1]}})
+                    value['ALL']['ALL'] += values[0]
+                    value['ALL'][commodity] += values[1]
+                v_update = False
+
             if row['DISCOVERY_YEAR'] == "":
                 no_discovery_year += 1
                 discovery_year = -9999
@@ -367,7 +375,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
             imported_projects.append(
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
-                             start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation))
+                             start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, value_update=v_update))
 
     if copy_path is not None:
         copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
@@ -411,7 +419,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
         REGION              |   string, must specify
         DEPOSIT_TYPE        |   string, must specify
         COPRODUCT_COMMODITY |   string, must specify
-        COPRODUCT_GRADE     |   float, or will autogenerate if blank.
+        COPRODUCT_GRADE     |   float, tranches separated by ";", or will autogenerate if blank.
         COPRODUCT_RECOVERY  |   float, or will autogenerate if blank.
         SUPPLY_TRIGGER      |   1 or 0, or will autogenerate if blank.
         COPRODUCT_BROWNFIELD_GRADE_FACTOR       |   float, or will autogenerate if blank.
@@ -443,14 +451,13 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                         for x in range(0, len(f['coproduct_commodity'][index])):
                             if len(f['coproduct_commodity'][index]) != 0:
                                 if f['coproduct_commodity'][index][x] == row['COPRODUCT_COMMODITY']:
-                                    # Todo: modify import_project_coproducts() to import grade tranches
                                     if row['COPRODUCT_GRADE'] == '':
                                         # Generate grade from the region and deposit type grade model
-                                        g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)
+                                        g = [deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)]
                                         generated_grades += 1
                                     else:
                                         # Use inputted coproduct grade
-                                        g = float(row['COPRODUCT_GRADE'])
+                                        g = [float(x) for x in row['COPRODUCT_GRADE'].split(";")]
                                     if row['COPRODUCT_RECOVERY'] == '':
                                         # Use default coproduct recovery for the region and deposit type
                                         r = float(f['coproduct_recovery'][index][x])
@@ -489,7 +496,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                         if len(f['coproduct_commodity'][index]) != 0:
                             c = f['coproduct_commodity'][index][x]
                             if c != '':
-                                g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)
+                                g = [deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)]
                                 r = float(f['coproduct_recovery'][index][x])
                                 st = float(f['coproduct_supply_trigger'][index][x])
                                 bgf = float(f['coproduct_brownfield_grade_factor'][index][x])

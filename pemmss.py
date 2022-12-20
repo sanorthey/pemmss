@@ -245,14 +245,13 @@ def scenario(i, constants):
 
             # Priority Ranking Algorithm
             # P7
-            # Todo: add priority ranking algorithm option to sort by next tranche value, using global parameter priority_tranche and p.current_tranche
-            if parameters['priority_active'] == 1:
-                # Sort then prioritise existing mines
-                # Todo: modify projects.sort() function to account for value tranches
-                projects.sort(key=lambda x: x.value['ALL'], reverse=True)
-                projects.sort(key=lambda x: x.status, reverse=True)
+            if parameters['priority_marginal'] == 1:  # Sort by current ore tranche value
+                projects.sort(key=lambda x: x.value[x.current_tranche]['ALL'], reverse=True)
             else:
-                projects.sort(key=lambda x: x.value['ALL'], reverse=True)
+                projects.sort(key=lambda x: x.value['ALL']['ALL'], reverse=True)  # Sort by total net value
+            if parameters['priority_active'] == 1:  # Prioritise existing mines
+                projects.sort(key=lambda x: x.status, reverse=True)
+
 
             # Commodity Supply-Demand Balance Algorithm
             # P8
@@ -269,7 +268,7 @@ def scenario(i, constants):
                             break
 
                         # Determine intermediate supply for all the project's commodities. Note project will not supply for certain project.status values.
-                        supplied = project.supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c)
+                        supplied = project.supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=factors['marginal_recovery'])
                         # Subtract supply from demand for all commodities produced by the project.
                         if supplied == 1:
                             for p_commodity in project.commodity:
@@ -284,7 +283,7 @@ def scenario(i, constants):
                         while demand[c][year_current] > demand[c]['demand_threshold']:
                             projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1))
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
-                            supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c)
+                            supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=factors['marginal_recovery'])
                             if supplied == 1:
                                 for p_commodity in projects[-1].commodity.keys():
                                     demand[p_commodity][year_current] -= projects[-1].production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
