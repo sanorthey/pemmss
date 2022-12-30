@@ -349,6 +349,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 start_year = int(row['START_YEAR'])
             if row['DEVELOPMENT_PROBABILITY'] == "":
                 no_development_probability += 1
+                development_probability = f['development_probability'][index]
             else:
                 development_probability = float(row['DEVELOPMENT_PROBABILITY'])
             if row['BROWNFIELD_TONNAGE_FACTOR'] == "":
