@@ -138,7 +138,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
         COMMODITY            | string, optional
         REMAINING_RESOURCE   | float, tranches separated by ";", optional
         PRODUCTION_CAPACITY  | float, optional
-        STATUS               | integer, 1 or 0
+        STATUS               | integer, 1 or 0, optional
         DISCOVERY_YEAR       | integer, optional
         START_YEAR           | integer, optional
         DEVELOPMENT_PROBABILITY    | float, optional
@@ -426,6 +426,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
         COPRODUCT_BROWNFIELD_GRADE_FACTOR       |   float, or will autogenerate if blank.
 
     Currently autogenerates value models from data in input_exploration_production_factors.csv
+    Todo: add ability to specify project specific co-product value models
     """
 
     with open(path+r'\\input_project_coproducts.csv', mode='r') as input_file:
