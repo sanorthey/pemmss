@@ -64,12 +64,15 @@ def generate_statistics(key, project_list, time_range, demand_factors):
         if p.end_year is not None:
             return_stats[key+('mines_ended_count',)][p.end_year] += 1
         return_stats[key+('deposits_discovered_count',)][p.discovery_year] += 1
-        return_stats[key+('deposits_discovered_ore_mass',)][p.discovery_year] += p.initial_resource
+        discovered_ore_mass = sum(p.initial_resource)
+        return_stats[key+('deposits_discovered_ore_mass',)][p.discovery_year] += discovered_ore_mass
 
         if commodity != 'ALL':
             # Commodity dependent. Not time dependent.
-            return_stats[key+('deposits_discovered_ore_content',)][p.discovery_year] += p.initial_resource * p.initial_grade[commodity]
-            discovery_grade_dict_list[p.discovery_year].append(p.initial_grade[commodity])
+            discovered_ore_content = sum([x*y for x, y in zip(p.initial_resource, p.initial_grade[commodity])])
+            return_stats[key+('deposits_discovered_ore_content',)][p.discovery_year] += discovered_ore_content
+            if discovered_ore_mass != 0:
+                discovery_grade_dict_list[p.discovery_year].append(discovered_ore_content/discovered_ore_mass)
 
         for t, ore in p.production_ore.items():
             # Time dependent. Not commodity dependent.

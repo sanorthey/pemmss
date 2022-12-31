@@ -4,7 +4,7 @@ Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
 Developed by Stephen A. Northey
 in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco
 For further information email:
-    stephen.northey@uts.edu.au or stephen.northey@gmail.com
+    stephen.northey@uts.edu.au
 
 This scenario model evaluates the rates of mine development, mineral exploration
 and co-product recovery required to meet primary demand over-time.
@@ -138,8 +138,8 @@ def initialise():
     mkdir(constants['output_folder_graphs'])
 
     # Model version details for log and file writing
-    constants['version_number'] = ('1.0.2')
-    constants['version_date'] = '2022-09-08'
+    constants['version_number'] = ('1.1.0')
+    constants['version_date'] = '2022-12-31'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                    "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
@@ -245,12 +245,13 @@ def scenario(i, constants):
 
             # Priority Ranking Algorithm
             # P7
-            if parameters['priority_active'] == 1:
-                # Sort then prioritise existing mines
-                projects.sort(key=lambda x: x.value['ALL'], reverse=True)
-                projects.sort(key=lambda x: x.status, reverse=True)
+            if parameters['priority_marginal'] == 1:  # Sort by current ore tranche value
+                projects.sort(key=lambda x: x.value[x.current_tranche]['ALL'], reverse=True)
             else:
-                projects.sort(key=lambda x: x.value['ALL'], reverse=True)
+                projects.sort(key=lambda x: x.value['ALL']['ALL'], reverse=True)  # Sort by total net value
+            if parameters['priority_active'] == 1:  # Prioritise existing mines
+                projects.sort(key=lambda x: x.status, reverse=True)
+
 
             # Commodity Supply-Demand Balance Algorithm
             # P8
@@ -267,7 +268,7 @@ def scenario(i, constants):
                             break
 
                         # Determine intermediate supply for all the project's commodities. Note project will not supply for certain project.status values.
-                        supplied = project.supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c)
+                        supplied = project.supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                         # Subtract supply from demand for all commodities produced by the project.
                         if supplied == 1:
                             for p_commodity in project.commodity:
@@ -282,7 +283,7 @@ def scenario(i, constants):
                         while demand[c][year_current] > demand[c]['demand_threshold']:
                             projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1))
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
-                            supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c)
+                            supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                             if supplied == 1:
                                 for p_commodity in projects[-1].commodity.keys():
                                     demand[p_commodity][year_current] -= projects[-1].production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
@@ -296,11 +297,15 @@ def scenario(i, constants):
                 else:
                     log_message.append('\nFinal unmet '+str(c)+' demand at end of '+str(year_current)+' = '+str(demand[c][year_current]))
 
-            # Reset project status for active mines. Note this must be done before the ranking algorithm, but after the supply and greenfield algorithms.
+            # Reset project status. Note this must be done before the ranking algorithm, but after the supply and greenfield algorithms.
             # P12
             for project in projects:
+                # Active mine status reset
                 if project.status == 2:
                     project.status = 1
+                # Deposits failing development probability test reset
+                if project.status == -3:
+                    project.status = 0
             
             # Brownfield Resource Expansion Algorithm
             # P13

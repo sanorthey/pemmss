@@ -1,19 +1,19 @@
 LABEL,LEGEND_TEXT,LEGEND_SUPPRESS,TITLE_TEXT,TITLE_SUPPRESS,COLOR,ALPHA,FILL_ALPHA,LINESTYLE,LINEWIDTH,MARKER,SIZE
-Baden-Württemberg,Baden-Württemberg,FALSE,Baden-Württemberg,FALSE,y,1,1,solid,0.5,.,2
-New South Wales,New South Wales,FALSE,New South Wales,FALSE,b,1,1,solid,0.5,.,2
-Victoria,Victoria,FALSE,Victoria,FALSE,g,1,1,solid,0.5,.,2
-Carbonatite,Carbonatite,FALSE,Carbonatite,FALSE,r,0.05,0.05,solid,0.5,.,2
-Magmatic,Magmatic,FALSE,Magmatic,FALSE,g,0.05,0.05,solid,0.5,.,2
-Sedimentary,Sedimentary,FALSE,Sedimentary,FALSE,b,0.05,0.05,solid,0.5,.,2
-Baden-Württemberg Carbonatite,Baden-Württemberg - Carbonatite,FALSE,Baden-Württemberg - Carbonatite,FALSE,y,1,1,solid,0.5,.,2
-Baden-Württemberg Magmatic,Baden-Württemberg - Magmatic,FALSE,Baden-Württemberg - Magmatic,FALSE,g,1,1,solid,0.5,.,2
-Baden-Württemberg Sedimentary,Baden-Württemberg - Sedimentary,FALSE,Baden-Württemberg - Sedimentary,FALSE,b,1,1,solid,0.5,.,2
-New South Wales Carbonatite,New South Wales - Carbonatite,FALSE,New South Wales - Carbonatite,FALSE,y,0.7,0.7,solid,0.5,.,2
-New South Wales Magmatic,New South Wales - Magmatic,FALSE,New South Wales - Magmatic,FALSE,g,0.7,0.7,solid,0.5,.,2
-New South Wales Sedimentary,New South Wales - Sedimentary,FALSE,New South Wales - Sedimentary,FALSE,b,0.7,0.7,solid,0.5,.,2
-Victoria Carbonatite,Victoria - Carbonatite,FALSE,Victoria - Carbonatite,FALSE,y,0.4,0.4,solid,0.5,.,2
-Victoria Magmatic,Victoria - Magmatic,FALSE,Victoria - Magmatic,FALSE,g,0.4,0.4,solid,0.5,.,2
-Victoria Sedimentary,Victoria - Sedimentary,FALSE,Victoria - Sedimentary,FALSE,b,0.4,0.4,solid,0.5,.,2
+Region 1,Region 1,FALSE,Region 1,FALSE,y,1,1,solid,0.5,.,2
+Region 2,Region 2,FALSE,Region 2,FALSE,b,1,1,solid,0.5,.,2
+Region 3,Region 3,FALSE,Region 3,FALSE,g,1,1,solid,0.5,.,2
+Type 1,Type 1,FALSE,Type 1,FALSE,r,0.05,0.05,solid,0.5,.,2
+Type 2,Type 2,FALSE,Type 2,FALSE,g,0.05,0.05,solid,0.5,.,2
+Type 3,Type 3,FALSE,Type 3,FALSE,b,0.05,0.05,solid,0.5,.,2
+Region 1 Type 1,Region 1 - Type 1,FALSE,Region 1 - Type 1,FALSE,y,1,1,solid,0.5,.,2
+Region 1 Type 2,Region 1 - Type 2,FALSE,Region 1 - Type 2,FALSE,g,1,1,solid,0.5,.,2
+Region 1 Type 3,Region 1 - Type 3,FALSE,Region 1 - Type 3,FALSE,b,1,1,solid,0.5,.,2
+Region 2 Type 1,Region 2 - Type 1,FALSE,Region 2 - Type 1,FALSE,y,0.7,0.7,solid,0.5,.,2
+Region 2 Type 2,Region 2 - Type 2,FALSE,Region 2 - Type 2,FALSE,g,0.7,0.7,solid,0.5,.,2
+Region 2 Type 3,Region 2 - Type 3,FALSE,Region 2 - Type 3,FALSE,b,0.7,0.7,solid,0.5,.,2
+Region 3 Type 1,Region 3 - Type 1,FALSE,Region 3 - Type 1,FALSE,y,0.4,0.4,solid,0.5,.,2
+Region 3 Type 2,Region 3 - Type 2,FALSE,Region 3 - Type 2,FALSE,g,0.4,0.4,solid,0.5,.,2
+Region 3 Type 3,Region 3 - Type 3,FALSE,Region 3 - Type 3,FALSE,b,0.4,0.4,solid,0.5,.,2
 High Growth,High Growth,FALSE,High Growth,FALSE,r,0.05,0.05,solid,1,.,2
 Low Growth,Low Growth,FALSE,Low Growth,FALSE,b,0.05,0.05,solid,1,.,2
 Decoupling,Decoupling,FALSE,Decoupling,FALSE,g,0.05,0.05,solid,1,.,2

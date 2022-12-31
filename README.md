@@ -11,7 +11,7 @@ This scenario model evaluates the rates of mine development, mineral exploration
 
 ### How to use:
 1. #### Install python and the matplotlib package
-The model has been developed and tested using python 3.10, matplotlib 3.5.2 and imageio 2.19.3.
+The model has been developed and tested using python 3.11.1, matplotlib 3.6.2 and imageio 2.23.0.
 
 Instructions for installing python are available at: https://www.python.org/
 
@@ -37,11 +37,11 @@ This will include:
 - A log file containing information useful for benchmarking and debugging.
 
 ### Developed and Tested Using:
-python 3.10
+python 3.11.1
 
-matplotlib 3.5.2
+matplotlib 3.6.2
 
-imageio 2.19.3
+imageio 2.23.0
 
 ### License:
 This model is licensed under a BSD 3-Clause License. See LICENSE.md for further information.
