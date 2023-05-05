@@ -22,20 +22,21 @@ from math import ceil
 from collections import defaultdict
 from random import choice
 from itertools import accumulate
+from itertools import islice
 import os
 
 # Import external packages
 import matplotlib
 import matplotlib.pyplot as plt
 from numpy import nan
+import numpy as np
 import imageio
-import os
 import pandas as pd
 
 # Import custom modules
 
-from modules.file_export import export_statistics, export_plot_subplot_data
-from modules.file_import import import_statistics_keyed, import_statistics
+from modules.file_export import export_plot_subplot_data
+from modules.file_import import import_statistics
 
 
 def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder):
@@ -73,47 +74,30 @@ def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filen
         dict: {key, filepath} Dictionary containing the filter keys and corresponding paths of the generated CSV files.
     """
     key_path_dict = {}  # Create an empty dictionary to store the key and paths of generated CSV files
-    filtered_data_dict = {}  # Create an empty dictionary to store the filtered data
 
-    # Iterate over each input directory
     for input_dir in input_dirs:
-        # Iterate over all files in the current input directory
         for filename in os.listdir(input_dir):
             if filename.endswith(filenameend):
                 file_path = os.path.join(input_dir, filename)
                 df = pd.read_csv(file_path)  # Read the CSV file into a DataFrame
 
-                # Iterate over each combination of filter keys
                 for keys in filter_keys:
-                    # Filter rows based on keys in filter_columns
                     filtered_df = df.copy()
                     for column, key in zip(filter_columns, keys):
                         filtered_df = filtered_df[filtered_df[column] == key]
 
-                    # Check if the combination of filter keys exists in the dictionary
-                    if tuple(keys) not in filtered_data_dict:
-                        filtered_data_dict[tuple(keys)] = {
-                            'data': filtered_df,
-                            'output_path': None
-                        }
+                    if tuple(keys) not in key_path_dict:
+                        output_file = "_".join(keys) + ".csv"
+                        output_path = os.path.join(output_dir, output_file)
+
+                        filtered_df.to_csv(output_path, index=False)
+                        key_path_dict[tuple(keys)] = output_path
+
                     else:
-                        filtered_data_dict[tuple(keys)]['data'] = pd.concat(
-                            [filtered_data_dict[tuple(keys)]['data'], filtered_df], ignore_index=True
-                        )
+                        output_path = key_path_dict[tuple(keys)]
+                        filtered_df.to_csv(output_path, mode='a', header=False, index=False)
 
-    # Iterate over the filtered data and write to the output files
-    for keys, data_dict in filtered_data_dict.items():
-        # Generate output file name based on filter keys
-        output_file = "_".join(keys) + ".csv"
-        output_path = os.path.join(output_dir, output_file)
-
-        data_dict['data'].to_csv(output_path, index=False)  # Save the filtered DataFrame to a new CSV file
-
-        data_dict['output_path'] = output_path  # Update the output path in the dictionary
-
-        key_path_dict.update({keys: output_path})  # Add the key and path of the generated CSV file to the return dictionary
-
-    return key_path_dict  # Return the dictionary of keys and generated CSV file paths
+    return key_path_dict
 
 
 def generate_figure(statistics_files, graph, graph_formatting, output_folder):
@@ -152,12 +136,14 @@ def filter_statistics(statistics, g):
                       | [k1, k2, k3, etc.] = return any statistic matching listed keys
     Returns {(i, j, a, r, d, c, s): {t: val}}
     """
-    i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys =\
-        g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys']
-    filtered_statistics = {}
-    for key in statistics:
-        if filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys):
-            filtered_statistics.update({key: statistics[key]})
+    i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys = \
+        (g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys'])
+
+    filtered_statistics = {
+        key: statistics[key]
+        for key in statistics
+        if filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys)
+    }
 
     return filtered_statistics
 
@@ -169,22 +155,20 @@ def filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys
     """
     i, j, a, r, d, c, s = key
 
-    if _include_key(i, i_keys):
-        if _include_key(j, j_keys):
-            if _include_key(a, a_keys):
-                if _include_key(r, r_keys):
-                    if _include_key(d, d_keys):
-                        if _include_key(c, c_keys):
-                            if _include_key(s, s_keys):
-                                return True
-    return False
+    return all(_include_key(value, keys) for value, keys in [(i, i_keys),
+                                                             (j, j_keys),
+                                                             (a, a_keys),
+                                                             (r, r_keys),
+                                                             (d, d_keys),
+                                                             (c, c_keys),
+                                                             (s, s_keys)])
 
 
 def _include_key(key, include_keys):
     """
     Returns True if key included or False if key excluded
 
-    include_key | True = include any key except 'ALL'
+    include_keys | True = include any key except 'ALL'
                 | False = only include key if 'ALL'
                 | [k1, k2] =  return any
 
@@ -192,19 +176,11 @@ def _include_key(key, include_keys):
             | False, exclude key
     """
     if include_keys is True:
-        if key != 'ALL':
-            return True
-        else:
-            return False
-    if include_keys is False:
-        if key == "ALL":
-            return True
-        else:
-            return False
-    if key in include_keys:
-        return True
+        return key != 'ALL'
+    elif include_keys is False:
+        return key == 'ALL'
     else:
-        return False
+        return key in include_keys
 
 
 def plot_subplot(statistics, path, g, g_formatting):
