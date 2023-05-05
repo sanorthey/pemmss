@@ -59,7 +59,7 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
     return updated_postprocessing
 
 
-def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv"):
+def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv", chunksize=100000):
     """
     Combines CSV files from multiple directories based on filter keys and saves the filtered data into separate CSV files.
 
@@ -69,33 +69,33 @@ def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filen
         filter_columns (list): List of column names to filter on.
         filter_keys (list): List of filter key combinations.
         filenameend (str, optional): Ending of the input CSV filenames. Defaults to "statistics.csv".
+        chunksize (int, optional): Number of csv lines read and processed at once. Defaults to 100,000.
 
     Returns:
         dict: {key, filepath} Dictionary containing the filter keys and corresponding paths of the generated CSV files.
     """
-    key_path_dict = {}  # Create an empty dictionary to store the key and paths of generated CSV files
+    key_path_dict = {}
 
     for input_dir in input_dirs:
-        for filename in os.listdir(input_dir):
-            if filename.endswith(filenameend):
-                file_path = os.path.join(input_dir, filename)
-                df = pd.read_csv(file_path)  # Read the CSV file into a DataFrame
+        for entry in os.scandir(input_dir):
+            if entry.name.endswith(filenameend) and entry.is_file():
+                file_path = entry.path
 
-                for keys in filter_keys:
-                    filtered_df = df.copy()
-                    for column, key in zip(filter_columns, keys):
-                        filtered_df = filtered_df[filtered_df[column] == key]
+                df_chunks = pd.read_csv(file_path, chunksize=chunksize)
+                for chunk in df_chunks:
+                    for keys in filter_keys:
+                        filters = [chunk[column] == key for column, key in zip(filter_columns, keys)]
+                        filtered_chunk = chunk[np.logical_and.reduce(filters)]
 
-                    if tuple(keys) not in key_path_dict:
-                        output_file = "_".join(keys) + ".csv"
-                        output_path = os.path.join(output_dir, output_file)
+                        if tuple(keys) not in key_path_dict:
+                            output_file = "_".join(keys) + ".csv"
+                            output_path = os.path.join(output_dir, output_file)
 
-                        filtered_df.to_csv(output_path, index=False)
-                        key_path_dict[tuple(keys)] = output_path
-
-                    else:
-                        output_path = key_path_dict[tuple(keys)]
-                        filtered_df.to_csv(output_path, mode='a', header=False, index=False)
+                            filtered_chunk.to_csv(output_path, index=False)
+                            key_path_dict[tuple(keys)] = output_path
+                        else:
+                            output_path = key_path_dict[tuple(keys)]
+                            filtered_chunk.to_csv(output_path, mode='a', header=False, index=False)
 
     return key_path_dict
 
