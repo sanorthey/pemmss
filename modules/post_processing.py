@@ -29,7 +29,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 from numpy import nan
 import imageio
-
+import os
+import pandas as pd
 
 # Import custom modules
 
@@ -46,20 +47,73 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
     output_stats_folder =
 
     """
-
     updated_postprocessing = imported_postprocessing
 
-    # Iterate scenario CSVs and rewrite to files for each statistic.
-    for folder in scenario_folders:
-        stats_list, time_keys = import_statistics_keyed((folder + r'\_statistics.csv'), base_key='STATISTIC')
-        ## stats_list is {s: {(i,j,a,r,d,s): {t: value}}}
-        ## time_keys is [t1, t2, etc.]
-
-        for s in stats_list:
-            updated_postprocessing[s].update({'path': (output_stats_folder + r'\_' + str(s) + '.csv')})
-            export_statistics(updated_postprocessing[s]['path'], stats_list[s], time_keys)
+    filter_columns = ["STATISTIC" for s in updated_postprocessing]
+    filter_keys = [[s] for s in updated_postprocessing]
+    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder,filter_columns,filter_keys, filenameend="statistics.csv")
+    for s, path in key_output_filepath_dict.items():
+        updated_postprocessing[s[0]].update({'path': path})  #s [0] because s is a tuple (s,) with an extra, empty element. Should really fix this up.
 
     return updated_postprocessing
+
+
+def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv"):
+    """
+    Combines CSV files from multiple directories based on filter keys and saves the filtered data into separate CSV files.
+
+    Args:
+        input_dirs (list): List of input directories containing CSV files.
+        output_dir (str): Output directory to save the generated CSV files.
+        filter_columns (list): List of column names to filter on.
+        filter_keys (list): List of filter key combinations.
+        filenameend (str, optional): Ending of the input CSV filenames. Defaults to "statistics.csv".
+
+    Returns:
+        dict: {key, filepath} Dictionary containing the filter keys and corresponding paths of the generated CSV files.
+    """
+    key_path_dict = {}  # Create an empty dictionary to store the key and paths of generated CSV files
+    filtered_data_dict = {}  # Create an empty dictionary to store the filtered data
+
+    # Iterate over each input directory
+    for input_dir in input_dirs:
+        # Iterate over all files in the current input directory
+        for filename in os.listdir(input_dir):
+            if filename.endswith(filenameend):
+                file_path = os.path.join(input_dir, filename)
+                df = pd.read_csv(file_path)  # Read the CSV file into a DataFrame
+
+                # Iterate over each combination of filter keys
+                for keys in filter_keys:
+                    # Filter rows based on keys in filter_columns
+                    filtered_df = df.copy()
+                    for column, key in zip(filter_columns, keys):
+                        filtered_df = filtered_df[filtered_df[column] == key]
+
+                    # Check if the combination of filter keys exists in the dictionary
+                    if tuple(keys) not in filtered_data_dict:
+                        filtered_data_dict[tuple(keys)] = {
+                            'data': filtered_df,
+                            'output_path': None
+                        }
+                    else:
+                        filtered_data_dict[tuple(keys)]['data'] = pd.concat(
+                            [filtered_data_dict[tuple(keys)]['data'], filtered_df], ignore_index=True
+                        )
+
+    # Iterate over the filtered data and write to the output files
+    for keys, data_dict in filtered_data_dict.items():
+        # Generate output file name based on filter keys
+        output_file = "_".join(keys) + ".csv"
+        output_path = os.path.join(output_dir, output_file)
+
+        data_dict['data'].to_csv(output_path, index=False)  # Save the filtered DataFrame to a new CSV file
+
+        data_dict['output_path'] = output_path  # Update the output path in the dictionary
+
+        key_path_dict.update({keys: output_path})  # Add the key and path of the generated CSV file to the return dictionary
+
+    return key_path_dict  # Return the dictionary of keys and generated CSV file paths
 
 
 def generate_figure(statistics_files, graph, graph_formatting, output_folder):
