@@ -22,19 +22,21 @@ from math import ceil
 from collections import defaultdict
 from random import choice
 from itertools import accumulate
+from itertools import islice
 import os
 
 # Import external packages
 import matplotlib
 import matplotlib.pyplot as plt
 from numpy import nan
+import numpy as np
 import imageio
-
+import pandas as pd
 
 # Import custom modules
 
-from modules.file_export import export_statistics, export_plot_subplot_data
-from modules.file_import import import_statistics_keyed, import_statistics
+from modules.file_export import export_plot_subplot_data
+from modules.file_import import import_statistics
 
 
 def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder):
@@ -46,20 +48,56 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
     output_stats_folder =
 
     """
-
     updated_postprocessing = imported_postprocessing
 
-    # Iterate scenario CSVs and rewrite to files for each statistic.
-    for folder in scenario_folders:
-        stats_list, time_keys = import_statistics_keyed((folder + r'\_statistics.csv'), base_key='STATISTIC')
-        ## stats_list is {s: {(i,j,a,r,d,s): {t: value}}}
-        ## time_keys is [t1, t2, etc.]
-
-        for s in stats_list:
-            updated_postprocessing[s].update({'path': (output_stats_folder + r'\_' + str(s) + '.csv')})
-            export_statistics(updated_postprocessing[s]['path'], stats_list[s], time_keys)
+    filter_columns = ["STATISTIC" for s in updated_postprocessing]
+    filter_keys = [[s] for s in updated_postprocessing]
+    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder,filter_columns,filter_keys, filenameend="statistics.csv")
+    for s, path in key_output_filepath_dict.items():
+        updated_postprocessing[s[0]].update({'path': path})  #s [0] because s is a tuple (s,) with an extra, empty element. Should really fix this up.
 
     return updated_postprocessing
+
+
+def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv", chunksize=100000):
+    """
+    Combines CSV files from multiple directories based on filter keys and saves the filtered data into separate CSV files.
+
+    Args:
+        input_dirs (list): List of input directories containing CSV files.
+        output_dir (str): Output directory to save the generated CSV files.
+        filter_columns (list): List of column names to filter on.
+        filter_keys (list): List of filter key combinations.
+        filenameend (str, optional): Ending of the input CSV filenames. Defaults to "statistics.csv".
+        chunksize (int, optional): Number of csv lines read and processed at once. Defaults to 100,000.
+
+    Returns:
+        dict: {key, filepath} Dictionary containing the filter keys and corresponding paths of the generated CSV files.
+    """
+    key_path_dict = {}
+
+    for input_dir in input_dirs:
+        for entry in os.scandir(input_dir):
+            if entry.name.endswith(filenameend) and entry.is_file():
+                file_path = entry.path
+
+                df_chunks = pd.read_csv(file_path, chunksize=chunksize)
+                for chunk in df_chunks:
+                    for keys in filter_keys:
+                        filters = [chunk[column] == key for column, key in zip(filter_columns, keys)]
+                        filtered_chunk = chunk[np.logical_and.reduce(filters)]
+
+                        if tuple(keys) not in key_path_dict:
+                            output_file = "_".join(keys) + ".csv"
+                            output_path = os.path.join(output_dir, output_file)
+
+                            filtered_chunk.to_csv(output_path, index=False)
+                            key_path_dict[tuple(keys)] = output_path
+                        else:
+                            output_path = key_path_dict[tuple(keys)]
+                            filtered_chunk.to_csv(output_path, mode='a', header=False, index=False)
+
+    return key_path_dict
 
 
 def generate_figure(statistics_files, graph, graph_formatting, output_folder):
@@ -98,12 +136,14 @@ def filter_statistics(statistics, g):
                       | [k1, k2, k3, etc.] = return any statistic matching listed keys
     Returns {(i, j, a, r, d, c, s): {t: val}}
     """
-    i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys =\
-        g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys']
-    filtered_statistics = {}
-    for key in statistics:
-        if filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys):
-            filtered_statistics.update({key: statistics[key]})
+    i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys = \
+        (g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys'])
+
+    filtered_statistics = {
+        key: statistics[key]
+        for key in statistics
+        if filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys)
+    }
 
     return filtered_statistics
 
@@ -115,22 +155,20 @@ def filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys
     """
     i, j, a, r, d, c, s = key
 
-    if _include_key(i, i_keys):
-        if _include_key(j, j_keys):
-            if _include_key(a, a_keys):
-                if _include_key(r, r_keys):
-                    if _include_key(d, d_keys):
-                        if _include_key(c, c_keys):
-                            if _include_key(s, s_keys):
-                                return True
-    return False
+    return all(_include_key(value, keys) for value, keys in [(i, i_keys),
+                                                             (j, j_keys),
+                                                             (a, a_keys),
+                                                             (r, r_keys),
+                                                             (d, d_keys),
+                                                             (c, c_keys),
+                                                             (s, s_keys)])
 
 
 def _include_key(key, include_keys):
     """
     Returns True if key included or False if key excluded
 
-    include_key | True = include any key except 'ALL'
+    include_keys | True = include any key except 'ALL'
                 | False = only include key if 'ALL'
                 | [k1, k2] =  return any
 
@@ -138,19 +176,11 @@ def _include_key(key, include_keys):
             | False, exclude key
     """
     if include_keys is True:
-        if key != 'ALL':
-            return True
-        else:
-            return False
-    if include_keys is False:
-        if key == "ALL":
-            return True
-        else:
-            return False
-    if key in include_keys:
-        return True
+        return key != 'ALL'
+    elif include_keys is False:
+        return key == 'ALL'
     else:
-        return False
+        return key in include_keys
 
 
 def plot_subplot(statistics, path, g, g_formatting):
@@ -160,8 +190,18 @@ def plot_subplot(statistics, path, g, g_formatting):
     Returns list of figure and figure data file paths.
     """
 
-    file_prefix, plot_keys, subplot_keys, labels_on, subplot_type, share_scale, y_axis_label, cumulative, columns, gif, fps, delete_frames = (
-        g['file_prefix'], g['plot_keys'], g['subplot_keys'], g['labels_on'], g['subplot_type'], g['share_scale'], g['y_axis_label'], g['cumulative'], g['columns'], g['gif'], g['gif_fps'], g['gif_delete_frames'])
+    file_prefix = g['file_prefix']
+    plot_keys = g['plot_keys']
+    subplot_keys = g['subplot_keys']
+    labels_on = g['labels_on']
+    subplot_type = g['subplot_type']
+    share_scale = g['share_scale']
+    y_axis_label = g['y_axis_label']
+    cumulative = g['cumulative']
+    columns = g['columns']
+    gif = g['gif']
+    fps = g['gif_fps']
+    delete_frames = g['gif_delete_frames']
 
     # Build x, y and labels of format
     plot_subplot_label_xy_data = build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels_on)
@@ -172,39 +212,35 @@ def plot_subplot(statistics, path, g, g_formatting):
 
     # Assign plot directory or create a directory for holding gif frames
     plot_folder_path = path
-    if g['gif'] is True:
-        plot_folder_path = path + r'\_' + file_prefix
+    if gif:
+        plot_folder_path = os.path.join(path, '_' + file_prefix)
         os.mkdir(plot_folder_path)
 
     # Generate plots
-    for plot in plot_subplot_label_xy_data:
+    for plot, subplots in plot_subplot_label_xy_data.items():
         # Generate plot title
         title = ''.join(plot)
 
         # Generate subplot panels
-        num_subplots = len(plot_subplot_label_xy_data[plot])
+        num_subplots = len(subplots)
         h_panels = ceil(num_subplots / columns)
         v_panels = ceil(num_subplots / h_panels)
 
         # Generate y labels
-        if y_axis_label == False:
-            y_label = str(plot)
-            y_label = y_label[0].upper() + y_label[1:]
-        else:
-            y_label = y_axis_label
+        y_label = y_axis_label if y_axis_label else str(plot).capitalize()
 
-        # Generate file path
-        output_filepath = plot_folder_path + r'\_' + file_prefix + '-' + str(plot) + '.png'
+        # Generate file paths
+        output_filepath = os.path.join(plot_folder_path, '_' + file_prefix + '-' + str(plot) + '.png')
         output_filepath_data = output_filepath + '.csv'
 
-        fig_path, fig_data = plot_subplot_generator(output_filepath, str(title), plot_subplot_label_xy_data[plot], h_panels, v_panels, subplot_type, share_scale, y_label, cumulative, g_formatting)
+        fig_path, fig_data = plot_subplot_generator(output_filepath, str(title), subplots, h_panels, v_panels, subplot_type, share_scale, y_label, cumulative, g_formatting)
         plot_paths.append(fig_path)
         export_plot_subplot_data(output_filepath_data, fig_data)
         plot_data_paths.append(output_filepath_data)
 
     # Generate GIF
-    if g['gif'] is True:
-        gif_filepath = path + r'\_' + file_prefix + '.gif'
+    if gif:
+        gif_filepath = os.path.join(path, '_' + file_prefix + '.gif')
         plot_paths = generate_gif(plot_paths, gif_filepath, fps=fps, delete_frames=delete_frames)
 
     # Generate final returned output paths list
@@ -222,8 +258,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     """
     matplotlib.use('Agg') # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
 
-    # Create an iterator for the subplots (e.g. commodity keys)
-    subplot = iter(sorted(plot))
+
 
     # Plot text formatting
     TEXT_SIZE_DEFAULT = 7
@@ -248,49 +283,48 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
         # Subplots have independent scales
         fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
 
-    for h in range(h_panels):
-        for v in range(v_panels):
-            # Generate next panel key and check if it exists.
-            sp = next(subplot, False)
-            if sp is not False:
-                data_height = [] # for use with stackplots
-                # Unpack plot[sp] = {label: {x: [[x0, x0], [x1, x1], ...], y: [[y0, y0], [y1, y1], ...]}}
-                # Sort to ensure labels are alphabetical in legend. Does this based on label, not legend_text.
-                for label, data in sorted(plot[sp].items()):
-                    l_format = label_format(label, g_formatting)
-                    data.update(l_format)
-                    data.update({'cumulative': cumulative})
-                    if plot_type == 'scatter':
-                        data['y'] = series_modify(data['y'], cumulative)
-                        generate_scatter(ax[h, v], data['x'], data['y'], l_format)
-                    elif plot_type == 'line':
-                        data['y'] = series_modify(data['y'], cumulative)
-                        generate_line(ax[h, v], data['x'], data['y'], l_format)
-                    elif plot_type == 'fill':
-                        data['y'] = series_modify(data['y'], cumulative)
-                        generate_fill(ax[h, v], data['x'], data['y'], l_format)
-                    elif plot_type == 'fill_line':
-                        data['y'] = series_modify(data['y'], cumulative)
-                        generate_fill(ax[h, v], data['x'], data['y'], l_format)
-                        generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
-                    elif plot_type == 'stacked':
-                        # Using generate_fill() here now because generate_stackplot() is buggy
-                        data['y'] = series_modify(data['y'], cumulative, replace_none=float(0)) # add replace_none=float(0) if reverting to generate_stackplot()
-                        stacked_y, data_height = series_stack(data['y'], data_height)
-                        generate_fill(ax[h, v], data['x'], stacked_y, l_format)
+    # Create an iterator for the subplots (e.g. commodity keys)
+    subplots = iter(sorted(plot))
 
-                # Subplot formatting
-                ax[h, v].legend(loc='upper left')
-                if sp in g_formatting:
-                    if g_formatting[sp]['legend_suppress'] is False:
-                        ax[h, v].set_title(g_formatting[sp]['title_text'], pad=None)
-                else:
-                    ax[h, v].set_title(sp, pad=None)
-                ax[h, v].set_ylabel(y_axis_label)
-                ax[h, v].tick_params(labelbottom=1, labelleft=1)
+    # Create a dictionary to store subplot coordinates
+    subplot_coords = {(h, v): next(subplots, None) for h, v in
+                      islice(((h, v) for h in range(h_panels) for v in range(v_panels)), h_panels * v_panels)}
 
-            else:
-                fig.delaxes(ax[h, v])
+    for (h, v), sp in subplot_coords.items():
+        if sp is not None:
+            data_height = []  # for use with stackplots
+            for label, data in sorted(plot[sp].items()):
+                l_format = label_format(label, g_formatting)
+                data.update(l_format)
+                data.update({'cumulative': cumulative})
+                if plot_type == 'scatter':
+                    data['y'] = series_modify(data['y'], cumulative)
+                    generate_scatter(ax[h, v], data['x'], data['y'], l_format)
+                elif plot_type == 'line':
+                    data['y'] = series_modify(data['y'], cumulative)
+                    generate_line(ax[h, v], data['x'], data['y'], l_format)
+                elif plot_type == 'fill':
+                    data['y'] = series_modify(data['y'], cumulative)
+                    generate_fill(ax[h, v], data['x'], data['y'], l_format)
+                elif plot_type == 'fill_line':
+                    data['y'] = series_modify(data['y'], cumulative)
+                    generate_fill(ax[h, v], data['x'], data['y'], l_format)
+                    generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
+                elif plot_type == 'stacked':
+                    data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
+                    stacked_y, data_height = series_stack(data['y'], data_height)
+                    generate_fill(ax[h, v], data['x'], stacked_y, l_format)
+
+            # Subplot formatting
+            ax[h, v].legend(loc='upper left')
+            title_text = g_formatting.get(sp, {}).get('title_text', sp)
+            legend_suppress = g_formatting.get(sp, {}).get('legend_suppress', False)
+            ax[h, v].set_title(title_text, pad=None) if not legend_suppress else None
+            ax[h, v].set_ylabel(y_axis_label)
+            ax[h, v].tick_params(labelbottom=1, labelleft=1)
+
+        else:
+            fig.delaxes(ax[h, v])
 
     # Final figure format
     if title in g_formatting:
@@ -326,7 +360,7 @@ def generate_line(axis, x, y, l_format, force_legend_suppress=False):
     # Generate line plots for all series in this label
     for n, x_series in enumerate(x):
         axis.plot(x_series, y[n], color=l_format['color'], linewidth=l_format['linewidth'],
-                      linestyle=l_format['linestyle'], alpha=l_format['alpha'])
+                  linestyle=l_format['linestyle'], alpha=l_format['alpha'])
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
         axis.plot([], [], label=l_format['legend_text'], color=l_format['color'])
 
@@ -358,33 +392,36 @@ def series_modify(data_series, cumulative=False, replace_none=False):
     modified_series = []
     for series_list in data_series:
         if cumulative:
-            filtered_list = [0 if v is None else v for v in series_list]
-            modified_series.append(list(accumulate(filtered_list)))
+            series_list = [0 if v is None else v for v in series_list]
+            filtered_list = np.nan_to_num(series_list, nan=0.0) # Change None values to 0. Change nan values to 0.
+            modified_series.append(np.cumsum(filtered_list).tolist())
         elif replace_none is not False:
-            modified_series.append([replace_none if v is None else v for v in series_list])
+            modified_series.append(np.where(np.array(series_list) == None, replace_none, series_list).tolist())
         else:
             modified_series.append(series_list)
     return modified_series
 
 def series_stack(data_series, data_height):
-    # For use with stack plots
-    # data_height = [h0, h1, h2]
-    # data_series = [[y0,y1,y2], [y0,y1,y2], etc.]
+    # Convert data_series and data_height to NumPy arrays
+    data_series = np.array(data_series)
+    data_height = np.array(data_height)
 
     stacked_data_series = []
-    height = data_height
 
-    # Create new zeroed height list if not same length as stacked_data_series.
-    if len(data_series[0]) is not len(data_height):
-        height = [0 for _ in data_series[0]]
+    # Create new zeroed height array if not same length as data_series.
+    if data_series.shape[1] != data_height.shape[0]:
+        height = np.zeros(data_series.shape[1], dtype=data_series.dtype)
+    else:
+        height = data_height
 
     # Build stacked_data_series starting at the height.
     stacked_data_series.append(height)
-    for data_list in data_series:
-        height = [x + y for x, y in zip(data_list, height)]
-        stacked_data_series.append(height)
+
+    # Use NumPy's cumulative sum along axis 0 to calculate the stacked data series
+    stacked_data_series.extend(np.cumsum(data_series, axis=0) + height)
 
     return stacked_data_series, height
+
 
 def label_format(label, g_formatting):
     l = {}
@@ -411,27 +448,18 @@ def build_plot_subplot_label_xy_data(statistics, plot_keys, subplot_keys, labels
     Build x, y, labels and subtitles of format
     Returns nested dictionary of key structure: [plot][subplot][label]['x' or 'y'] = [[series_1 values], [series_2 values], etc.]
     """
-    plot_subplot_label_xy_data = defaultdict(dict)  #[(plot_keys)][subplot_keys][label][[x_lists],[y_lists], FORMAT_KWARGS]
+    plot_subplot_label_xy_data = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: {'x': [], 'y': []})))
     key_map = {'i': 0, 'j': 1, 'a': 2, 'r': 3, 'd': 4, 'c': 5, 's': 6}
 
     for k, v in statistics.items():
-        # k = (i,j,a,r,d,c,s)
-        # v = {t0: val0, t1: val1, t2: val2, etc}
         plot_key = build_plot_key(k, key_map, plot_keys)
         subplot_key = build_plot_key(k, key_map, subplot_keys)
         label = build_plot_key(k, key_map, labels_on)
-        x = list(v)
-        y = list(v.values())
+        x = np.array(list(v))
+        y = np.array(list(v.values()))
 
-        if plot_key not in plot_subplot_label_xy_data:
-            plot_subplot_label_xy_data[plot_key] = {subplot_key: {label: {'x': [x,], 'y': [y,]}}}
-        elif subplot_key not in plot_subplot_label_xy_data[plot_key]:
-            plot_subplot_label_xy_data[plot_key].update({subplot_key: {label: {'x': [x,], 'y': [y,]}}})
-        elif label not in plot_subplot_label_xy_data[plot_key][subplot_key]:
-            plot_subplot_label_xy_data[plot_key][subplot_key].update({label: {'x': [x,],'y': [y,]}})
-        else:
-            plot_subplot_label_xy_data[plot_key][subplot_key][label]['x'].append(x,)
-            plot_subplot_label_xy_data[plot_key][subplot_key][label]['y'].append(y,)
+        plot_subplot_label_xy_data[plot_key][subplot_key][label]['x'].append(x)
+        plot_subplot_label_xy_data[plot_key][subplot_key][label]['y'].append(y)
 
     return plot_subplot_label_xy_data
 
@@ -457,14 +485,20 @@ def generate_gif(frame_path_list, gif_path, fps=5, delete_frames=True):
     Returns list of path of the .gif file and any preserved frame files.
     """
     return_paths = [gif_path]
-    with imageio.v2.get_writer(gif_path, mode='I', fps=fps, subrectangles=True) as writer:
-        for frame_path in frame_path_list:
+    frames = []
+    for index, frame_path in enumerate(frame_path_list):
             frame = imageio.v2.imread(frame_path)
-            writer.append_data(frame)
-            if delete_frames is True:
+            frames.append(frame)
+            if delete_frames and index != len(frame_path_list) - 1:
                 os.remove(frame_path)
-            else:
-                return_paths.append(frame_path)
+
+    with imageio.get_writer(gif_path, mode='I', fps=fps, subrectangles=True) as writer:
+        for frame in frames:
+            writer.append_data(frame)
+
+    if not delete_frames:
+        return_paths.extend(frame_path_list)
+
     return return_paths
 
 
