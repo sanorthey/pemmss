@@ -310,7 +310,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                     data['y'] = series_modify(data['y'], cumulative)
                     generate_fill(ax[h, v], data['x'], data['y'], l_format)
                     generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
-                elif plot_type == 'stacked':
+                elif plot_type == 'stacked':  # TODO: possible bug. check stacked. Don't think is stacking correctly.
                     data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
                     stacked_y, data_height = series_stack(data['y'], data_height)
                     generate_fill(ax[h, v], data['x'], stacked_y, l_format)
@@ -401,7 +401,7 @@ def series_modify(data_series, cumulative=False, replace_none=False):
             modified_series.append(series_list)
     return modified_series
 
-def series_stack(data_series, data_height):
+def series_stack(data_series, data_height):  # TODO: possible bug. check stacked. Don't think is stacking correctly.
     # Convert data_series and data_height to NumPy arrays
     data_series = np.array(data_series)
     data_height = np.array(data_height)
@@ -486,13 +486,14 @@ def generate_gif(frame_path_list, gif_path, fps=5, delete_frames=True):
     """
     return_paths = [gif_path]
     frames = []
+    duration = 1000 / fps  # New imageio version uses duration in milliseconds instead of fps.
     for index, frame_path in enumerate(frame_path_list):
             frame = imageio.v2.imread(frame_path)
             frames.append(frame)
             if delete_frames and index != len(frame_path_list) - 1:
                 os.remove(frame_path)
 
-    with imageio.get_writer(gif_path, mode='I', fps=fps, subrectangles=True) as writer:
+    with imageio.get_writer(gif_path, mode='I', duration=duration, subrectangles=True) as writer:
         for frame in frames:
             writer.append_data(frame)
 
