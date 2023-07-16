@@ -401,26 +401,25 @@ def series_modify(data_series, cumulative=False, replace_none=False):
             modified_series.append(series_list)
     return modified_series
 
-def series_stack(data_series, data_height):  # TODO: possible bug. check stacked. Don't think is stacking correctly.
+def series_stack(data_series, data_height):
     # Convert data_series and data_height to NumPy arrays
     data_series = np.array(data_series)
     data_height = np.array(data_height)
 
-    stacked_data_series = []
-
     # Create new zeroed height array if not same length as data_series.
     if data_series.shape[1] != data_height.shape[0]:
-        height = np.zeros(data_series.shape[1], dtype=data_series.dtype)
-    else:
-        height = data_height
+        data_height = np.zeros(data_series.shape[1], dtype=data_series.dtype)
 
     # Build stacked_data_series starting at the height.
-    stacked_data_series.append(height)
-
+    stacked_data_series = []
+    stacked_data_series.append(data_height)
     # Use NumPy's cumulative sum along axis 0 to calculate the stacked data series
-    stacked_data_series.extend(np.cumsum(data_series, axis=0) + height)
+    stacked_data_series.extend(np.cumsum(data_series, axis=0) + data_height)
 
-    return stacked_data_series, height
+    # Set new height
+    new_height = stacked_data_series[1]
+
+    return stacked_data_series, new_height
 
 
 def label_format(label, g_formatting):
