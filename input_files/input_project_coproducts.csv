@@ -1,1 +1,13 @@
 P_ID_NUMBER,NAME,REGION,DEPOSIT_TYPE,COPRODUCT_COMMODITY,COPRODUCT_GRADE,COPRODUCT_RECOVERY,SUPPLY_TRIGGER,COPRODUCT_BROWNFIELD_GRADE_FACTOR
+0,Deposit_0,Region 1,Type 1,D,0.03,0.5,0,0.99
+1,Deposit_1,Region 1,Type 1,D,0.03,0.5,0,0.99
+4,Deposit_4,Region 1,Type 3,B,0.01,0.9,0,0.97
+4,Deposit_4,Region 1,Type 3,C,0.02,0.5,0,0.97
+5,Deposit_5,Region 2,Type 1,D,0.03,0.5,0,0.99
+6,Deposit_6,Region 2,Type 1,D,0.02,0.5,0,0.99
+9,Deposit_9,Region 2,Type 3,B,0.01,0.9,0,0.99
+9,Deposit_9,Region 2,Type 3,C,0.02,0.5,0,0.99
+10,Deposit_10,Region 3,Type 1,D,0.01,0.5,0,0.99
+11,Deposit_11,Region 3,Type 1,D,0.01,0.5,0,0.99
+14,Deposit_14,Region 3,Type 3,B,0.01,0.9,0,0.99
+14,Deposit_14,Region 3,Type 3,C,0.01,0.5,0,0.99
