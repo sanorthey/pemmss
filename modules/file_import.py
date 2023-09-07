@@ -519,8 +519,9 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                                 generated_recovery += 1
                                 generated_supply_trigger += 1
                                 generated_brownfield_grade_factor += 1
-    if copy_path is not None:
-        copyfile(path + r'\\input_project_coproducts.csv', copy_path + r'\\input_project_coproducts.csv')
+    # TODO: fix this
+    #if copy_path is not None:
+    #    copyfile(path + r'\\input_project_coproducts.csv', copy_path + r'\\input_project_coproducts.csv')
 
     if log_path is not None:
         export_log('Imported input_projects_coproducts.csv', output_path=log_path, print_on=0)
@@ -950,15 +951,14 @@ def import_historic(path, copy_path=None, log_path=None):
          t0, t1, ..., tn  | values
     """
     imported_historic = import_statistics(path + r'\\input_historic.csv', custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC'])
-    
+
     if copy_path is not None:
         copyfile(path + r'\\input_historic.csv', copy_path + r'\\input_historic.csv')
     if log_path is not None:
         export_log('Imported input_historic.csv', log_path, 1)
     
     return imported_historic
-    
-    
+
 
 def import_statistics(path, log_path=None, custom_keys=False, convert_values=False):
     """

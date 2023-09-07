@@ -182,6 +182,7 @@ def export_statistics(path, stats_flat_dict, time_range):
             w.writerow(dict_to_write)
 
 
+
 def export_plot_subplot_data(path, plot_data):
     """
     Exports plot and subplot series to a .csv file.
@@ -203,3 +204,92 @@ def export_plot_subplot_data(path, plot_data):
                     w.writerow(y_row)
     output_file.close()
 
+
+def export_queue_task(q, constants):
+    """
+    Monitors a queue and export statistics when added to the queue.
+
+    q  |  multiprocessing.Queue() object
+    constants  |  pemmss() constants datastructure. Dictionary containing .
+    Return a list of statistic CSV file paths | [s_path, s_path]
+    """
+
+    # Todo: this function is a work in progress
+    output_path_folder = constants['output_folder']
+    post_processing = constants['imported_postprocessing']
+
+    write_tasks = []
+    output_path_stats_list = []
+    open_file_objects = {}
+    dict_writer_object_dict = {}
+    exit_code = False
+
+    # Generate header row times based on the time period of scenarios and any inputted historic statistics
+    time_range = set()
+    for r in constants['parameters']:
+        time_range.update(range(int(r['year_start']), int(r['year_end'])))  # TODO: check if this results in an extra year in the output files, or if it needs to be r[year_end]-1
+        for k, time_values in constants['imported_historic'].items():
+            for t in time_values:
+                set.update(t)
+
+    # Create statistic files
+    for s in post_processing:
+        if s['post_process']:
+            # Create file path
+            s_path = f"{output_path_folder}/_{s}.csv"
+            output_path_stats_list.append(s_path)
+            # Create and open file
+            file = open(s_path, 'a', newline='')
+            open_file_objects.update({s: file})
+            # Create writer object
+            header = ['SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
+            header.extend(time_range)
+            writer = csv.DictWriter()
+            dict_writer_object_dict.update({s: writer})
+
+    while not exit_code:
+        # Collect tasks
+        print("test")
+        write_tasks = q.get()
+        if not write_tasks[0]:
+            exit_code = True
+        else:
+            for task in write_tasks:
+                stats, time_range = task
+                for s in stats:
+                    if s in dict_writer_object_dict:
+                        export_statistics_opened(dict_writer_object_dict[s], s, time_range)
+                        dict_writer_object_dict[s].writerow()
+
+    # Close writer objects
+    for file in open_file_objects:
+        file.close()
+
+    return output_path_stats_list
+
+
+
+def export_statistics_opened(csv_dict_writer, stats_flat_dict, time_range):
+    """
+    Exports values to an already opened csv from the stats data structure
+    csv_dict_writer = csv.DictWriter object for an already opened file
+    exp_stats = {(i,j,a,r,d,c,s):{t:}}
+    header = ([i,j,a,r,d,c,s], [t1,t2,t3,etc.])
+    i.e. header[0] = key     |    header[1] = time keys
+    """
+    # TODO: this function is a work in progress
+    # TODO: check header writing -- was recraeting
+
+    w = csv_dict_writer
+    header = ['SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
+    header.extend(time_range)
+
+    # Unpack stats_flat_dict
+    for k, time_dict in stats_flat_dict.items():
+        dict_to_write = {'SCENARIO_INDEX': k[0], 'ITERATION': k[1], 'AGGREGATION': k[2], 'REGION': k[3],
+                         'DEPOSIT_TYPE': k[4], 'COMMODITY': k[5], 'STATISTIC': k[6]}
+        for t in time_dict:
+            if t in time_range:
+                # This check required because some stats can be generated outside of scenario time range.
+                dict_to_write.update({t: time_dict[t]})
+        w.writerow(dict_to_write)

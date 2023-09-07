@@ -73,7 +73,7 @@ import random
 from os import mkdir, getcwd
 from time import time
 from copy import deepcopy
-from multiprocessing import Pool, cpu_count
+from multiprocessing import Pool, Process, cpu_count, Queue
 from collections import defaultdict
 
 
@@ -191,6 +191,7 @@ def scenario(i, constants):
     output_folder = constants['output_folder']
     output_folder_input_copy = constants['output_folder_input_copy']
     imported_historic = constants['imported_historic']
+    writing_queue = constants['writing_queue']
     log = constants['log']
 
     ### Scenario Specific Data
@@ -375,7 +376,8 @@ def scenario(i, constants):
         # Export statistics
         time_range = list(year_set)
         time_range.sort(key=lambda x: int(x))
-        file_export.export_statistics(output_path_stats, stats, time_range)
+        queue_message = (stats, time_range)
+        writing_queue.put(queue_message)
 
         jt3 = (time())
         log_message.append('\nIteration export duration '+str((jt3-jt2)))
@@ -451,6 +453,12 @@ def main():
     scenario_folder_objects = []
     scenario_folders = []
 
+    # Create writing process
+    writing_queue = Queue()
+    CONSTANTS.update({"writing_queue": writing_queue})
+    writing_process = Process(target=file_export.export_queue_task, args=(writing_queue, CONSTANTS)) # Todo: check syntax
+    writing_process.start()
+
     # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
     with Pool(cpu_count() - 1) as pool:
         for scenario_name in CONSTANTS['parameters']:
@@ -460,6 +468,9 @@ def main():
         print('\nScenarios being modelled.')
         pool.close()
         pool.join()
+
+    # Close writing process
+    writing_process.join()
 
     # Check for pooled process errors and exceptions
     for o in scenario_folder_objects:
