@@ -70,6 +70,7 @@ Attribution and citation information available in CITATION.cff
 # Import standard packages
 import datetime
 import random
+import cProfile
 from os import mkdir, getcwd
 from time import time
 from copy import deepcopy
@@ -489,6 +490,22 @@ def main():
 
     # Scenario generation complete. Congratulations !!
 
+def post_process_only():
+    # P1 - Import input files
+    CONSTANTS = initialise()
+    scenario_folders = []
+
+    with cProfile.Profile() as pr:
+        post_process(scenario_folders=scenario_folders,
+                     output_stats_folder=CONSTANTS['output_folder_statistics'],
+                     output_graphs_folder=CONSTANTS['output_folder_graphs'],
+                     imported_postprocessing=CONSTANTS['imported_postprocessing'],
+                     imported_graphs=CONSTANTS['imported_graphs'],
+                     imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
+                     log_path=CONSTANTS['log'])
+
+        pr.print_stats()
+    # TODO: test
 
 if __name__ == '__main__':
     main()
