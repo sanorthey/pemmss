@@ -55,7 +55,7 @@ class Mine:
     Mine.current_tranche | Tranche of resource / grade that is currently being considered for resource exploitation
     Mine.initial_resource | # Size of the initial mineral resource, ore basis
     Mine.initial_grade | Dictionary of lists of initial resource ore grade tranches for each commodity. Ratio of total ore mass. {commodity: [G tranche 0,G tranche 1,]}
-    Mine.grade_timeseries | Dictionary of grade of produced ore. Ratio of total ore mass. {commodity: {t: grade}}
+    Mine.grade_timeseries | Dictionary of grade of produced ore per year. Ratio of total ore mass. {commodity: {t: grade}}
     Mine.recovery | Dictionary of commodity recoveries. Ratio of total ore content. {commodity: recovery}
     Mine.production_capacity | Maximum extraction rate per period, ore basis.
     Mine.status | Already Produced in Time Period = 2
@@ -494,12 +494,14 @@ class Mine:
         else:
             demand_residual = ext_demand
             production_capacity_residual = self.production_capacity
-            self.production_ore[year] = 0
+            production_ore = 0
             production_ore_content = {c: float(0) for c in self.production_intermediate}
             production_intermediate = {c: float(0) for c in self.production_intermediate}
+            tranche_status = []
 
             for tranche, _ in enumerate(self.remaining_resource):
-                if self.status != 2:
+
+                if production_capacity_residual > 0 and demand_residual > 0 and self.grade[ext_demand_commodity][tranche] != 0: # Checking for grade == 0 is to avoid divide by zero bugs in supply requirement calculation.
                     self.current_tranche = tranche
                     # Convert residual external demand into tranche ore demand by accounting for recovery and tranche specific ore grade
                     supply_requirement = demand_residual / self.grade[ext_demand_commodity][tranche] / self.recovery[ext_demand_commodity]
@@ -508,25 +510,25 @@ class Mine:
                         if supply_requirement <= production_capacity_residual:
                             # Not supply capacity constrained, supply requirements fully met
                             tranche_production_ore = supply_requirement
-                            self.status = 2
+                            tranche_status.append(2)
                         else:
                             # Supply capacity constrained, supply requirements not fully met
                             tranche_production_ore = production_capacity_residual
-                            self.status = 2
+                            tranche_status.append(2)
                     else:
                         # Resource constrained
                         if self.remaining_resource[tranche] <= production_capacity_residual:
                             # Not supply capacity constrained, resource will be fully depleted, supply requirements not fully met
                             tranche_production_ore = self.remaining_resource[tranche]
-                            self.status = -1
+                            tranche_status.append(-1)
                             self.end_year = year
                         else:
                             # Supply capacity constrained, supply at full capacity, supply requirements not fully met
                             tranche_production_ore = production_capacity_residual
-                            self.status = 2
+                            tranche_status.append(2)
 
                     self.remaining_resource[tranche] -= tranche_production_ore
-                    self.production_ore[year] += tranche_production_ore
+                    production_ore += tranche_production_ore
 
                     # Convert ore production to commodity production
                     tranche_production_ore_content = {c: float(0) for c in self.production_intermediate}
@@ -550,13 +552,27 @@ class Mine:
                     # Adjust residuals for next tranche
                     production_capacity_residual -= tranche_production_ore
                     demand_residual -= tranche_production_intermediate[ext_demand_commodity]
-           # Record mined ore grade
-            for c in production_ore_content:
-                self.grade_timeseries[c][year] = production_ore_content[c] / self.production_ore[year]
-                self.production_intermediate[c][year] = production_intermediate[c]
+                else:
+                    #
+                    tranche_status.append(0)
 
-            # Return Mine as having supplied
-            return 1
+            # Check there was ore production.
+            if production_ore > 0:
+                # Record mined ore grade
+                self.production_ore[year] = production_ore
+                for c in production_ore_content:
+                    self.grade_timeseries[c][year] = production_ore_content[c] / production_ore
+                    self.production_intermediate[c][year] = production_intermediate[c]
+                # Set Mine status based on tranche status
+                if 2 in tranche_status:
+                    self.status = 2
+                if tranche_status[-1] == -1:
+                    self.status = -1
+                # Return Mine as having supplied
+                return 1
+            else:
+                # Return Mine as having not supplied
+                return 0
 
 
     def resource_expansion(self, year):
