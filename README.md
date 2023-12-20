@@ -11,7 +11,7 @@ This scenario model evaluates the rates of mine development, mineral exploration
 
 ### How to use:
 1. #### Install python and the matplotlib package
-The model has been developed and tested using python 3.11.1, matplotlib 3.7.2, numpy 1.25.1, pandas 2.0.3 and imageio 2.31.1.
+The model has been developed and tested using python 3.12.1, matplotlib 3.8.2, numpy 1.26.2, pandas 2.1.4 and imageio 2.33.1.
 
 Instructions for installing python are available at: https://www.python.org/
 
@@ -37,18 +37,19 @@ This will include:
 - A log file containing information useful for benchmarking and debugging.
 
 ### Developed and Tested Using:
-python 3.11.1
+python 3.12.1
 
-matplotlib 3.7.2
+matplotlib 3.8.2
 
-imageio 2.31.1
+imageio 2.33.1
 
-numpy 1.25.1
+numpy 1.26.2
 
-pandas 2.0.3
+pandas 2.1.4
 
 ### License:
 This model is licensed under a BSD 3-Clause License. See LICENSE.md for further information.
 
 ### Attribution and Citation:
-We request that any reference to this model in publications or presentations cite this GitHub repository and the journal article describing the model design and rationale. See CITATION.cff for specific details.
+We request that any reference to this model in publications or presentations cite this GitHub repository and the journal article describing the model design and rationale. See CITATION.cff or below for specific details:
+Northey, S.A., Klose, S., Pauliuk, S., Yellishetty, M., Giurco, D. (2023). Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model: Towards a stochastic understanding of the mineral discovery, mine development and co-product recovery requirements to meet demand in a low-carbon future. Resources, Conservation & Recycling Advances 17: 200137. https://doi.org/10.1016/j.rcradv.2023.200137 
