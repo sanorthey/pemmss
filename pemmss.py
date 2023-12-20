@@ -92,27 +92,27 @@ def initialise():
     Returns a dictionary containing input data for passing to scenario().
 
     Files read:
-    input_files\input_demand.csv
-    input_files\input_exploration_production_factors.csv
-    input_files\input_exploration_production_factors_timeseries.csv
-    input_files\input_graphs.csv
-    input_files\input_historic.csv
-    input_files\input_parameters.csv
-    input_files\input_postprocessing.csv
+    input_files/input_demand.csv
+    input_files/input_exploration_production_factors.csv
+    input_files/input_exploration_production_factors_timeseries.csv
+    input_files/input_graphs.csv
+    input_files/input_historic.csv
+    input_files/input_parameters.csv
+    input_files/input_postprocessing.csv
 
     Files & directories written:
-    output_files\[RUN_TIME]\
-    output_files\[RUN_TIME]\_input_files\
-    output_files\[RUN_TIME]\_input_files\input_demand.csv
-    output_files\[RUN_TIME]\_input_files\input_exploration_production_factors.csv
-    output_files\[RUN_TIME]\_input_files\input_exploration_production_factors_timeseries.csv
-    output_files\[RUN_TIME]\_input_files\input_graphs.csv
-    output_files\[RUN_TIME]\_input_files\input_historic.csv
-    output_files\[RUN_TIME]\_input_files\input_parameters.csv
-    output_files\[RUN_TIME]\_input_files\input_postprocessing.csv
-    output_files\[RUN_TIME]\_statistics\
-    output_files\[RUN_TIME]\_graphs\
-    output_files\[RUN_TIME]\log.txt
+    output_files/[RUN_TIME]/
+    output_files/[RUN_TIME]/_input_files/
+    output_files/[RUN_TIME]/_input_files/input_demand.csv
+    output_files/[RUN_TIME]/_input_files/input_exploration_production_factors.csv
+    output_files/[RUN_TIME]/_input_files/input_exploration_production_factors_timeseries.csv
+    output_files/[RUN_TIME]/_input_files/input_graphs.csv
+    output_files/[RUN_TIME]/_input_files/input_historic.csv
+    output_files/[RUN_TIME]/_input_files/input_parameters.csv
+    output_files/[RUN_TIME]/_input_files/input_postprocessing.csv
+    output_files/[RUN_TIME]/_statistics/
+    output_files/[RUN_TIME]/_graphs/
+    output_files/[RUN_TIME]/log.txt
 
     --- Journal article cross-references ---
     P1, R1
@@ -165,20 +165,20 @@ def scenario(i, constants):
     Returns the path to the scenario specific output folder.
 
     Files read:
-    input_files\input_projects.csv
-    input_files\input_project_coproducts.csv
+    input_files/input_projects.csv
+    input_files/input_project_coproducts.csv
 
     Files & directories written:
-    output_files\[RUN_TIME]\_input_files\input_projects.csv
-    output_files\[RUN_TIME]\_input_files\input_project_coproducts.csv
-    output_files\[RUN_TIME]\log.txt
-    output_files\[RUN_TIME]input_files\exploration_production
-    output_files\[RUN_TIME]\[scenario_name]\_statistics.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Projects.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Production_Ore.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Expansion.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Demand.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Production_Intermediate_[commodity].csv
+    output_files/[RUN_TIME]/_input_files/input_projects.csv
+    output_files/[RUN_TIME]/_input_files/input_project_coproducts.csv
+    output_files/[RUN_TIME]/log.txt
+    output_files/[RUN_TIME]input_files/exploration_production
+    output_files/[RUN_TIME]/[scenario_name]/_statistics.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Projects.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Production_Ore.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Expansion.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Demand.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Production_Intermediate_[commodity].csv
 
     --- Journal article cross-references ---
     P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, R2, W1

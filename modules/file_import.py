@@ -22,12 +22,17 @@ import csv
 from shutil import copyfile
 from collections import defaultdict
 from random import choices
-from distutils.util import strtobool
 
 # Import custom modules
 import modules.deposit as deposit
 from modules.file_export import export_log
 
+# Recreate deprecated functions
+def strtobool(value: str) -> bool: # distutils was deprecated in Python 3.12, recreating strtobool()
+    value = value.lower()
+    if value in ("y", "yes", "on", "1", "true", "t"):
+        return True
+    return False
 
 #Import Data Functions
 
