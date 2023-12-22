@@ -52,4 +52,5 @@ This model is licensed under a BSD 3-Clause License. See LICENSE.md for further 
 
 ### Attribution and Citation:
 We request that any reference to this model in publications or presentations cite this GitHub repository and the journal article describing the model design and rationale. See CITATION.cff or below for specific details:
+
 Northey, S.A., Klose, S., Pauliuk, S., Yellishetty, M., Giurco, D. (2023). Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model: Towards a stochastic understanding of the mineral discovery, mine development and co-product recovery requirements to meet demand in a low-carbon future. Resources, Conservation & Recycling Advances 17: 200137. https://doi.org/10.1016/j.rcradv.2023.200137 

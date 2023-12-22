@@ -1,6 +1,6 @@
 BSD 3-Clause License
 
-Copyright (c) 2022, Stephen Northey
+Copyright (c) 2023, Stephen Northey
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
