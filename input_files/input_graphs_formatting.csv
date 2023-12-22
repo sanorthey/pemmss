@@ -1,11 +1,1 @@
 LABEL,LEGEND_TEXT,LEGEND_SUPPRESS,TITLE_TEXT,TITLE_SUPPRESS,COLOR,ALPHA,FILL_ALPHA,LINESTYLE,LINEWIDTH,MARKER,SIZE
-BAU,BAU,FALSE,SSP 2 RCP 2.6 - BAU,FALSE,red,0.04,0.1,solid,0.5,.,0.5
-RES,RES,FALSE,SSP 2 RCP 2.6 - RES,FALSE,blue,0.04,0.1,solid,0.5,.,0.5
-BAU-B,BAU-5% Annual Brownfield,FALSE,SSP 2 RCP 2.6 - BAU,FALSE,yellow,0.04,0.1,solid,0.5,.,0.5
-RES-B,RES-5% Annual Brownfield,FALSE,SSP 2 RCP 2.6 - RES,FALSE,green,0.04,0.1,solid,0.5,.,0.5
-Africa,Africa,FALSE,Africa,FALSE,orangered,1,1,solid,0.5,.,0.5
-Asia,Asia,FALSE,Asia,FALSE,peru,1,1,solid,0.5,.,0.5
-Europe,Europe,FALSE,Europe,FALSE,darkorange,1,1,solid,0.5,.,0.5
-North and Central America,North and Central America,FALSE,North and Central America,FALSE,yellowgreen,1,1,solid,0.5,.,0.5
-Oceania,Oceania,FALSE,Oceania,FALSE,darkolivegreen,1,1,solid,0.5,.,0.5
-South America,South America,FALSE,South America,FALSE,darkkhaki,1,1,solid,0.5,.,0.5

@@ -1,6 +1,1 @@
 FILE_PREFIX,PLOT_ALGORITHM,SUBPLOT_TYPE,PLOT_KEYS,SUBPLOT_KEYS,I_KEYS,J_KEYS,A_KEYS,R_KEYS,D_KEYS,C_KEYS,S_KEYS,T_KEYS,SHARE_SCALE,Y_AXIS_LABEL,CUMULATIVE,LABELS_ON,COLUMNS,GIF,GIF_FPS,GIF_DELETE_FRAMES
-annual,plot_subplot_default,fill_line,c,c,BAU;RES,TRUE,ALL,ALL,ALL,Cu,production_commodity,TRUE,TRUE,"Annual Production, tonnes Cu per year",FALSE,i,1,FALSE,30,TRUE
-PRODUCING,plot_subplot_default,fill_line,c,c,BAU;RES,TRUE,ALL,ALL,ALL,Cu,mines_producing_count,TRUE,TRUE,"Mines Producing, No.",FALSE,i,1,FALSE,30,TRUE
-STARTING,plot_subplot_default,fill_line,c,c,BAU;RES,TRUE,ALL,ALL,ALL,Cu,mines_started_count,TRUE,TRUE,"Mines Starting, No.",FALSE,i,1,FALSE,30,TRUE
-END,plot_subplot_default,fill_line,c,c,BAU;RES,TRUE,ALL,ALL,ALL,Cu,mines_ended_count,TRUE,TRUE,"Mines Ending, No.",FALSE,i,1,FALSE,30,TRUE
-regional,plot_subplot_default,line,c,c,BAU;RES,TRUE,ALL,TRUE,ALL,Cu,production_commodity,TRUE,TRUE,"Annual Production, tonnes Cu per year",FALSE,r,1,FALSE,30,TRUE
