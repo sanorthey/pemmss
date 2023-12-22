@@ -22,12 +22,17 @@ import csv
 from shutil import copyfile
 from collections import defaultdict
 from random import choices
-from distutils.util import strtobool
 
 # Import custom modules
 import modules.deposit as deposit
 from modules.file_export import export_log
 
+# Recreate deprecated functions
+def strtobool(value: str) -> bool: # distutils was deprecated in Python 3.12, recreating strtobool()
+    value = value.lower()
+    if value in ("y", "yes", "on", "1", "true", "t"):
+        return True
+    return False
 
 #Import Data Functions
 
@@ -378,9 +383,9 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
                              start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, value_update=v_update))
-
-    if copy_path is not None:
-        copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
+    # TODO: Fix this copy_path in import_projects
+    # if copy_path is not None:
+    #     copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
 
     if log_path is not None:
         export_log('Imported input_projects.csv', output_path=log_path, print_on=0)
@@ -1015,7 +1020,7 @@ def import_statistics(path, log_path=None, custom_keys=False, convert_values=Fal
 
     return imported_statistics
 
-def import_statistics_keyed(path, base_key='STATISTIC', log_path=None):
+def import_statistics_keyed(path, base_key='STATISTIC', base_key_values=None, log_path=None):
     """
     import_statistics_keyed()
     Imports a _statistics.csv file, current use is when merging scenario data.
@@ -1024,6 +1029,7 @@ def import_statistics_keyed(path, base_key='STATISTIC', log_path=None):
 
     ARGUMENT | EXPECTED VALUES
     base_key | 'SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC' (default)
+    base_key_values | None or filter values [incl_base_key_0, incl_base_key_1, etc.]
     ## top level {base_key} is a defaultdict
 
     Expected input csv format:
@@ -1053,14 +1059,15 @@ def import_statistics_keyed(path, base_key='STATISTIC', log_path=None):
                 
             # Add row to nested stats
             else:
-                time_dict = dict(zip(time_keys,row['TIME']))
-                imported_statistics[row[base_key]].update({(row['SCENARIO_INDEX'],
-                                                              row['ITERATION'],
-                                                              row['AGGREGATION'],
-                                                              row['REGION'],
-                                                              row['DEPOSIT_TYPE'],
-                                                              row['COMMODITY'],
-                                                              row['STATISTIC']): time_dict})
+                if base_key_values is None or row[base_key] in base_key_values:
+                    time_dict = dict(zip(time_keys,row['TIME']))
+                    imported_statistics[row[base_key]].update({(row['SCENARIO_INDEX'],
+                                                                  row['ITERATION'],
+                                                                  row['AGGREGATION'],
+                                                                  row['REGION'],
+                                                                  row['DEPOSIT_TYPE'],
+                                                                  row['COMMODITY'],
+                                                                  row['STATISTIC']): time_dict})
     if log_path is not None:
         export_log('Imported_statistics.csv', output_path=log_path, print_on=1)
     return imported_statistics, time_keys

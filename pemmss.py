@@ -70,6 +70,7 @@ Attribution and citation information available in CITATION.cff
 # Import standard packages
 import datetime
 import random
+import cProfile
 from os import mkdir, getcwd
 from time import time
 from copy import deepcopy
@@ -91,27 +92,27 @@ def initialise():
     Returns a dictionary containing input data for passing to scenario().
 
     Files read:
-    input_files\input_demand.csv
-    input_files\input_exploration_production_factors.csv
-    input_files\input_exploration_production_factors_timeseries.csv
-    input_files\input_graphs.csv
-    input_files\input_historic.csv
-    input_files\input_parameters.csv
-    input_files\input_postprocessing.csv
+    input_files/input_demand.csv
+    input_files/input_exploration_production_factors.csv
+    input_files/input_exploration_production_factors_timeseries.csv
+    input_files/input_graphs.csv
+    input_files/input_historic.csv
+    input_files/input_parameters.csv
+    input_files/input_postprocessing.csv
 
     Files & directories written:
-    output_files\[RUN_TIME]\
-    output_files\[RUN_TIME]\_input_files\
-    output_files\[RUN_TIME]\_input_files\input_demand.csv
-    output_files\[RUN_TIME]\_input_files\input_exploration_production_factors.csv
-    output_files\[RUN_TIME]\_input_files\input_exploration_production_factors_timeseries.csv
-    output_files\[RUN_TIME]\_input_files\input_graphs.csv
-    output_files\[RUN_TIME]\_input_files\input_historic.csv
-    output_files\[RUN_TIME]\_input_files\input_parameters.csv
-    output_files\[RUN_TIME]\_input_files\input_postprocessing.csv
-    output_files\[RUN_TIME]\_statistics\
-    output_files\[RUN_TIME]\_graphs\
-    output_files\[RUN_TIME]\log.txt
+    output_files/[RUN_TIME]/
+    output_files/[RUN_TIME]/_input_files/
+    output_files/[RUN_TIME]/_input_files/input_demand.csv
+    output_files/[RUN_TIME]/_input_files/input_exploration_production_factors.csv
+    output_files/[RUN_TIME]/_input_files/input_exploration_production_factors_timeseries.csv
+    output_files/[RUN_TIME]/_input_files/input_graphs.csv
+    output_files/[RUN_TIME]/_input_files/input_historic.csv
+    output_files/[RUN_TIME]/_input_files/input_parameters.csv
+    output_files/[RUN_TIME]/_input_files/input_postprocessing.csv
+    output_files/[RUN_TIME]/_statistics/
+    output_files/[RUN_TIME]/_graphs/
+    output_files/[RUN_TIME]/log.txt
 
     --- Journal article cross-references ---
     P1, R1
@@ -138,8 +139,8 @@ def initialise():
     mkdir(constants['output_folder_graphs'])
 
     # Model version details for log and file writing
-    constants['version_number'] = ('1.1.0')
-    constants['version_date'] = '2022-12-31'
+    constants['version_number'] = ('1.2.0')
+    constants['version_date'] = '2023-12-22'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                    "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
@@ -164,20 +165,20 @@ def scenario(i, constants):
     Returns the path to the scenario specific output folder.
 
     Files read:
-    input_files\input_projects.csv
-    input_files\input_project_coproducts.csv
+    input_files/input_projects.csv
+    input_files/input_project_coproducts.csv
 
     Files & directories written:
-    output_files\[RUN_TIME]\_input_files\input_projects.csv
-    output_files\[RUN_TIME]\_input_files\input_project_coproducts.csv
-    output_files\[RUN_TIME]\log.txt
-    output_files\[RUN_TIME]input_files\exploration_production
-    output_files\[RUN_TIME]\[scenario_name]\_statistics.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Projects.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Production_Ore.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Expansion.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Demand.csv
-    output_files\[RUN_TIME]\[scenario_name]\[iteration]-Production_Intermediate_[commodity].csv
+    output_files/[RUN_TIME]/_input_files/input_projects.csv
+    output_files/[RUN_TIME]/_input_files/input_project_coproducts.csv
+    output_files/[RUN_TIME]/log.txt
+    output_files/[RUN_TIME]input_files/exploration_production
+    output_files/[RUN_TIME]/[scenario_name]/_statistics.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Projects.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Production_Ore.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Expansion.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Demand.csv
+    output_files/[RUN_TIME]/[scenario_name]/[iteration]-Production_Intermediate_[commodity].csv
 
     --- Journal article cross-references ---
     P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, R2, W1
@@ -489,6 +490,22 @@ def main():
 
     # Scenario generation complete. Congratulations !!
 
+def post_process_only():
+    # P1 - Import input files
+    CONSTANTS = initialise()
+    scenario_folders = []
+
+    with cProfile.Profile() as pr:
+        post_process(scenario_folders=scenario_folders,
+                     output_stats_folder=CONSTANTS['output_folder_statistics'],
+                     output_graphs_folder=CONSTANTS['output_folder_graphs'],
+                     imported_postprocessing=CONSTANTS['imported_postprocessing'],
+                     imported_graphs=CONSTANTS['imported_graphs'],
+                     imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
+                     log_path=CONSTANTS['log'])
+
+        pr.print_stats()
+    # TODO: test
 
 if __name__ == '__main__':
     main()
