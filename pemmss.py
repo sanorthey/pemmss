@@ -369,6 +369,9 @@ def scenario(i, constants):
             file_export.export_project_dictionary(output_path_expansion_contained, projects, 'expansion_contained', header='None', id_key='id_number', commodity=c, log_path=log)
             output_path_grade_timeseries = output_folder_scenario + '\\' + str(j) + '-Grade_Timeseries_'+str(c)+'.csv'
             file_export.export_project_dictionary(output_path_grade_timeseries, projects, 'grade_timeseries', header='None', id_key='id_number', commodity=c, log_path=log)
+        # TODO: inventory export loop
+        # TODO: for inv in inv_keys:
+                    output_path_inv =
 
         # Export unmet demand timeseries
         file_export.export_demand(output_path_demand, demand)

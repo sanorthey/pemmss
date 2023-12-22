@@ -809,6 +809,7 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
         export_log('Invalid tonnage model ' + str(size_model), output_path=log_file, print_on=1)
     return tonnage
 
+
 def lognormal_factors(value_list):
     """
     This function can be called to logtransform a list of data points and derive mu and stdev for use with the lognormal tonnage and grade distribution models.
@@ -856,6 +857,7 @@ def value_generate(value_factors, resource, ore_grade, recovery, tranche=int(0),
                 return_value[c] -= value
                 return_value['ALL'] -= value
     return return_value
+
 
 def value_model(value_factors, ore, ore_grade, recovery, log_file=None):
     """
@@ -988,3 +990,17 @@ def update_exploration_production_factors(factors, updates):
                             for i in index_set:
                                 factors[v][i][c] = variable_rebuilt
     return factors
+
+# TODO: def inventory_create():
+
+# TODO: def inventory_start():
+
+# TODO: def inventory_supply():
+
+# TODO: def inventory_care_and_maintenance()
+
+# TODO: def inventory_end()
+
+# TODO: def inventory_perpetual()
+
+# TODO: def inventory_report()

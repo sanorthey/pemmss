@@ -134,3 +134,7 @@ def generate_statistics(key, project_list, time_range, demand_factors):
 
     return return_stats
 
+# TODO: def generate_inventory_statistics()
+
+# TODO: def generate_indicator_statistics()
+
