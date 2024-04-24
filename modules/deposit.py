@@ -156,7 +156,7 @@ class Mine:
         self.value = {}
         if value_update is False:
             self.value = value  # {'ALL': {'ALL': net value, c: net_recovery_value}, tranche: {'ALL': net value, c: net_recovery_value}}
-        else:
+        else: # TODO: Check if source of value error here
             self.value_update()  # To simplify value generation during project import in cases where there's multiple tranches
 
     def add_commodity(self, add_commodity, add_grade, add_recovery, is_balanced, add_brownfield_grade, add_value_factors, update_value=True, log_file=None, tranche=0):
@@ -615,7 +615,8 @@ class Mine:
         self.value['ALL'] = defaultdict(float)
 
         for tranche, _ in enumerate(self.remaining_resource):
-            tranche_value_dict = value_generate(self.value_factors, self.remaining_resource, self.grade, self.recovery, tranche=tranche, log_file=log_file)
+            # TODO: Check tranche value and if that is source of error
+            tranche_value_dict = value_generate(self.value_factors, self.remaining_resource, self.grade, self.recovery, tranche=tranche, log_file=log_file) # TODO: Add production_capacity argument to value_generate call
             self.value.update({tranche: tranche_value_dict})
             for c in tranche_value_dict:  # should include 'ALL'
                 self.value['ALL'][c] += tranche_value_dict[c]
@@ -819,7 +820,7 @@ def lognormal_factors(value_list):
     return mu, standard_dev
 
 
-def value_generate(value_factors, resource, ore_grade, recovery, tranche=int(0), log_file=None):
+def value_generate(value_factors, resource, ore_grade, recovery, tranche=int(0), log_file=None): #TODO: Add argument production_capacity to value_generate()
     """
     value_generate()
     Generates net value based upon the current Mine object variables and value model.
@@ -837,7 +838,7 @@ def value_generate(value_factors, resource, ore_grade, recovery, tranche=int(0),
 
         # Check for 'MINE' costs to avoid passing c to ore_grade and recovery.
         if c == 'MINE':
-            res = resource
+            res = resource #TODO: check if source of bug this not being resource[tranche]
             grade = ore_grade
             rec = recovery
         else:
@@ -848,7 +849,7 @@ def value_generate(value_factors, resource, ore_grade, recovery, tranche=int(0),
         # Loop through revenue and cost models
         for k in value_factors[c]:
 
-            value = (value_model(value_factors[c][k], res, grade, rec, log_file=log_file))
+            value = (value_model(value_factors[c][k], res, grade, rec, log_file=log_file)) # TODO: Add argument production_capacity
             if k == "revenue":
                 return_value[c] += value
                 return_value['ALL'] += value
@@ -866,6 +867,7 @@ def value_model(value_factors, ore, ore_grade, recovery, log_file=None):
     value_factors['c'] and value_factors['d'] for individual regions and deposit types from the
     input_exploration_production_factors.csv input file.
     """
+    # TODO: Add argument production_capacity to value_model()
 
     model = value_factors['model']
     a = float(value_factors['a'])
@@ -895,6 +897,7 @@ def value_model(value_factors, ore, ore_grade, recovery, log_file=None):
         return ore * ore_grade * a
     elif model == "contained_recoverable_value":
         return ore * ore_grade * recovery * a
+    # TODO: generic power law function for economies of scale (e.g. declining $/t cost with increasing production_capacity)
     else:
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
 

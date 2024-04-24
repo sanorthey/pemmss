@@ -153,7 +153,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
         BROWNFIELD_GRADE_FACTOR    | float, optional
         VALUE_NET            | float, tranches separated by ";", optional, Note: will autogenerate if VALUE_RECOVERY_NET is not specified
         VALUE_RECOVERY_NET   | float, tranches separated by ";", optional, Note: will autogenerate if VALUE_NET is not specified
-        MINE_COST_MODEL      | string corresponding to models in deposit.value_model(), optional
+        MINE_COST_MODEL      | string corresponding to models in deposit.value_model(), optional # TODO: Consider if additional input file instructions required here
         MINE_COST_A          | value corresponding to parameter in deposit.value_model(), optional
         MINE_COST_B          | value corresponding to parameter in deposit.value_model(), optional
         MINE_COST_C          | value corresponding to parameter in deposit.value_model(), optional
@@ -286,7 +286,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
 
             value_factors = {'MINE': {}, commodity: {}}
 
-            if row['MINE_COST_MODEL'] == '':
+            if row['MINE_COST_MODEL'] == '': # TODO: Check if source of bug is here
                 no_mine_cost_model += 1
                 value_factors['MINE'].update({'cost': {'model': f['mine_cost_model'][index],
                                                        'a': f['mine_cost_a'][index],
