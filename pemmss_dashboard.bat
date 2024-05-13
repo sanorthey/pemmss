@@ -1,0 +1,1 @@
+quarto preview "%~dp0\dashboard\dashboard.qmd"
