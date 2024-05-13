@@ -1,0 +1,281 @@
+---
+title: PEMMSS Dashboard
+format: dashboard
+server: shiny
+jupyter: python3
+---
+
+```{python}
+import os
+import subprocess
+import pandas as pd
+from pathlib import Path
+import matplotlib.pyplot as plt
+from shiny import render, ui, reactive
+from shinywidgets import render_widget 
+from ipyleaflet import Map  
+plt.rcParams['font.size'] = 8
+```
+
+# Inputs
+
+## {.sidebar}
+
+
+```{python}
+ui.input_action_button("btn", "Run Simulation", class_="btn-success")
+simulation_completed = reactive.Value(0)
+script_dir = os.getcwd()
+
+input_files_path = Path(script_dir) / ".." / "input_files"
+
+@reactive.effect
+def run_pemmss():
+    if input.btn() > 0:
+        with reactive.isolate():
+            output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "output_files"))
+            os.makedirs(output_dir, exist_ok=True)
+            script_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+            os.chdir(script_dir)
+            
+            ui.modal_show(ui.modal("Running PEMMSS simulation...", easy_close=True, footer=None))
+            result = subprocess.run(["python", "pemmss.py"], capture_output=True, text=True)
+            if result.stderr:
+                ui.modal_show(ui.modal(f"Error: {result.stderr}", easy_close=True, footer=None))
+            else:
+                ui.modal_show(ui.modal(ui.pre(result.stdout), easy_close=True, footer=None))
+                simulation_completed.set(simulation_completed() + 1)  # Update the reactive value
+
+@render.ui
+def csv_inputs():
+    try:
+        csv_inputs = [f for f in os.listdir(input_files_path) if f.endswith('.csv')]
+    except FileNotFoundError:
+        csv_inputs = []
+    if csv_inputs:
+        select_input = ui.input_select("csv_input", "Input files:", choices=csv_inputs)
+        open_button = ui.input_action_button("open_csv", "Open CSV")
+        return ui.tags.div(select_input, open_button)
+    else:
+        return ui.div("No output folders found.")
+
+@reactive.effect
+def open_selected_csv():
+    if input.open_csv() > 0:
+        with reactive.isolate():
+            selected_file_path = input_files_path / input.csv_input()
+            if selected_file_path.exists():
+                os.startfile(selected_file_path)
+```
+
+
+## Inputs
+
+```{python}
+@reactive.Calc
+def load_csv():
+    csv_input = input.csv_input()
+    if csv_input:
+        csv_path = input_files_path / csv_input
+        return pd.read_csv(csv_path)
+    else:
+        return pd.DataFrame()
+
+@render.data_frame
+def editable_df():
+    df = load_csv()
+    return render.DataGrid(
+        data=df,
+        editable=True
+    )
+
+@editable_df.set_patch_fn
+def _(*, patch: render.CellPatch) -> render.CellValue:
+    csv_input = input.csv_input()
+    if csv_input:
+        csv_path = input_files_path / csv_input
+        df = pd.read_csv(csv_path)
+        df.iloc[patch["row_index"], patch["column_index"]] = patch["value"]
+        df.to_csv(csv_path, index=False)
+    return patch["value"]
+```
+
+# Outputs
+
+:::{.sidebar}
+
+```{python}
+output_files_path = Path(script_dir) / ".." / "output_files"
+
+@reactive.Calc
+def selected_folder():
+    simulation_completed()
+    folder_input = input.folder()
+    return folder_input if folder_input else None
+
+@render.ui
+def folder_ui():
+    simulation_completed()
+    if output_files_path.exists():
+        folders = [f.name for f in output_files_path.iterdir() if f.is_dir()]
+    else:
+        folders = []
+    
+    if folders:
+        return ui.input_select("folder", "Select Folder:", choices=folders)
+    else:
+        return ui.div("No output folders found.")
+
+@reactive.Calc
+def png_files():
+    folder = selected_folder()
+    simulation_completed()
+    if folder:
+        graphs_folder = output_files_path / folder / "_graphs"
+        return [f for f in os.listdir(graphs_folder) if f.endswith('.png')] if graphs_folder.exists() else []
+    else:
+        return []
+
+@reactive.Calc
+def csv_files():
+    folder = selected_folder()
+    simulation_completed()
+    if folder:
+        input_files_folder = output_files_path / folder / "_input_files"
+        return [f for f in os.listdir(input_files_folder) if f.endswith('.csv')] if input_files_folder.exists() else []
+    else:
+        return []
+
+@reactive.Calc
+def stats_files():
+    folder = selected_folder()
+    simulation_completed()
+    if folder:
+        stats_files_folder = output_files_path / folder / "_statistics"
+        return [f for f in os.listdir(stats_files_folder) if f.endswith('.csv')] if stats_files_folder.exists() else []
+    else:
+        return []
+
+@render.ui
+def png_files_ui():
+    files = png_files()
+    simulation_completed()
+    if files:
+        return ui.input_select("png_file", "Plots:", choices=files)
+    else:
+        return ui.div("No PNG files found in the selected folder.")
+
+@render.ui
+def csv_files_ui():
+    files = csv_files()
+    simulation_completed()
+    if files:
+        return ui.input_select("csv_file", "Inputs:", choices=files)
+    else:
+        return ui.div("No CSV files found in the selected folder.")
+
+@render.ui
+def stats_files_ui():
+    files = stats_files()
+    simulation_completed()
+    if files:
+        return ui.input_select("stats_file", "Statistics:", choices=files)
+    else:
+        return ui.div("No CSV files found in the selected folder.")
+```
+
+:::
+
+:::{.panel-tabset}
+
+## Plots
+
+```{python}
+@render.image 
+def image():
+    selected_png = input.png_file()
+    folder = input.folder()
+    if selected_png and folder:
+        full_path = output_files_path / folder / "_graphs" / selected_png
+        img = {"src": str(full_path), "style": "max-width:100%; max-height:100%; object-fit:contain;"}
+        return img
+    else:
+        return None
+```
+
+## Inputs
+
+```{python}
+@render.data_frame
+def table_inputs():
+    selected_csv = input.csv_file()
+    folder = input.folder()
+    if selected_csv and folder:
+        full_path = output_files_path / folder / "_input_files" / selected_csv
+        df = pd.read_csv(full_path)
+        return df
+    else:
+        return None
+```
+
+## Statistics
+
+```{python}
+@render.data_frame
+def table_stats():
+    selected_csv = input.stats_file()
+    folder = input.folder()
+    if selected_csv and folder:
+        full_path = output_files_path / folder / "_statistics" / selected_csv
+        df = pd.read_csv(full_path)
+        return df
+    else:
+        return None
+```
+
+
+## Maps
+
+```{python}
+from ipyleaflet import Map, GeoData, basemaps, LayersControl
+import geopandas
+@render_widget  
+def map():
+
+    countries = geopandas.read_file(geopandas.datasets.get_path('naturalearth_lowres'))
+
+    m = Map(center=(52.3, 8.0), zoom=3, basemap=basemaps.Esri.WorldTopoMap)
+
+    geo_data = GeoData(
+        geo_dataframe=countries,
+        style={'color': 'black', 'fillColor': '#3366cc', 'opacity': 0.05, 'weight': 1.9, 'dashArray': '2', 'fillOpacity': 0.6},
+        hover_style={'fillColor': 'red', 'fillOpacity': 0.2},
+        name='Countries'
+    )
+
+    m.add_layer(geo_data)
+    m.add_control(LayersControl())
+
+    return m
+```
+
+## Log
+
+```{python}
+@render.code
+def log_text():
+    selected_csv = input.stats_file()
+    folder = input.folder()
+    if folder:
+        log_path = output_files_path / folder / "_statistics" / selected_csv
+        try:
+            with open(log_path, "r") as file:
+                log_content = file.read()
+            return log_content
+        except FileNotFoundError:
+            return "Log file not found."
+    else:
+        return "No folder selected."
+```
+
+:::
