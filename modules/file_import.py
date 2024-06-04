@@ -383,9 +383,9 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
                              start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, value_update=v_update))
-    # TODO: Fix this copy_path in import_projects
-    # if copy_path is not None:
-    #     copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
+
+    if copy_path is not None:
+        copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
 
     if log_path is not None:
         export_log('Imported input_projects.csv', output_path=log_path, print_on=0)
@@ -776,6 +776,7 @@ def import_graphs(path, copy_path=None, log_path=None):
         s_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
         t_keys          |   True (will generate all keys excl. 'ALL'), False (will generate only 'ALL') or key0;key1;key2;key3;etc. (note must have no spaces)
         share_scale     |   True or False (can be 1 or 0 and will automatically convert to boolean True or False)
+        y_scale_set     |   False (will autogenerate scale for each supblot based on share_scale) or a float (will apply to all plots and subplots, overriding share_scale setting)
         y_axis_label    |   False (will autogenerate y_axis_label based on plot_keys) or a string
         cumulative      |   True or False
         labels_on       |   one of i,j,a,r,d,c,s or multiple separated by ';' (e.g. i;c;s). This acts as a grouping to share series and legend formatting.
@@ -806,6 +807,7 @@ def import_graphs(path, copy_path=None, log_path=None):
                                         's_keys': row['S_KEYS'].split(';'),
                                         't_keys': row['T_KEYS'].split(';'),
                                         'share_scale': row['SHARE_SCALE'],
+                                        'y_scale_set': row['Y_SCALE_SET'],
                                         'y_axis_label': row['Y_AXIS_LABEL'],
                                         'labels_on': row['LABELS_ON'].split(';'),
                                         'cumulative': row['CUMULATIVE'],
@@ -827,6 +829,8 @@ def import_graphs(path, copy_path=None, log_path=None):
                 imported_graphs[-1]['share_scale'] = True
             if imported_graphs[-1]['y_axis_label'].lower() == "false":
                 imported_graphs[-1]['y_axis_label'] = False
+            if imported_graphs[-1]['y_scale_set'].lower() == "false":
+                imported_graphs[-1]['y_scale_set'] = False
             if imported_graphs[-1]['cumulative'].lower() == "false":
                 imported_graphs[-1]['cumulative'] = False
             elif imported_graphs[-1]['cumulative'].lower() == "true":
