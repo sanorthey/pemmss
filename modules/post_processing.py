@@ -417,7 +417,7 @@ def series_stack(data_series, data_height):
     stacked_data_series.extend(np.cumsum(data_series, axis=0) + data_height)
 
     # Set new height
-    new_height = stacked_data_series[1]
+    new_height = stacked_data_series[-1]
 
     return stacked_data_series, new_height
 
