@@ -197,6 +197,7 @@ def plot_subplot(statistics, path, g, g_formatting):
     subplot_type = g['subplot_type']
     share_scale = g['share_scale']
     y_axis_label = g['y_axis_label']
+    y_scale_set = g['y_scale_set']
     cumulative = g['cumulative']
     columns = g['columns']
     gif = g['gif']
@@ -233,7 +234,7 @@ def plot_subplot(statistics, path, g, g_formatting):
         output_filepath = os.path.join(plot_folder_path, '_' + file_prefix + '-' + str(plot) + '.png')
         output_filepath_data = output_filepath + '.csv'
 
-        fig_path, fig_data = plot_subplot_generator(output_filepath, str(title), subplots, h_panels, v_panels, subplot_type, share_scale, y_label, cumulative, g_formatting)
+        fig_path, fig_data = plot_subplot_generator(output_filepath, str(title), subplots, h_panels, v_panels, subplot_type, share_scale, y_label, y_scale_set, cumulative, g_formatting)
         plot_paths.append(fig_path)
         export_plot_subplot_data(output_filepath_data, fig_data)
         plot_data_paths.append(output_filepath_data)
@@ -249,7 +250,7 @@ def plot_subplot(statistics, path, g, g_formatting):
     return output_paths
 
 
-def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plot_type, share_scale, y_axis_label, cumulative, g_formatting):
+def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plot_type, share_scale, y_axis_label, y_scale_set, cumulative, g_formatting):
     """
     Returns a plot with an arbitrary number of subplots.
     plot_type can equal 'stacked', 'scatter', 'line', 'fill', 'fill_line'
@@ -314,6 +315,9 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                     data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
                     stacked_y, data_height = series_stack(data['y'], data_height)
                     generate_fill(ax[h, v], data['x'], stacked_y, l_format)
+                # Format y axis scale, if set
+                if y_scale_set != False:
+                    ax[h, v].set_ylim([0, float(y_scale_set)])
 
             # Subplot formatting
             ax[h, v].legend(loc='upper left')
