@@ -311,7 +311,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                     data['y'] = series_modify(data['y'], cumulative)
                     generate_fill(ax[h, v], data['x'], data['y'], l_format)
                     generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
-                elif plot_type == 'stacked':  # TODO: possible bug. check stacked. Don't think is stacking correctly.
+                elif plot_type == 'stacked':
                     data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
                     stacked_y, data_height = series_stack(data['y'], data_height)
                     generate_fill(ax[h, v], data['x'], stacked_y, l_format)

@@ -156,7 +156,7 @@ class Mine:
         self.value = {}
         if value_update is False:
             self.value = value  # {'ALL': {'ALL': net value, c: net_recovery_value}, tranche: {'ALL': net value, c: net_recovery_value}}
-        else: # TODO: Check if source of value error here
+        else:
             self.value_update()  # To simplify value generation during project import in cases where there's multiple tranches
 
     def add_commodity(self, add_commodity, add_grade, add_recovery, is_balanced, add_brownfield_grade, add_value_factors, update_value=True, log_file=None, tranche=0):
@@ -615,8 +615,7 @@ class Mine:
         self.value['ALL'] = defaultdict(float)
 
         for tranche, _ in enumerate(self.remaining_resource):
-            # TODO: Check tranche value and if that is source of error
-            tranche_value_dict = value_generate(self.value_factors, self.remaining_resource, self.grade, self.recovery, self.production_capacity, tranche=tranche, log_file=log_file) # TODO: Add production_capacity argument to value_generate call
+            tranche_value_dict = value_generate(self.value_factors, self.remaining_resource, self.grade, self.recovery, self.production_capacity, tranche=tranche, log_file=log_file)
             self.value.update({tranche: tranche_value_dict})
             for c in tranche_value_dict:  # should include 'ALL'
                 self.value['ALL'][c] += tranche_value_dict[c]
@@ -838,7 +837,8 @@ def value_generate(value_factors, resource, ore_grade, recovery, production_capa
 
         # Check for 'MINE' costs to avoid passing c to ore_grade and recovery.
         if c == 'MINE':
-            res = sum(resource) #TODO: This sum is just a quick hack
+            res = sum(resource)  # This sum is just a quick hack. Logic needs fixing for tranche specific mining costs.
+            # TODO: Consider adding this sum(resource) and resource[tranche] logic to the value_factors() function or creating a separate value_mine_model() and value_recovery_model()
             grade = ore_grade
             rec = recovery
         else:
@@ -867,7 +867,6 @@ def value_model(value_factors, ore, ore_grade, recovery, production_capacity, lo
     value_factors['c'] and value_factors['d'] for individual regions and deposit types from the
     input_exploration_production_factors.csv input file.
     """
-    # TODO: Add argument production_capacity to value_model()
 
     model = value_factors['model']
     a = float(value_factors['a'])
