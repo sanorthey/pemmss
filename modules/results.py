@@ -132,5 +132,7 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                     elif time_key < p.end_year and time_key not in p.production_ore:
                         return_stats[key + ('mines_care_maintenance_count',)][time_key] += 1
 
+    # TODO: Add statistics for project variables across iterations.
+
     return return_stats
 
