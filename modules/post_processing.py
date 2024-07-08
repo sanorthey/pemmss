@@ -21,9 +21,8 @@ Module with routines for post_processing of results data.
 from math import ceil
 from collections import defaultdict
 from random import choice
-from itertools import accumulate
 from itertools import islice
-import os
+from pathlib import Path
 
 # Import external packages
 import matplotlib
@@ -77,9 +76,9 @@ def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filen
     key_path_dict = {}
 
     for input_dir in input_dirs:
-        for entry in os.scandir(input_dir):
+        for entry in Path(input_dir).iterdir():
             if entry.name.endswith(filenameend) and entry.is_file():
-                file_path = entry.path
+                file_path = entry
 
                 df_chunks = pd.read_csv(file_path, chunksize=chunksize)
                 for chunk in df_chunks:
@@ -89,7 +88,7 @@ def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filen
 
                         if tuple(keys) not in key_path_dict:
                             output_file = "_".join(keys) + ".csv"
-                            output_path = os.path.join(output_dir, output_file)
+                            output_path = Path(output_dir) / output_file
 
                             filtered_chunk.to_csv(output_path, index=False)
                             key_path_dict[tuple(keys)] = output_path
@@ -214,8 +213,8 @@ def plot_subplot(statistics, path, g, g_formatting):
     # Assign plot directory or create a directory for holding gif frames
     plot_folder_path = path
     if gif:
-        plot_folder_path = os.path.join(path, '_' + file_prefix)
-        os.mkdir(plot_folder_path)
+        plot_folder_path = path / ('_' + file_prefix)
+        plot_folder_path.mkdir()
 
     # Generate plots
     for plot, subplots in plot_subplot_label_xy_data.items():
@@ -231,8 +230,8 @@ def plot_subplot(statistics, path, g, g_formatting):
         y_label = y_axis_label if y_axis_label else str(plot).capitalize()
 
         # Generate file paths
-        output_filepath = os.path.join(plot_folder_path, '_' + file_prefix + '-' + str(plot) + '.png')
-        output_filepath_data = output_filepath + '.csv'
+        output_filepath = plot_folder_path / f'_{file_prefix}-{plot}.png'
+        output_filepath_data = plot_folder_path / f'_{file_prefix}-{plot}.png.csv'
 
         fig_path, fig_data = plot_subplot_generator(output_filepath, str(title), subplots, h_panels, v_panels, subplot_type, share_scale, y_label, y_scale_set, cumulative, g_formatting)
         plot_paths.append(fig_path)
@@ -241,7 +240,7 @@ def plot_subplot(statistics, path, g, g_formatting):
 
     # Generate GIF
     if gif:
-        gif_filepath = os.path.join(path, '_' + file_prefix + '.gif')
+        gif_filepath = path / f'_{file_prefix}.gif'
         plot_paths = generate_gif(plot_paths, gif_filepath, fps=fps, delete_frames=delete_frames)
 
     # Generate final returned output paths list
@@ -493,8 +492,8 @@ def generate_gif(frame_path_list, gif_path, fps=5, delete_frames=True):
     for index, frame_path in enumerate(frame_path_list):
             frame = imageio.v2.imread(frame_path)
             frames.append(frame)
-            if delete_frames and index != len(frame_path_list) - 1:
-                os.remove(frame_path)
+            if delete_frames and index != len(frame_path_list):
+                frame_path.unlink()
 
     with imageio.get_writer(gif_path, mode='I', duration=duration, subrectangles=True) as writer:
         for frame in frames:
