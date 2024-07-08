@@ -1,30 +1,33 @@
 # pemmss
-Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
+### Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
+This scenario modeling framework evaluates the rates of mine development, mineral exploration and co-product recovery required to meet primary demand over-time.
 
-Developed by Stephen A. Northey
-in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco
+Development led by Stephen A. Northey
+
+in collaboration with:
+
+S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano, J. Hyman
 
 For further information or enquiries email:
     stephen.northey@uts.edu.au
 
-This scenario model evaluates the rates of mine development, mineral exploration and co-product recovery required to meet primary demand over-time.
 
 ### How to use:
 1. #### Install python and dependent packages
 This version of the model has been developed and tested using python 3.12.1. Additional required packages and the version used during development and testing are shown in requirements.txt. 
 
-Instructions for installing python are available at: https://www.python.org/
-Instructions for installing matplotlib are available at: https://matplotlib.org/
-Instructions for installing numpy are available at: https://numpy.org/install/
-Instructions for installing pandas are available at: https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
-Instructions for installing imageio are available at: https://imageio.readthedocs.io/en/stable/user_guide/installation.html
+- Instructions for installing python are available at: https://www.python.org/
+- Instructions for installing matplotlib are available at: https://matplotlib.org/
+- Instructions for installing numpy are available at: https://numpy.org/install/
+- Instructions for installing pandas are available at: https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
+- Instructions for installing imageio are available at: https://imageio.readthedocs.io/en/stable/user_guide/installation.html
 
 2. #### Scenario Data Input and Calibration
-Adjust scenario parameters and calibrate the model by modifying the CSV files located in the **input_files/** sub-directory.
+Adjust scenario parameters and calibrate the model by modifying the CSV files located in the **input_files/** subdirectory.
 
 The expected structure and data formats for each CSV file are documented in the associated import function defined in modules/file_import.py.
 
-Example input files are available in the **input_files_examples/** sub-directory and can be copied into the **input_files** directory to get started.
+Example input files are available in the **input_files_examples/** subdirectory and can be copied into the **input_files/** directory to get started.
 
 3. #### Execute pemmss.py
 Run the model by executing pemmss.py using python.
