@@ -10,23 +10,26 @@ For further information or enquiries email:
 This scenario model evaluates the rates of mine development, mineral exploration and co-product recovery required to meet primary demand over-time.
 
 ### How to use:
-1. #### Install python and the matplotlib package
-This version of the model has been developed and tested using python 3.12.1, matplotlib 3.8.2, numpy 1.26.2, pandas 2.1.4 and imageio 2.33.1.
+1. #### Install python and dependent packages
+This version of the model has been developed and tested using python 3.12.1. Additional required packages and the version used during development and testing are shown in requirements.txt. 
 
 Instructions for installing python are available at: https://www.python.org/
-
 Instructions for installing matplotlib are available at: https://matplotlib.org/
+Instructions for installing numpy are available at: https://numpy.org/install/
+Instructions for installing pandas are available at: https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
+Instructions for installing imageio are available at: https://imageio.readthedocs.io/en/stable/user_guide/installation.html
 
-
-3. #### Scenario Data Input and Calibration
+2. #### Scenario Data Input and Calibration
 Adjust scenario parameters and calibrate the model by modifying the CSV files located in the **input_files/** sub-directory.
 
 The expected structure and data formats for each CSV file are documented in the associated import function defined in modules/file_import.py.
 
-2. #### Execute pemmss.py
+Example input files are available in the **input_files_examples/** sub-directory and can be copied into the **input_files** directory to get started.
+
+3. #### Execute pemmss.py
 Run the model by executing pemmss.py using python.
 
-3. #### View Results Data and Graphs
+4. #### View Results Data and Graphs
 The results will be saved to a new sub-directory created for model execution, **output_files/[EXECUTION_DATE_TIME]/**
 
 This will include:
@@ -36,16 +39,6 @@ This will include:
 - A folder containing any generated graphs.
 - A log file containing information useful for benchmarking and debugging.
 
-### This Version Developed and Tested Using:
-python 3.12.1
-
-matplotlib 3.8.2
-
-imageio 2.33.1
-
-numpy 1.26.2
-
-pandas 2.1.4
 
 ### License:
 This model is licensed under a BSD 3-Clause License. See LICENSE.md for further information.
