@@ -298,12 +298,17 @@ def scenario(i, constants):
             # Reset project status. Note this must be done before the ranking algorithm, but after the supply and greenfield algorithms.
             # P12
             for project in projects:
+                # Record status at end of timestep
+                project.status_timeseries.update({year_current: project.status})
                 # Active mine status reset
-                if project.status == 2:
-                    project.status = 1
+                if project.status == 2:  # Produced
+                    project.status = 1  # Developed
+                # Mine end year reset
+                if project.status == 3:  # Produced and depleted
+                    project.status = -1  # Depleted
                 # Deposits failing development probability test reset
-                if project.status == -3:
-                    project.status = 0
+                if project.status == -3:  # Development probability test failed
+                    project.status = 0  # Undeveloped
 
             # Brownfield Resource Expansion Algorithm
             # P13
@@ -351,12 +356,15 @@ def scenario(i, constants):
         output_path_production_ore = output_folder_scenario / f'{j}-Production_Ore.csv'
         output_path_expansion = output_folder_scenario / f'{j}-Expansion.csv'
         output_path_demand = output_folder_scenario / f'{j}-Demand.csv'
+        output_path_status = output_folder_scenario / f'{j}-Status.csv'
 
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
         file_export.export_projects(output_path_projects, projects)
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None', log_path=log)
+        file_export.export_project_dictionary(output_path_status, projects, 'status_timeseries', header='None', id_key='id_number', commodity='None', log_path=log)
+
         for c in demand:
             # Define commodity specific project export paths
             output_path_production_intermediate = output_folder_scenario / f'{j}-Production_Intermediate_{c}.csv'

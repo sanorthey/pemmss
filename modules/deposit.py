@@ -58,12 +58,15 @@ class Mine:
     Mine.grade_timeseries | Dictionary of grade of produced ore per year. Ratio of total ore mass. {commodity: {t: grade}}
     Mine.recovery | Dictionary of commodity recoveries. Ratio of total ore content. {commodity: recovery}
     Mine.production_capacity | Maximum extraction rate per period, ore basis.
-    Mine.status | Already Produced in Time Period = 2
-                  Developed = 1
+    Mine.status | Already Produced and Depleted in Time Period = 3
+                  Already Produced in Time Period = 2
+                  Developed, Not Yet Produced in Time Period = 1
                   Undeveloped = 0
                   Depleted = -1
                   Not valuable enough to mine = -2
                   Development probability test failed = -3
+    Mine.status_timeseries | Dictionary of status at the end of each time period. {t: Mine.status}.
+                             If status stored in timeseries as 1 and start_year has passed then it indicates a mine in care and maintenance
     Mine.value | Dictionary of value dictionaries of net recovery value for each commodity. Used to sequence mine supply.
                  {'ALL': {'ALL': net value, c: net_recovery_value}, tranche: {'ALL': net value, c: net_recovery_value}}
     Mine.discovery_year | Year of deposit generation
@@ -100,7 +103,7 @@ class Mine:
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
                  'current_tranche',
                  'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
-                 'expansion_contained', 'status', 'initial_status', 'value', 'discovery_year',
+                 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value', 'discovery_year',
                  'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
                  'end_year', 'value_factors', 'aggregation', 'key_set')
 
@@ -123,6 +126,7 @@ class Mine:
         self.recovery = {commodity: recovery}
         self.production_capacity = production_capacity
         self.status = status
+        self.status_timeseries = {}
         self.initial_status = copy.deepcopy(self.status)
         self.discovery_year = discovery_year
         self.start_year = start_year
@@ -244,6 +248,8 @@ class Mine:
             return self.production_capacity
         elif variable == 'status':
             return self.status
+        elif variable == 'status_timeseries':
+            return self.status_timeseries
         elif variable == 'initial_status':
             return self.initial_status
         elif variable == 'value':
@@ -491,6 +497,9 @@ class Mine:
         elif self.status == 2:
             # Mine already produced this time period.
             return 0
+        elif self.status == 3:
+            # Mine already produced and fully depleted in this time period.
+            return 0
         else:
             demand_residual = ext_demand
             production_capacity_residual = self.production_capacity
@@ -565,9 +574,10 @@ class Mine:
                     self.production_intermediate[c][year] = production_intermediate[c]
                 # Set Mine status based on tranche status
                 if 2 in tranche_status:
-                    self.status = 2
+                    self.status = 2  # Indicating mine supplied but not depleted
                 if tranche_status[-1] == -1:
                     self.status = -1
+                    self.status = 3  # Indicating mine supplied and fully depleted
                 # Return Mine as having supplied
                 return 1
             else:
