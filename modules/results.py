@@ -33,6 +33,8 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                     key+('mines_ended_count',): defaultdict(int),
                     key+('mines_producing_count',): defaultdict(int),
                     key+('mines_care_maintenance_count',): defaultdict(int),
+                    key+('mines_depleted_count',): defaultdict(int),
+                    key+('mines_undeveloped_count',): defaultdict(int),
                     key+('deposits_discovered_count',): defaultdict(int),
                     key + ('production_ore_mass',): defaultdict(float),
                     key+('deposits_discovered_ore_mass',): defaultdict(float),
@@ -58,7 +60,7 @@ def generate_statistics(key, project_list, time_range, demand_factors):
 
 
     for p in project_list:
-        # Not commodity or time dependent
+        # Not commodity dependent
         # Note with background greenfield exploration, start years can occur after model end. Consider adding a check for this.
         return_stats[key+('mines_started_count',)][p.start_year] += 1
         if p.end_year is not None:
@@ -103,6 +105,15 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                 return_stats[key+('losses_intermediate',)][t] += p.production_intermediate[commodity][t] * (1 - intermediate_recovery)
                 return_stats[key+('losses_commodity',)][t] += ore * grade_dict_list[t][-1] - p.production_intermediate[commodity][t] + p.production_intermediate[commodity][t] * (1 - intermediate_recovery)
 
+        for time_key in time_range:
+            status = p.status_timeseries.get(time_key, None)
+            if status is not None:
+                if status == 1 and p.start_year is not None and p.start_year <= time_key:
+                    return_stats[key + ('mines_care_maintenance_count',)][time_key] += 1
+                elif status == -1:
+                    return_stats[key + ('mines_depleted_count',)][time_key] += 1
+                elif p.status_timeseries[time_key] == 0:
+                    return_stats[key + ('mines_undeveloped_count',)][time_key] += 1
 
 
     if commodity != 'ALL':
@@ -122,15 +133,6 @@ def generate_statistics(key, project_list, time_range, demand_factors):
             # Unmet demand
             if key[2] == 'ALL' and key[3] == 'ALL' and key[4] == 'ALL':
                 return_stats[key+('unmet_demand',)][time_key] = demand_factors[commodity][time_key]
-    for time_key in time_range:
-        for p in project_list:
-            if p.start_year is not None:
-                if p.start_year <= time_key:
-                    if p.end_year is None:
-                        if time_key not in p.production_ore:
-                            return_stats[key + ('mines_care_maintenance_count',)][time_key] += 1
-                    elif time_key < p.end_year and time_key not in p.production_ore:
-                        return_stats[key + ('mines_care_maintenance_count',)][time_key] += 1
 
     return return_stats
 
