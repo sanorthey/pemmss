@@ -71,12 +71,11 @@ Attribution and citation information available in CITATION.cff
 import datetime
 import random
 import cProfile
-from os import mkdir, getcwd
 from time import time
 from copy import deepcopy
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
-
+from pathlib import Path
 
 # Import custom modules
 import modules.file_import as file_import
@@ -124,31 +123,31 @@ def initialise():
     constants['run_time'] = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # Set-up file management constants
-    constants['cwd'] = getcwd()
-    constants['input_folder'] = (constants['cwd'] + r'\input_files')
-    constants['output_folder'] = (constants['cwd'] + r'\output_files\\' + constants['run_time'])
-    constants['output_folder_input_copy'] = (constants['output_folder'] + r'\_input_files')
-    constants['output_folder_statistics'] = (constants['output_folder'] + r'\_statistics')
-    constants['output_folder_graphs'] = (constants['output_folder'] + r'\_graphs')
-    constants['log'] = (constants['output_folder'] + r'\\log.txt')
+    constants['cwd'] = Path.cwd()
+    constants['input_folder'] = constants['cwd'] / 'input_files'
+    constants['output_folder'] = constants['cwd'] / 'output_files' / constants['run_time']
+    constants['output_folder_input_copy'] = constants['output_folder'] / '_input_files'
+    constants['output_folder_statistics'] = constants['output_folder'] / '_statistics'
+    constants['output_folder_graphs'] = constants['output_folder'] / '_graphs'
+    constants['log'] = constants['output_folder'] / 'log.txt'
 
     # Make directories to store model outputs
-    mkdir(constants['output_folder'])
-    mkdir(constants['output_folder_input_copy'])
-    mkdir(constants['output_folder_statistics'])
-    mkdir(constants['output_folder_graphs'])
+    constants['output_folder'].mkdir(parents=True, exist_ok=True)
+    constants['output_folder_input_copy'].mkdir(parents=True, exist_ok=True)
+    constants['output_folder_statistics'].mkdir(parents=True, exist_ok=True)
+    constants['output_folder_graphs'].mkdir(parents=True, exist_ok=True)
 
     # Model version details for log and file writing
-    constants['version_number'] = ('1.3.0')
-    constants['version_date'] = '2024-06-04'
+    constants['version_number'] = '1.3.1'
+    constants['version_date'] = '2024-07-10'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
-                   "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
-                   "Developed by Stephen A. Northey " +
-                   'in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco \n \n' +
-                   "For further information contact stephen.northey@uts.edu.au.\n" +
-                   "- - - - - - - - - - - - - - - \n", output_path=constants['log'], print_on=1)
-    file_export.export_log('Model executed at '+constants['run_time']+'\n', output_path=constants['log'], print_on=1)
+                           "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
+                           "Developed led by Stephen A. Northey " +
+                           'in collaboration with S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano and J. Hyman. \n \n' +
+                           "For further information contact stephen.northey@uts.edu.au.\n" +
+                           "- - - - - - - - - - - - - - - \n", output_path=constants['log'], print_on=1)
+    file_export.export_log('Model executed at ' + constants['run_time'] + '\n', output_path=constants['log'], print_on=1)
 
     # Import user input files and assign variables
     constants.update(file_import.import_static_files(constants['input_folder'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
@@ -194,18 +193,18 @@ def scenario(i, constants):
     imported_historic = constants['imported_historic']
     log = constants['log']
 
-    ### Scenario Specific Data
+    # --- Scenario Specific Data
 
     year_start = parameters['year_start']
     year_end = parameters['year_end']
 
     # As import_projects can have stochastic elements, need to use the scenario specific seed.
     random.seed(parameters['random_seed'])
-    output_folder_scenario = (output_folder + '\\' + i)
-    output_path_stats = (output_folder_scenario + r'\_statistics.csv')
-    mkdir(output_folder_scenario)
-    
-    ### Iteration Loop
+    output_folder_scenario = output_folder / i
+    output_path_stats = output_folder_scenario / '_statistics.csv'
+    output_folder_scenario.mkdir(parents=True, exist_ok=True)
+
+    # --- Iteration Loop
     # P3
     for j in range(0, parameters['iterations']):
         # Execution timing
@@ -215,14 +214,13 @@ def scenario(i, constants):
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
-        projects = file_import.import_projects(factors, input_folder, copy_path=output_folder_input_copy, log_path=log)
-        projects = file_import.import_project_coproducts(factors, input_folder, projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
-        log_message.append('\nScenario '+str(parameters['scenario_name'])+' Iteration '+str(j)+'\nImported input_projects.csv\nImported input_project_coproducts.csv')
-        
-        
+        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', copy_path=output_folder_input_copy, log_path=log)
+        projects = file_import.import_project_coproducts(factors, input_folder / 'input_project_coproducts.csv', projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
+        log_message.append('\nScenario ' + str(parameters['scenario_name']) + ' Iteration ' + str(j) + '\nImported input_projects.csv\nImported input_project_coproducts.csv')
+
         # Time Loop - Iterates model through each time period
         # P4
-        for year_current in range(year_start, year_end+1):
+        for year_current in range(year_start, year_end + 1):
 
             # Update project variables and exploration_production_factors for timeseries overrides in input_exploration_production_factors_timeseries.csv
             # Update project value if enabled
@@ -252,7 +250,6 @@ def scenario(i, constants):
                 projects.sort(key=lambda x: x.value['ALL']['ALL'], reverse=True)  # Sort by total net value
             if parameters['priority_active'] == 1:  # Prioritise existing mines
                 projects.sort(key=lambda x: x.status, reverse=True)
-
 
             # Commodity Supply-Demand Balance Algorithm
             # P8
@@ -289,7 +286,7 @@ def scenario(i, constants):
                                 for p_commodity in projects[-1].commodity.keys():
                                     demand[p_commodity][year_current] -= projects[-1].production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
 
-            # Adjust next years commodity demand by a ratio of any under or over commodity supply.
+            # Adjust next year's commodity demand by a ratio of any under or over commodity supply.
             # P11
             for c in demand:
                 if year_current + 1 in demand[c].keys():
@@ -301,13 +298,18 @@ def scenario(i, constants):
             # Reset project status. Note this must be done before the ranking algorithm, but after the supply and greenfield algorithms.
             # P12
             for project in projects:
+                # Record status at end of timestep
+                project.status_timeseries.update({year_current: project.status})
                 # Active mine status reset
-                if project.status == 2:
-                    project.status = 1
+                if project.status == 2:  # Produced
+                    project.status = 1  # Developed
+                # Mine end year reset
+                if project.status == 3:  # Produced and depleted
+                    project.status = -1  # Depleted
                 # Deposits failing development probability test reset
-                if project.status == -3:
-                    project.status = 0
-            
+                if project.status == -3:  # Development probability test failed
+                    project.status = 0  # Undeveloped
+
             # Brownfield Resource Expansion Algorithm
             # P13
             if parameters['brownfield_exploration_on'] == 1:
@@ -316,14 +318,14 @@ def scenario(i, constants):
                         project.resource_expansion(year_current)
 
         jt1 = (time())
-        log_message.append('\nIteration execution duration '+str((jt1-jt0))+' seconds.')
-        
-        #################################################
-        ### Results Processing
-        
+        log_message.append('\nIteration execution duration ' + str((jt1 - jt0)) + ' seconds.')
+
+        # -------------------------------------
+        # --- Results Processing
+
         stats = defaultdict(dict)
         key_projects_dict = {}
-        
+
         # Iterate through projects
         for p in projects:
             # Append p to all relevant keys
@@ -333,41 +335,45 @@ def scenario(i, constants):
 
         for key, project_list in key_projects_dict.items():
             # Generate stats {(i,j,a,r,d,s): {time: value}}
-            stats.update(results.generate_statistics(key, project_list, range(year_start, year_end+1), demand))
-            
-        year_set = set(range(year_start, year_end+1))
+            stats.update(results.generate_statistics(key, project_list, range(year_start, year_end + 1), demand))
+
+        year_set = set(range(year_start, year_end + 1))
 
         # Update stats to include any historic values present in input_historic.csv
         # P14
         for a_r_d_c_s_key, time_dict in imported_historic.items():
-
-            stats[(parameters['scenario_name'],j,)+(a_r_d_c_s_key)].update(time_dict)
+            stats[(parameters['scenario_name'], j,) + (a_r_d_c_s_key)].update(time_dict)
             year_set.update(time_dict.keys())
-        
 
         jt2 = (time())
-        log_message.append('\nIteration statistics generation duration '+str((jt2-jt1))+' seconds.')
+        log_message.append('\nIteration statistics generation duration ' + str((jt2 - jt1)) + ' seconds.')
 
-        ### Results Export
+        # ----- Results Export
         # P15
         # W1
         # Define file export paths
-        output_path_projects = output_folder_scenario + '\\' + str(j) + '-Projects.csv'
-        output_path_production_ore = output_folder_scenario + '\\' + str(j) + '-Production_Ore.csv'
-        output_path_expansion = output_folder_scenario + '\\' + str(j) + '-Expansion.csv'
-        output_path_demand = output_folder_scenario + '\\' + str(j) + '-Demand.csv'
+        output_path_projects = output_folder_scenario / f'{j}-Projects.csv'
+        output_path_production_ore = output_folder_scenario / f'{j}-Production_Ore.csv'
+        output_path_expansion = output_folder_scenario / f'{j}-Expansion.csv'
+        output_path_demand = output_folder_scenario / f'{j}-Demand.csv'
+        output_path_status = output_folder_scenario / f'{j}-Status.csv'
 
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
         file_export.export_projects(output_path_projects, projects)
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None', log_path=log)
+        file_export.export_project_dictionary(output_path_status, projects, 'status_timeseries', header='None', id_key='id_number', commodity='None', log_path=log)
+
         for c in demand:
-            output_path_production_intermediate = output_folder_scenario + '\\' +str(j) + '-Production_Intermediate_'+str(c)+'.csv'
-            file_export.export_project_dictionary(output_path_production_intermediate, projects, 'production_intermediate', header='None', id_key='id_number', commodity=c, log_path=log)
-            output_path_expansion_contained = output_folder_scenario + '\\' + str(j) + '-Expansion_Contained_'+str(c)+'.csv'
+            # Define commodity specific project export paths
+            output_path_production_intermediate = output_folder_scenario / f'{j}-Production_Intermediate_{c}.csv'
+            output_path_expansion_contained = output_folder_scenario / f'{j}-Expansion_Contained_{c}.csv'
+            output_path_grade_timeseries = output_folder_scenario / f'{j}-Grade_Timeseries_{c}.csv'
+
+            # Export commodity specific project data
+            file_export.export_project_dictionary(output_path_production_intermediate, projects,'production_intermediate', header='None', id_key='id_number', commodity=c, log_path=log)
             file_export.export_project_dictionary(output_path_expansion_contained, projects, 'expansion_contained', header='None', id_key='id_number', commodity=c, log_path=log)
-            output_path_grade_timeseries = output_folder_scenario + '\\' + str(j) + '-Grade_Timeseries_'+str(c)+'.csv'
             file_export.export_project_dictionary(output_path_grade_timeseries, projects, 'grade_timeseries', header='None', id_key='id_number', commodity=c, log_path=log)
 
         # Export unmet demand timeseries
@@ -379,10 +385,9 @@ def scenario(i, constants):
         file_export.export_statistics(output_path_stats, stats, time_range)
 
         jt3 = (time())
-        log_message.append('\nIteration export duration '+str((jt3-jt2)))
-        log_message.append('\nExported to '+output_folder_scenario)
+        log_message.append('\nIteration export duration ' + str((jt3 - jt2)))
+        log_message.append('\nExported to ' + str(output_folder_scenario))
         file_export.export_log(''.join(log_message), output_path=log, print_on=1)
-
 
     return output_folder_scenario
 
@@ -405,15 +410,15 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     --- Journal article cross-references ---
     P16, P17, R3, R4, W2, W3
     """
-    pt0=(time())
+    pt0 = (time())
 
     # P16, R3, W2 - Filter and merge scenario and iteration statistics
     file_export.export_log('Merging scenario data', output_path=log_path, print_on=1)
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
-    pt1=(time())
-    file_export.export_log('Merge duration '+str((pt1-pt0))+' seconds.', output_path=log_path, print_on=1)
+    project_statistics_files = post_processing.project_iteration_statistics(scenario_folders)
+    pt1 = (time())
+    file_export.export_log('Merge duration ' + str((pt1 - pt0)) + ' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Merged data exported to ' + str(output_stats_folder), output_path=log_path, print_on=1)
-
 
     # P17, R4, W3 - Generate figures
     file_export.export_log('\nGenerating Figures:', output_path=log_path, print_on=1)
@@ -490,6 +495,7 @@ def main():
 
     # Scenario generation complete. Congratulations !!
 
+
 def post_process_only():
     # P1 - Import input files
     CONSTANTS = initialise()
@@ -506,6 +512,7 @@ def post_process_only():
 
         pr.print_stats()
     # TODO: test
+
 
 if __name__ == '__main__':
     main()

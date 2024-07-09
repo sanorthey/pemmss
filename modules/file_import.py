@@ -52,14 +52,14 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
     Returns file structures within a tuple
     """
     static_files = {}
-    static_files['parameters'] = import_parameters(path, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_factors'] = import_exploration_production_factors(path, copy_path=copy_path_folder, log_path=log_file)
-    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_demand'] = import_demand(path, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs'] = import_graphs(path, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs_formatting'] = import_graphs_formatting(path, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_postprocessing'] = import_postprocessing(path, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_historic'] = import_historic(path, copy_path=copy_path_folder, log_path=log_file)
+    static_files['parameters'] = import_parameters(path / 'input_parameters.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_factors'] = import_exploration_production_factors(path / 'input_exploration_production_factors.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path / 'input_exploration_production_factors_timeseries.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_demand'] = import_demand(path / 'input_demand.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs'] = import_graphs(path / 'input_graphs.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs_formatting'] = import_graphs_formatting(path / 'input_graphs_formatting.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_postprocessing'] = import_postprocessing(path / 'input_postprocessing.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_historic'] = import_historic(path / 'input_historic.csv', copy_path=copy_path_folder, log_path=log_file)
 
     return static_files
 
@@ -68,7 +68,7 @@ def import_parameters(path, copy_path=None, log_path=None):
     """
     import_parameters()
     Imports parameters from input_parameters.csv located at 'path'.
-    Typical path is \WORKING DIRECTORY\input_files\input_parameters.csv
+    Typical path is WORKING DIRECTORY\input_files\input_parameters.csv
 
     Returns a nested dictionary [i]['key'], where i is each scenario run.
 
@@ -99,7 +99,7 @@ def import_parameters(path, copy_path=None, log_path=None):
     """
     imported_parameters = {}
 
-    with open(path + r'\\input_parameters.csv', mode='r') as parameters_file:
+    with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
@@ -117,7 +117,7 @@ def import_parameters(path, copy_path=None, log_path=None):
                                                                'generate_all_coproducts': int(row['GENERATE_ALL_COPRODUCTS']),
                                                                'update_values': int(row['UPDATE_VALUES'])}})
     if copy_path is not None:
-        copyfile(path + r'\\input_parameters.csv', copy_path + r'\\input_parameters.csv')
+        copyfile(path, copy_path / 'input_parameters.csv')
     if log_path is not None:
         export_log('Imported input_parameters.csv', output_path=log_path, print_on=1)
     return imported_parameters
@@ -196,7 +196,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
     imported_projects = []
 
 
-    with open(path + r'\\input_projects.csv', mode='r') as input_file:
+    with open(path, mode='r') as input_file:
 
         # Iterate through each row
         csv_reader = csv.DictReader(input_file)
@@ -385,7 +385,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                              start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, value_update=v_update))
 
     if copy_path is not None:
-        copyfile(path + r'\\input_projects.csv', copy_path + r'\\input_projects.csv')
+        copyfile(path, copy_path / 'input_projects.csv')
 
     if log_path is not None:
         export_log('Imported input_projects.csv', output_path=log_path, print_on=0)
@@ -435,7 +435,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
     Todo: add ability to specify project specific co-product value models
     """
 
-    with open(path+r'\\input_project_coproducts.csv', mode='r') as input_file:
+    with open(path, mode='r') as input_file:
 
         csv_reader = csv.DictReader(input_file)
 
@@ -452,7 +452,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                     # Manual inputs for the project are listed in input_project_coproducts.csv
                     if row['COPRODUCT_COMMODITY'] == '':
                         skipped += 1
-                        export_log('Error: Must specify COPRODUCT_COMMODITY for all projects in inputs_projects_coproducts.csv. Rows with missing coproduct commodity names skipped.', out_path=log_path)
+                        export_log('Error: Must specify COPRODUCT_COMMODITY for all projects in inputs_projects_coproducts.csv. Rows with missing coproduct commodity names skipped.', output_path=log_path)
                     else:
                         entries += 1
                         c = row['COPRODUCT_COMMODITY']
@@ -525,10 +525,10 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
                                 generated_supply_trigger += 1
                                 generated_brownfield_grade_factor += 1
     if copy_path is not None:
-        copyfile(path + r'\\input_project_coproducts.csv', copy_path + r'\\input_project_coproducts.csv')
+        copyfile(path, copy_path / 'input_project_coproducts.csv')
 
     if log_path is not None:
-        export_log('Imported input_projects_coproducts.csv', output_path=log_path, print_on=0)
+        export_log('Imported input_project_coproducts.csv', output_path=log_path, print_on=0)
         export_log('Added ' + str(entries)+' new coproduct entries. '+str(skipped)+' skipped (check log file for details). '+str(generated_grades)+' grade, '+str(generated_recovery)+' recovery, '+str(generated_supply_trigger)+' supply trigger, and '+str(generated_brownfield_grade_factor)+' brownfield grade factors generated from factors in input_exploration_production.csv.', output_path=log_path, print_on=0)
     return projects
 
@@ -561,7 +561,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'coproduct_cost_model': [], 'coproduct_cost_a': [], 'coproduct_cost_b': [], 'coproduct_cost_c': [], 'coproduct_cost_d': [],
                         'lookup_table': {}}
 
-    with open(path+r'\\input_exploration_production_factors.csv', mode='r') as parameters_file:
+    with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
@@ -632,7 +632,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             else:
                 imported_factors['lookup_table'].update({region_key: {deposit_type_key: imported_factors['index'][-1]}})
     if copy_path is not None:
-        copyfile(path + r'\\input_exploration_production_factors.csv', copy_path + r'\\input_exploration_production_factors.csv')
+        copyfile(path, copy_path / 'input_exploration_production_factors.csv')
         
     if log_path is not None:
         export_log('Imported input_exploration_production_factors.csv', output_path=log_path, print_on=1)
@@ -660,7 +660,7 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
     project_updates = {}
     exploration_production_factors_updates = {}
 
-    with open(path+r'\\input_exploration_production_factors_timeseries.csv', mode='r') as input_file:
+    with open(path, mode='r') as input_file:
         csv_reader = csv.DictReader(input_file)
         # Iterate through each row to populate time series of variable overrides.
         for row in csv_reader:
@@ -670,7 +670,7 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
             if int(row['UPDATE_EXPLORATION_PRODUCTION_FACTORS']) == 1:
                 exploration_production_factors_updates = timeseries_dictionary_merge_row(exploration_production_factors_updates, row)
     if copy_path is not None:
-        copyfile(path + r'\\input_exploration_production_factors_timeseries.csv', copy_path + r'\\input_exploration_production_factors_timeseries.csv')
+        copyfile(path, copy_path / 'input_exploration_production_factors_timeseries.csv')
     
     if log_path is not None:
         export_log('Imported input_exploration_production_factors_timeseries.csv', output_path=log_path, print_on=1)
@@ -704,7 +704,7 @@ def import_demand(path, copy_path=None, log_path=None):
     """
     import_demand()
     Imports parameters from input_demand.csv located at 'path'.
-    Typical path is \WORKING_DIRECTORY\input_files\input_demand.csv
+    Typical path is WORKING_DIRECTORY\input_files\input_demand.csv
 
     Returns a dictionary, imported_demand{scenario_name: {commodity: {'balance_supply': 1 or 0,'intermediate_recovery': 0 to 1, 'demand_threshold': 0 to 1, 'demand_carry': float(), year: commodity demand}}}
 
@@ -723,7 +723,7 @@ def import_demand(path, copy_path=None, log_path=None):
     """
     imported_demand = {}
 
-    with open(path+r'\\input_demand.csv', mode='r') as input_file:
+    with open(path, mode='r') as input_file:
         csv_reader = csv.DictReader(input_file)
 
         # Iterate through each row for a new series of commodity demand
@@ -743,7 +743,7 @@ def import_demand(path, copy_path=None, log_path=None):
                                'INTERMEDIATE_RECOVERY', 'DEMAND_THRESHOLD', 'DEMAND_CARRY'):
                     imported_demand[row['SCENARIO_NAME']][row['COMMODITY']].update({int(key): float(row[key])})
     if copy_path is not None:
-        copyfile(path + r'\\input_demand.csv', copy_path + r'\\input_demand.csv')
+        copyfile(path, copy_path / 'input_demand.csv')
         
     if log_path is not None:
         export_log('Imported input_demand.csv', output_path=log_path, print_on=1)
@@ -754,7 +754,7 @@ def import_graphs(path, copy_path=None, log_path=None):
     """
     import_graphs(()
     Imports graph generation parameters from input_graphs.csv located at 'path'.
-    Typical path is \WORKING DIRECTORY\input_files\input_graphs.csv
+    Typical path is WORKING DIRECTORY\input_files\input_graphs.csv
 
     Returns a list of dictionaries [{row0_keys: row0_values}, {row1_keys: row1_values}, etc.
 
@@ -787,7 +787,7 @@ def import_graphs(path, copy_path=None, log_path=None):
     """
     imported_graphs = []
 
-    with open(path+r'\\input_graphs.csv', mode='r') as input_file:
+    with open(path, mode='r') as input_file:
         csv_reader = csv.DictReader(input_file)
 
         # Iterate through each row / graph
@@ -850,7 +850,7 @@ def import_graphs(path, copy_path=None, log_path=None):
 
 
     if copy_path is not None:
-        copyfile(path + r'\\input_graphs.csv', copy_path + r'\\input_graphs.csv')
+        copyfile(path, copy_path / 'input_graphs.csv')
         
     if log_path is not None:
         export_log('Imported input_graphs.csv', output_path=log_path, print_on=1)
@@ -862,7 +862,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
     """
     import_graphs_formatting()
     Imports postprocessing parameters from a csv located at 'path'.
-    Typical path is \WORKING_DIRECTORY\input_files\input_graphs_formatting.csv
+    Typical path is WORKING_DIRECTORY\input_files\input_graphs_formatting.csv
     Output is a dictionary {label: {color: value, line: value, linestyle: value, etc.}}
 
     Copies file if copy_path directory specified.
@@ -888,7 +888,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
     """
     imported_graphs_formatting = {}
 
-    with open(path + r'\\input_graphs_formatting.csv', mode='r') as input_file:
+    with open(path, mode='r') as input_file:
         csv_reader = csv.DictReader(input_file)
         # Import labels
         for row in csv_reader:
@@ -905,7 +905,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
                                                                    'size': float(row['SIZE'])}})
 
     if copy_path is not None:
-        copyfile(path + r'\\input_graphs_formatting.csv', copy_path + r'\\input_graphs_formatting.csv')
+        copyfile(path, copy_path / 'input_graphs_formatting.csv')
     if log_path is not None:
         export_log('Imported input_graphs_formatting.csv', log_path, 1)
     return imported_graphs_formatting
@@ -914,7 +914,7 @@ def import_postprocessing(path, copy_path=None, log_path=None):
     """
     import_postprocessing()
     Imports postprocessing parameters from a csv located at 'path'.
-    Typical path is \WORKING_DIRECTORY\input_files\input_postprocessing.csv
+    Typical path is WORKING_DIRECTORY\input_files\input_postprocessing.csv
     Output is a dictionaries {statistic: {'postprocess': True}] for statistics where 'POSTPROCESS' csv column == True
                               
     Copies input_parameters if copy_path directory specified.
@@ -929,7 +929,7 @@ def import_postprocessing(path, copy_path=None, log_path=None):
     """
     imported_postprocessing = {}
 
-    with open(path + r'\\input_postprocessing.csv', mode='r') as parameters_file:
+    with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
         #Import scenarios
         for row in csv_reader:
@@ -937,7 +937,7 @@ def import_postprocessing(path, copy_path=None, log_path=None):
                 imported_postprocessing.update({row["STATISTIC"]: {'postprocess': True}})
 
     if copy_path is not None:
-        copyfile(path + r'\\input_postprocessing.csv', copy_path + r'\\input_postprocessing.csv')
+        copyfile(path, copy_path / 'input_postprocessing.csv')
     if log_path is not None:
         export_log('Imported input_postprocessing.csv', log_path, 1)
     return imported_postprocessing  
@@ -958,10 +958,10 @@ def import_historic(path, copy_path=None, log_path=None):
          STATISTIC     |
          t0, t1, ..., tn  | values
     """
-    imported_historic = import_statistics(path + r'\\input_historic.csv', custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC'])
+    imported_historic = import_statistics(path, custom_keys=['AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC'])
     
     if copy_path is not None:
-        copyfile(path + r'\\input_historic.csv', copy_path + r'\\input_historic.csv')
+        copyfile(path, copy_path / 'input_historic.csv')
     if log_path is not None:
         export_log('Imported input_historic.csv', log_path, 1)
     
