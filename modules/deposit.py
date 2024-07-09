@@ -530,7 +530,6 @@ class Mine:
                             # Not supply capacity constrained, resource will be fully depleted, supply requirements not fully met
                             tranche_production_ore = self.remaining_resource[tranche]
                             tranche_status.append(-1)
-                            self.end_year = year
                         else:
                             # Supply capacity constrained, supply at full capacity, supply requirements not fully met
                             tranche_production_ore = production_capacity_residual
@@ -576,8 +575,8 @@ class Mine:
                 if 2 in tranche_status:
                     self.status = 2  # Indicating mine supplied but not depleted
                 if tranche_status[-1] == -1:
-                    self.status = -1
                     self.status = 3  # Indicating mine supplied and fully depleted
+                    self.end_year = year
                 # Return Mine as having supplied
                 return 1
             else:
