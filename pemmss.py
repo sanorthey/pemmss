@@ -138,13 +138,13 @@ def initialise():
     constants['output_folder_graphs'].mkdir(parents=True, exist_ok=True)
 
     # Model version details for log and file writing
-    constants['version_number'] = '1.3.0'
-    constants['version_date'] = '2024-06-04'
+    constants['version_number'] = '1.3.1'
+    constants['version_date'] = '2024-07-10'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                            "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
-                           "Developed by Stephen A. Northey " +
-                           'in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco \n \n' +
+                           "Developed led by Stephen A. Northey " +
+                           'in collaboration with S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano and J. Hyman. \n \n' +
                            "For further information contact stephen.northey@uts.edu.au.\n" +
                            "- - - - - - - - - - - - - - - \n", output_path=constants['log'], print_on=1)
     file_export.export_log('Model executed at ' + constants['run_time'] + '\n', output_path=constants['log'], print_on=1)
