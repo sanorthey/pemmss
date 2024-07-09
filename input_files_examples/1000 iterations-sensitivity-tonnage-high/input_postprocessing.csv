@@ -12,6 +12,8 @@ mines_started_count,TRUE
 mines_ended_count,TRUE
 mines_producing_count,TRUE
 mines_care_maintenance_count,TRUE
+mines_depleted_count,TRUE
+mines_undeveloped_count,TRUE
 deposits_discovered_count,TRUE
 deposits_discovered_ore_content,TRUE
 deposits_discovered_ore_mass,TRUE
