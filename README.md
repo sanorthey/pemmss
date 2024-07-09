@@ -6,7 +6,7 @@ Development led by Stephen A. Northey
 
 in collaboration with:
 
-S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano, J. Hyman
+S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano and J. Hyman
 
 For further information or enquiries email:
     stephen.northey@uts.edu.au
