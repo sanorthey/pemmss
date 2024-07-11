@@ -46,6 +46,8 @@ class Mine:
     Mine.id_number | Unique deposit identifying number
     Mine.name | Name of the deposit
     Mine.region | Region containing the deposit
+    Mine.latitude | Latitude of the deposit in decimal degrees
+    Mine.longitude | Longitude of the deposit in decimial degrees
     Mine.deposit_type | Primary deposit type
     Mine.commodity | Dictionary of commodities in the project {commodity: balanced}
                    | Where balanced = 1 indicates demand for this commodity can trigger mine supply
@@ -99,7 +101,7 @@ class Mine:
     Mine.supply(ext_demand,year,ext_demand_commodity)
     Mine.resource_expansion(year)
     """
-    __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
+    __slots__ = ('id_number', 'name', 'region', 'longitude', 'latitude', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
                  'current_tranche',
                  'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
@@ -111,10 +113,12 @@ class Mine:
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
                  status, value, discovery_year, start_year, development_probability, brownfield_tonnage, brownfield_grade,
-                 value_factors, aggregation, value_update=False):
+                 value_factors, aggregation, value_update=False, latitude=None, longitude=None):
         self.id_number = id_number
         self.name = name
         self.region = region
+        self.latitude = latitude
+        self.longitude = longitude
         self.deposit_type = deposit_type
         self.commodity = {commodity: 1}  # All Mine objects should have at least one balanced commodity.
         self.remaining_resource = remaining_resource  # List of ore tranches {c: [tranche 0, tranche 1, etc.]}
@@ -211,6 +215,10 @@ class Mine:
             return self.name
         elif variable == 'region':
             return self.region
+        elif variable =='latitude':
+            return self.latitude
+        elif variable =='longitude':
+            return self.longitude
         elif variable == 'deposit_type':
             return self.deposit_type
         elif variable == 'commodity':
@@ -929,6 +937,7 @@ def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life)
 
     return production_capacity
 
+# TODO: def coordinates_generate() for missing latitudes and longitudes, consider linking to regional shapefiles
 
 def update_exploration_production_factors(factors, updates):
     """

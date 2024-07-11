@@ -41,14 +41,14 @@ def export_projects(output_path, project_list):
     """
     with open(output_path, 'w+', newline='') as output_file:
         w = csv.writer(output_file, delimiter=',')
-        w.writerow(("P_ID_NUMBER", "PROJECT_NAME", 'REGION', 'DEPOSIT_TYPE',
+        w.writerow(("P_ID_NUMBER", "PROJECT_NAME", 'REGION', 'LATITUDE', 'LONGITUDE','DEPOSIT_TYPE',
                     'COMMODITY', 'RESOURCE_INITIAL', 'REMAINING_RESOURCE',
                     "GRADE", 'INITIAL_GRADE', 'RECOVERY', 'PRODUCTION_CAPACITY', 'STATUS',
                     'INITIAL_STATUS', 'DISCOVERY_YEAR',
                     'START_YEAR', 'END_YEAR', 'DEVELOPMENT_PROBABILITY', 'BROWNFIELD_TONNAGE_FACTOR',
                     'BROWNFIELD_GRADE_FACTOR', 'AGGREGATION', 'VALUE', 'VALUE_FACTORS'))
         for p in project_list:
-            w.writerow([p.id_number, p.name, p.region, p.deposit_type,
+            w.writerow([p.id_number, p.name, p.region, p.latitude, p.longitude, p.deposit_type,
                         p.commodity, p.initial_resource, p.remaining_resource,
                         p.grade, p.initial_grade, p.recovery, p.production_capacity, p.status,
                         p.initial_status, p.discovery_year,
