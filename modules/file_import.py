@@ -418,7 +418,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
         export_log(str(no_start_year) + ' : start_year. Missing start year left blank for inactive mines or set to -9999 for active mines', output_path=log_path)
         export_log(str(no_development_probability) + ' : development_probability. Missing values from input_exploration_production_factors.csv', output_path=log_path)
         export_log(str(no_brownfield_grade_factor) + ' : brownfield_grade_factor. Missing values assigned from input_exploration_production_factors.csv', output_path=log_path)
-        export_log(str(no_brownfield_tonnage_factor) + ' : brownfield_grade_factor. Missing values assigned from input_exploration_production_factors.csv', output_path=log_path)
+        export_log(str(no_brownfield_tonnage_factor) + ' : brownfield_tonnage_factor. Missing values assigned from input_exploration_production_factors.csv', output_path=log_path)
 
     return imported_projects
 
