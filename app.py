@@ -16,7 +16,7 @@ Date: 2024-07-29
 Version: 0.1.1
 Compatability: PEMMSS Version 1.3.1
 License: BSD 3-Clause License
-Dependencies: shiny, pandas, matplotlib, folium, webview
+Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets
 """
 
 # ==================== Imports and Setup ====================
