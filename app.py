@@ -21,6 +21,7 @@ Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets
 
 # ==================== Imports and Setup ====================
 
+import sys
 import os
 import asyncio
 import shutil
@@ -340,7 +341,7 @@ def server(input, output, session):
             async def run_and_update():
                 os.chdir(current_dir)
                 process = await asyncio.create_subprocess_exec(
-                    "python", "pemmss.py",
+                    sys.executable, "pemmss.py",
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE
                 )
