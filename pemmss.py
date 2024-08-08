@@ -54,6 +54,7 @@ input_files/
     input_postprocessing.csv
     input_project_coproducts.csv
     input_projects.csv
+    input_files/shapefile/shapefile.shp
 modules/
     deposit.py
     file_export.py
@@ -76,6 +77,7 @@ from copy import deepcopy
 from multiprocessing import Pool, cpu_count
 from collections import defaultdict
 from pathlib import Path
+import geopandas as gpd
 
 # Import custom modules
 import modules.file_import as file_import
@@ -83,6 +85,7 @@ import modules.file_export as file_export
 import modules.deposit as deposit
 import modules.results as results
 import modules.post_processing as post_processing
+import modules.spatial as spatial
 
 
 def initialise():
@@ -151,6 +154,11 @@ def initialise():
 
     # Import user input files and assign variables
     constants.update(file_import.import_static_files(constants['input_folder'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
+
+    # [BM] Loading the shapefile
+    shapefile_path = constants['input_folder'] / 'shapefile/shapefile.shp'
+    constants['shapefile_gdf'] = spatial.import_shapefile(shapefile_path)
+
     return constants
 
 
@@ -166,6 +174,7 @@ def scenario(i, constants):
     Files read:
     input_files/input_projects.csv
     input_files/input_project_coproducts.csv
+    input_files/shapefile/shapefile.shp
 
     Files & directories written:
     output_files/[RUN_TIME]/_input_files/input_projects.csv
@@ -192,6 +201,7 @@ def scenario(i, constants):
     output_folder_input_copy = constants['output_folder_input_copy']
     imported_historic = constants['imported_historic']
     log = constants['log']
+    shapefile_gdf = constants['shapefile_gdf']
 
     # --- Scenario Specific Data
 
@@ -200,7 +210,7 @@ def scenario(i, constants):
 
     # As import_projects can have stochastic elements, need to use the scenario specific seed.
     random.seed(parameters['random_seed'])
-    output_folder_scenario = output_folder / i
+    output_folder_scenario = output_folder / str(i)
     output_path_stats = output_folder_scenario / '_statistics.csv'
     output_folder_scenario.mkdir(parents=True, exist_ok=True)
 
@@ -240,7 +250,8 @@ def scenario(i, constants):
             # P6
             if parameters['greenfield_background'] > 0:
                 for gb in range(parameters['greenfield_background']):
-                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects)))
+                    print("TRIED P6")
+                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects), shapefile_gdf, 'REGION_1'))
 
             # Priority Ranking Algorithm
             # P7
@@ -279,7 +290,8 @@ def scenario(i, constants):
                     # P10
                     if parameters['greenfield_exploration_on'] == 1:
                         while demand[c][year_current] > demand[c]['demand_threshold']:
-                            projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1))
+                            print("TRIED P10")
+                            projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1, shapefile_gdf, 'REGION_1'))
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
                             supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                             if supplied == 1:

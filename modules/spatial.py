@@ -21,8 +21,8 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
 
     Parameters:
     - shapefile_gdf (geopandas dataframe): The GeoDataFrame containing the shapefile data.
-    - region_label (str): The attribute used to identify the region (e.g., a column name).
-    - region_value (str): The value of the region_label to filter the desired region.
+    - region_label (str): The attribute used to identify the region (e.g., a column name such as REGION).
+    - region_value (str): The value of the region_label to filter the desired region (e.g. 'Region 1', or 'Chile', or 'Asia').
     - method (str): 'midpoint' to return the spatial midpoint, 'random' to return a random coordinate within the region.
 
     Returns:
@@ -32,6 +32,12 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
     lat, lon = generate_region_coordinate(shapefile_gdf, region_label, region_value, method)
     """
 
+    # Debug print statements
+    ##print(f"Columns in GeoDataFrame: {shapefile_gdf.columns}")
+    ##print(f"Unique values in {region_label}: {shapefile_gdf[region_label].unique()}")
+    ##print(f"Looking for region_label: {region_label}")
+    ##print(f"Looking for region_value: {region_value}")
+
     # Select the region based on the provided label and value
     region = shapefile_gdf[shapefile_gdf[region_label] == region_value]
 
@@ -39,7 +45,10 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
         raise ValueError(f"No region found with {region_label} = {region_value}")
 
     # Ensure the region is in a single geometry
-    region = region.unary_union
+    if len(region) > 1:
+        region = region.unary_union
+    else:
+        region = region.geometry.iloc[0]
 
     if method == 'midpoint':
         # Calculate the centroid (midpoint)
@@ -51,6 +60,8 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
         while True:
             random_point = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
             if region.contains(random_point):
+                # [BM] Was debugging with the following:
+                print(f"Got random coordinates for {region_value}: {random_point.y}, {random_point.x}")
                 return random_point.y, random_point.x
     elif method == 'centroid_within':
         # Calculate the centroid
@@ -88,3 +99,5 @@ def add_coordinates_to_gdf(gdf, region_label,method='random'):
     gdf['longitude'] = longitudes
 
     return gdf
+
+## TBD -> [BM] Add function to generate shapefile from outputs

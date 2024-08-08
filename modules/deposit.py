@@ -33,7 +33,8 @@ from statistics import mean, stdev
 
 # Import from custom packages
 from modules.file_export import export_log
-
+from .spatial import generate_region_coordinate
+import geopandas as gpd
 
 class Mine:
     """ Mine Class.
@@ -101,15 +102,17 @@ class Mine:
     Mine.supply(ext_demand,year,ext_demand_commodity)
     Mine.resource_expansion(year)
     """
+
+    # [BM] Is longitude first for a reason?
     __slots__ = ('id_number', 'name', 'region', 'longitude', 'latitude', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
-                 'current_tranche',
-                 'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
-                 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value', 'discovery_year',
-                 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
+                 'current_tranche', 'recovery', 'production_capacity', 'production_intermediate', 'production_ore',
+                 'expansion', 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value',
+                 'discovery_year', 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
                  'end_year', 'value_factors', 'aggregation', 'key_set')
 
     # Initialise mine variables
+    # [BM] Added LAT/LONG
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
                  status, value, discovery_year, start_year, development_probability, brownfield_tonnage, brownfield_grade,
@@ -642,7 +645,7 @@ class Mine:
 # Functions for discovering and defining resources 
 # ------------------------------------------------ #
 
-def resource_discovery(f, current_year, is_background, id_number, log_file=None):
+def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf, region_label, log_file=None):
     """
     resource_discovery()
     Randomly generates a new mineral deposit, based upon the parameter table 'f' outlined in the file
@@ -651,6 +654,8 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     is_background == True | Background greenfield discovery, start year forward dated
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
     id_number | Unique ID for the generated Mine class instance, must be an integer
+    shapefile_gdf | GeoDataFrame containing the shapefile data
+    region_label | The attribute used to identify the region (e.g., a column name)
 
     Returns a new Mine object
     """
@@ -714,9 +719,19 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
         start_time = current_year
         aggregation = 'Greenfield - Demanded'
 
+    # Generate coordinates within the region's polygon
+    coordinates = generate_region_coordinate(shapefile_gdf, region_label, generated_region, method='random')
+    latitude, longitude = coordinates  # Extract latitude and longitude from coordinates
+
+    # Debugging: Print the generated coordinates
+    print(f"Generated coordinates: latitude={latitude}, longitude={longitude}")
+
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
-                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation)
+                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, latitude=latitude, longitude=longitude)
+    
+    # Debugging: Print the new project details
+    print(f"New project: {new_project.name}, {new_project.region}, {new_project.latitude}, {new_project.longitude}")
 
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
@@ -738,6 +753,11 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
                                'c': f['coproduct_cost_a'][index][x],
                                'd': f['coproduct_cost_a'][index][x]}}
                 new_project.add_commodity(c, g, r, st, bgf, vf, tranche=0)
+                print(f"After adding commodity {c}, value_factors: {new_project.value_factors}")
+
+    print(f"Final project value_factors: {new_project.value_factors}")
+    print(new_project.latitude, new_project.longitude)
+
     return new_project
 
 
