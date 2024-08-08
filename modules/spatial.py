@@ -3,6 +3,7 @@ Module with functions for handling spatial data
 """
 import geopandas as gpd
 from shapely.geometry import Point
+from shapely.ops import nearest_points
 import random
 
 def import_shapefile(shapefile_path):
@@ -14,12 +15,12 @@ def import_shapefile(shapefile_path):
     gdf = gpd.read_file(shapefile_path)
     return gdf
 
-def generate_region_coordinate(shapefile_gdf, region_label, region_value, method='midpoint'):
+def generate_region_coordinate(shapefile_gdf, region_label, region_value, method='random'):
     """
     Selects a region from a shapefile and generates latitude and longitude coordinates as decimal degrees.
 
     Parameters:
-    - shapefile_gdf (geopandas dataframe)
+    - shapefile_gdf (geopandas dataframe): The GeoDataFrame containing the shapefile data.
     - region_label (str): The attribute used to identify the region (e.g., a column name).
     - region_value (str): The value of the region_label to filter the desired region.
     - method (str): 'midpoint' to return the spatial midpoint, 'random' to return a random coordinate within the region.
@@ -28,7 +29,7 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
     - (float, float): Latitude and longitude coordinates as decimal degrees.
 
     Example use:
-    lat, lon = get_region_coordinate(shapefile_path, region_label, region_value, method)
+    lat, lon = generate_region_coordinate(shapefile_gdf, region_label, region_value, method)
     """
 
     # Select the region based on the provided label and value
@@ -51,8 +52,39 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
             random_point = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
             if region.contains(random_point):
                 return random_point.y, random_point.x
+    elif method == 'centroid_within':
+        # Calculate the centroid
+        centroid = region.centroid
+        if region.contains(centroid):
+            return centroid.y, centroid.x
+        else:
+            # Find the nearest point within the polygon
+            nearest_point = nearest_points(region, centroid)[0]
+            return nearest_point.y, nearest_point.x
     else:
-        raise ValueError("Method must be 'midpoint' or 'random'")
+        raise ValueError("Method must be 'midpoint', 'random', or 'centroid_within'")
 
 
+def add_coordinates_to_gdf(gdf, region_label,method='random'):
+    """
+    Adds random latitude and longitude coordinates to each polygon/multipolygon in a GeoDataFrame.
 
+    Parameters:
+    - gdf (geopandas.GeoDataFrame): The GeoDataFrame containing the polygons.
+    - region_label (str): The attribute used to identify the region (e.g., a column name).
+
+    Returns:
+    - gdf (geopandas.GeoDataFrame): The GeoDataFrame with new latitude and longitude columns.
+    """
+    latitudes = []
+    longitudes = []
+
+    for _, row in gdf.iterrows():
+        latitude, longitude = generate_region_coordinate(gdf, region_label, row[region_label], method)
+        latitudes.append(latitude)
+        longitudes.append(longitude)
+
+    gdf['latitude'] = latitudes
+    gdf['longitude'] = longitudes
+
+    return gdf
