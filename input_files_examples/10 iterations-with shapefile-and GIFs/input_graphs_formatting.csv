@@ -2,9 +2,9 @@ LABEL,LEGEND_TEXT,LEGEND_SUPPRESS,TITLE_TEXT,TITLE_SUPPRESS,COLOR,ALPHA,FILL_ALP
 Region 1,Region 1,FALSE,Region 1,FALSE,y,1,1,solid,0.5,.,2
 Region 2,Region 2,FALSE,Region 2,FALSE,b,1,1,solid,0.5,.,2
 Region 3,Region 3,FALSE,Region 3,FALSE,g,1,1,solid,0.5,.,2
-Type 1,Type 1,FALSE,Type 1,FALSE,r,0.05,0.05,solid,0.5,.,2
-Type 2,Type 2,FALSE,Type 2,FALSE,g,0.05,0.05,solid,0.5,.,2
-Type 3,Type 3,FALSE,Type 3,FALSE,b,0.05,0.05,solid,0.5,.,2
+Type 1,Type 1,FALSE,Type 1,FALSE,r,0.03,0.05,solid,0.5,.,2
+Type 2,Type 2,FALSE,Type 2,FALSE,g,0.03,0.05,solid,0.5,.,2
+Type 3,Type 3,FALSE,Type 3,FALSE,b,0.03,0.05,solid,0.5,.,2
 Region 1 Type 1,Region 1 - Type 1,FALSE,Region 1 - Type 1,FALSE,y,1,1,solid,0.5,.,2
 Region 1 Type 2,Region 1 - Type 2,FALSE,Region 1 - Type 2,FALSE,g,1,1,solid,0.5,.,2
 Region 1 Type 3,Region 1 - Type 3,FALSE,Region 1 - Type 3,FALSE,b,1,1,solid,0.5,.,2
@@ -14,25 +14,25 @@ Region 2 Type 3,Region 2 - Type 3,FALSE,Region 2 - Type 3,FALSE,b,0.7,0.7,solid,
 Region 3 Type 1,Region 3 - Type 1,FALSE,Region 3 - Type 1,FALSE,y,0.4,0.4,solid,0.5,.,2
 Region 3 Type 2,Region 3 - Type 2,FALSE,Region 3 - Type 2,FALSE,g,0.4,0.4,solid,0.5,.,2
 Region 3 Type 3,Region 3 - Type 3,FALSE,Region 3 - Type 3,FALSE,b,0.4,0.4,solid,0.5,.,2
-High Growth,High Growth,FALSE,High Growth,FALSE,r,0.05,0.05,solid,1,.,2
-Low Growth,Low Growth,FALSE,Low Growth,FALSE,b,0.05,0.05,solid,1,.,2
-Decoupling,Decoupling,FALSE,Decoupling,FALSE,g,0.05,0.05,solid,1,.,2
+High Growth,High Growth,FALSE,High Growth,FALSE,r,0.03,0.05,solid,1,.,2
+Low Growth,Low Growth,FALSE,Low Growth,FALSE,b,0.03,0.05,solid,1,.,2
+Decoupling,Decoupling,FALSE,Decoupling,FALSE,g,0.03,0.05,solid,1,.,2
 unmet_demand,Unmet Demand,FALSE,Unmet Demand,FALSE,g,1,1,solid,0.5,.,2
-A,Commodity A,FALSE,Commodity A,FALSE,r,0.05,0.05,solid,0.5,.,2
-B,Commodity B,FALSE,Commodity B,FALSE,b,0.05,0.05,solid,0.5,.,2
-C,Commodity C,FALSE,Commodity C,FALSE,g,0.05,0.05,solid,0.5,.,2
-D,Commodity D,FALSE,Commodity D,FALSE,m,0.05,0.05,solid,0.5,.,2
-Existing Mines,Existing Mines,FALSE,Existing Mines,FALSE,g,0.05,1,solid,0.5,.,2
-Existing Mines with defined start year,Existing Mines,FALSE,Existing Mines,FALSE,g,0.05,1,solid,0.5,.,2
-Identified Resources,Known Deposits,FALSE,Known Deposits,FALSE,y,0.05,1,solid,0.5,.,2
-Identified Resources with defined start year,Known Deposits,FALSE,Known Deposits,FALSE,y,0.05,1,solid,0.5,.,2
-Greenfield - Demanded,Undiscovered Deposits,FALSE,Undiscovered Deposits,FALSE,gray,0.05,1,solid,0.5,.,2
+A,Commodity A,FALSE,Commodity A,FALSE,r,0.03,0.05,solid,0.5,.,2
+B,Commodity B,FALSE,Commodity B,FALSE,b,0.03,0.05,solid,0.5,.,2
+C,Commodity C,FALSE,Commodity C,FALSE,g,0.03,0.05,solid,0.5,.,2
+D,Commodity D,FALSE,Commodity D,FALSE,m,0.03,0.05,solid,0.5,.,2
+Existing Mines,Existing Mines,FALSE,Existing Mines,FALSE,g,0.03,1,solid,0.5,.,2
+Existing Mines with defined start year,Existing Mines,FALSE,Existing Mines,FALSE,g,0.03,1,solid,0.5,.,2
+Identified Resources,Known Deposits,FALSE,Known Deposits,FALSE,y,0.03,1,solid,0.5,.,2
+Identified Resources with defined start year,Known Deposits,FALSE,Known Deposits,FALSE,y,0.03,1,solid,0.5,.,2
+Greenfield - Demanded,Undiscovered Deposits,FALSE,Undiscovered Deposits,FALSE,gray,0.03,1,solid,0.5,.,2
 Greenfield - Background,Undiscovered Deposits,FALSE,Undiscovered Deposits,FALSE,gray,1,1,solid,0.5,.,2
 deposits_discovered_ore_mass,Ore Discovered,FALSE,Ore Discovered,FALSE,black,1,1,solid,0.5,.,2
 production_ore_mass,Ore Mined,FALSE,Ore Mined,FALSE,black,1,1,solid,0.5,.,2
-deposits_discovered_count Decoupling,Decoupling,FALSE,Decoupling,FALSE,g,0.05,0.05,solid,0.5,.,2
-deposits_discovered_count Low Growth,Low Growth,FALSE,Low Growth,FALSE,b,0.05,0.05,solid,0.5,.,2
-deposits_discovered_count High Growth,High Growth,FALSE,High Growth,FALSE,r,0.05,0.05,solid,0.5,.,2
+deposits_discovered_count Decoupling,Decoupling,FALSE,Decoupling,FALSE,g,0.03,0.05,solid,0.5,.,2
+deposits_discovered_count Low Growth,Low Growth,FALSE,Low Growth,FALSE,b,0.03,0.05,solid,0.5,.,2
+deposits_discovered_count High Growth,High Growth,FALSE,High Growth,FALSE,r,0.03,0.05,solid,0.5,.,2
 deposits_discovered_count Decoupling ALL,Deposits Discovered (No.),FALSE,Decoupling,FALSE,g,1,1,solid,1,.,2
 deposits_discovered_count Low Growth ALL,Deposits Discovered (No.),FALSE,Low Growth,FALSE,b,1,1,solid,1,.,2
 deposits_discovered_count High Growth ALL,Deposits Discovered (No.),FALSE,High Growth,FALSE,r,1,1,solid,1,.,2
@@ -40,19 +40,19 @@ deposits_discovered_count,Deposits Discovered,FALSE,Deposits Discovered,FALSE,bl
 Decoupling deposits_discovered_count,Decoupling deposits_discovered_count,FALSE,Deposits Discovered,FALSE,g,1,1,solid,1,.,2
 Low Growth deposits_discovered_count,Low Growth deposits_discovered_count,FALSE,Deposits Discovered,FALSE,b,1,1,solid,1,.,2
 High Growth deposits_discovered_count,High Growth deposits_discovered_count,FALSE,Deposits Discovered,FALSE,r,1,1,solid,1,.,2
-mines_producing_count Decoupling,Decoupling,FALSE,Decoupling,FALSE,g,0.05,0.05,solid,0.5,.,2
-mines_producing_count Low Growth,Low Growth,FALSE,Low Growth,FALSE,b,0.05,0.05,solid,0.5,.,2
-mines_producing_count High Growth,High Growth,FALSE,High Growth,FALSE,r,0.05,0.05,solid,0.5,.,2
+mines_producing_count Decoupling,Decoupling,FALSE,Decoupling,FALSE,g,0.03,0.05,solid,0.5,.,2
+mines_producing_count Low Growth,Low Growth,FALSE,Low Growth,FALSE,b,0.03,0.05,solid,0.5,.,2
+mines_producing_count High Growth,High Growth,FALSE,High Growth,FALSE,r,0.03,0.05,solid,0.5,.,2
 mines_producing_count Decoupling ALL,Mines Producing (No.),FALSE,Decoupling,FALSE,g,1,1,solid,1,.,2
 mines_producing_count Low Growth ALL,Mines Producing (No.),FALSE,Low Growth,FALSE,b,1,1,solid,1,.,2
 mines_producing_count High Growth ALL,Mines Producing (No.),FALSE,High Growth,FALSE,r,1,1,solid,1,.,2
 Decoupling mines_producing_count,Decoupling mines_producing_count,FALSE,Mines Producing,FALSE,g,1,1,solid,1,.,2
 Low Growth mines_producing_count,Low Growth mines_producing_count,FALSE,Mines Producing,FALSE,b,1,1,solid,1,.,2
 High Growth mines_producing_count,High Growth mines_producing_count,FALSE,Mines Producing,FALSE,r,1,1,solid,1,.,2
-mines_started_count,Mines Commencing,FALSE,Mines Commencing,FALSE,g,0.05,0.1,solid,0.5,.,2
-mines_ended_count,Mines Ending,FALSE,Mines Ending,FALSE,r,0.05,0.1,solid,0.5,.,2
-mines_care_maintenance_count,Mines in Care and Maintenance,FALSE,Mines in Care and Maintenance,FALSE,y,0.05,0.1,solid,0.5,.,2
-mines_producing_count,Mines Producing,FALSE,Mines Producing,FALSE,gray,0.05,0.1,solid,0.5,.,2
+mines_started_count,Mines Commencing,FALSE,Mines Commencing,FALSE,g,0.5,0.1,solid,0.5,.,2
+mines_ended_count,Mines Ending,FALSE,Mines Ending,FALSE,r,0.5,0.1,solid,0.5,.,2
+mines_care_maintenance_count,Mines in Care and Maintenance,FALSE,Mines in Care and Maintenance,FALSE,y,0.5,0.1,solid,0.5,.,2
+mines_producing_count,Mines Producing,FALSE,Mines Producing,FALSE,gray,0.5,0.1,solid,0.5,.,2
 A production_commodity,Production of A,FALSE,Production of A,FALSE,black,1,1,solid,1,.,2
 B production_commodity,Production of B,FALSE,Production of B,FALSE,black,1,1,solid,1,.,2
 C production_commodity,Production of C,FALSE,Production of C,FALSE,black,1,1,solid,1,.,2
@@ -89,30 +89,30 @@ D 0,Production of D | Iteration 0,FALSE,Production of D | Iteration 0,FALSE,blac
 D 1,Production of D | Iteration 1,FALSE,Production of D | Iteration 1,FALSE,black,1,1,solid,1,.,2
 D 2,Production of D | Iteration 2,FALSE,Production of D | Iteration 2,FALSE,black,1,1,solid,1,.,2
 D 3,Production of D | Iteration 3,FALSE,Production of D | Iteration 3,FALSE,black,1,1,solid,1,.,2
-High Growth - Exploration Background Only,High Growth | Exploration Background Only,FALSE,High Growth - Exploration Background Only,FALSE,gold,0.05,0.05,solid,1,.,2
-High Growth - Exploration Off,High Growth | Exploration Off,FALSE,High Growth - Exploration Off,FALSE,gray,0.05,0.05,solid,1,.,2
-High Growth - Priority Active Off,High Growth | Priority Active Off,FALSE,High Growth - Priority Active Off,FALSE,b,0.05,0.05,solid,1,.,2
-High Growth - Update Values On,High Growth | Update Values On,FALSE,High Growth - Update Values On,FALSE,g,0.05,0.05,solid,1,.,2
-A High Growth,Commodity A | High Growth,FALSE,Commodity A | High Growth,FALSE,r,0.05,0.05,solid,1,.,2
-A High Growth - Exploration Background Only,Commodity A | High Growth | Exploration Background Only,FALSE,Commodity A | High Growth | Exploration Background Only,FALSE,gold,0.05,0.05,solid,1,.,2
-A High Growth - Exploration Off,Commodity A | High Growth | Exploration Off,FALSE,Commodity A | High Growth | Exploration Off,FALSE,gray,0.05,0.05,solid,1,.,2
-A High Growth - Priority Active Off,Commodity A | High Growth | Priority Active Off,FALSE,Commodity A | High Growth | Priority Active Off,FALSE,b,0.05,0.05,solid,1,.,2
-A High Growth - Update Values On,Commodity A | High Growth | Update Values On,FALSE,Commodity A | High Growth | Update Values On,FALSE,g,0.05,0.05,solid,1,.,2
-B High Growth,Commodity B | High Growth,FALSE,Commodity B | High Growth,FALSE,r,0.05,0.05,solid,1,.,2
-B High Growth - Exploration Background Only,Commodity B | High Growth | Exploration Background Only,FALSE,Commodity B | High Growth | Exploration Background Only,FALSE,gold,0.05,0.05,solid,1,.,2
-B High Growth - Exploration Off,Commodity B | High Growth | Exploration Off,FALSE,Commodity B | High Growth | Exploration Off,FALSE,gray,0.05,0.05,solid,1,.,2
-B High Growth - Priority Active Off,Commodity B | High Growth | Priority Active Off,FALSE,Commodity B | High Growth | Priority Active Off,FALSE,b,0.05,0.05,solid,1,.,2
-B High Growth - Update Values On,Commodity B | High Growth | Update Values On,FALSE,Commodity B | High Growth | Update Values On,FALSE,g,0.05,0.05,solid,1,.,2
-C High Growth,Commodity C | High Growth,FALSE,Commodity C | High Growth,FALSE,r,0.05,0.05,solid,1,.,2
-C High Growth - Exploration Background Only,Commodity C | High Growth | Exploration Background Only,FALSE,Commodity C | High Growth | Exploration Background Only,FALSE,gold,0.05,0.05,solid,1,.,2
-C High Growth - Exploration Off,Commodity C | High Growth | Exploration Off,FALSE,Commodity C | High Growth | Exploration Off,FALSE,gray,0.05,0.05,solid,1,.,2
-C High Growth - Priority Active Off,Commodity C | High Growth | Priority Active Off,FALSE,Commodity C | High Growth | Priority Active Off,FALSE,b,0.05,0.05,solid,1,.,2
-C High Growth - Update Values On,Commodity C | High Growth | Update Values On,FALSE,Commodity C | High Growth | Update Values On,FALSE,g,0.05,0.05,solid,1,.,2
-D High Growth,Commodity D | High Growth,FALSE,Commodity D | High Growth,FALSE,r,0.05,0.05,solid,1,.,2
-D High Growth - Exploration Background Only,Commodity D | High Growth | Exploration Background Only,FALSE,Commodity D | High Growth | Exploration Background Only,FALSE,gold,0.05,0.05,solid,1,.,2
-D High Growth - Exploration Off,Commodity D | High Growth | Exploration Off,FALSE,Commodity D | High Growth | Exploration Off,FALSE,gray,0.05,0.05,solid,1,.,2
-D High Growth - Priority Active Off,Commodity D | High Growth | Priority Active Off,FALSE,Commodity D | High Growth | Priority Active Off,FALSE,b,0.05,0.05,solid,1,.,2
-D High Growth - Update Values On,Commodity D | High Growth | Update Values On,FALSE,Commodity D | High Growth | Update Values On,FALSE,g,0.05,0.05,solid,1,.,2
+High Growth - Exploration Background Only,High Growth | Exploration Background Only,FALSE,High Growth - Exploration Background Only,FALSE,gold,0.03,0.05,solid,1,.,2
+High Growth - Exploration Off,High Growth | Exploration Off,FALSE,High Growth - Exploration Off,FALSE,gray,0.03,0.05,solid,1,.,2
+High Growth - Priority Active Off,High Growth | Priority Active Off,FALSE,High Growth - Priority Active Off,FALSE,b,0.03,0.05,solid,1,.,2
+High Growth - Update Values On,High Growth | Update Values On,FALSE,High Growth - Update Values On,FALSE,g,0.03,0.05,solid,1,.,2
+A High Growth,Commodity A | High Growth,FALSE,Commodity A | High Growth,FALSE,r,0.03,0.05,solid,1,.,2
+A High Growth - Exploration Background Only,Commodity A | High Growth | Exploration Background Only,FALSE,Commodity A | High Growth | Exploration Background Only,FALSE,gold,0.03,0.05,solid,1,.,2
+A High Growth - Exploration Off,Commodity A | High Growth | Exploration Off,FALSE,Commodity A | High Growth | Exploration Off,FALSE,gray,0.03,0.05,solid,1,.,2
+A High Growth - Priority Active Off,Commodity A | High Growth | Priority Active Off,FALSE,Commodity A | High Growth | Priority Active Off,FALSE,b,0.03,0.05,solid,1,.,2
+A High Growth - Update Values On,Commodity A | High Growth | Update Values On,FALSE,Commodity A | High Growth | Update Values On,FALSE,g,0.03,0.05,solid,1,.,2
+B High Growth,Commodity B | High Growth,FALSE,Commodity B | High Growth,FALSE,r,0.03,0.05,solid,1,.,2
+B High Growth - Exploration Background Only,Commodity B | High Growth | Exploration Background Only,FALSE,Commodity B | High Growth | Exploration Background Only,FALSE,gold,0.03,0.05,solid,1,.,2
+B High Growth - Exploration Off,Commodity B | High Growth | Exploration Off,FALSE,Commodity B | High Growth | Exploration Off,FALSE,gray,0.03,0.05,solid,1,.,2
+B High Growth - Priority Active Off,Commodity B | High Growth | Priority Active Off,FALSE,Commodity B | High Growth | Priority Active Off,FALSE,b,0.03,0.05,solid,1,.,2
+B High Growth - Update Values On,Commodity B | High Growth | Update Values On,FALSE,Commodity B | High Growth | Update Values On,FALSE,g,0.03,0.05,solid,1,.,2
+C High Growth,Commodity C | High Growth,FALSE,Commodity C | High Growth,FALSE,r,0.03,0.05,solid,1,.,2
+C High Growth - Exploration Background Only,Commodity C | High Growth | Exploration Background Only,FALSE,Commodity C | High Growth | Exploration Background Only,FALSE,gold,0.03,0.05,solid,1,.,2
+C High Growth - Exploration Off,Commodity C | High Growth | Exploration Off,FALSE,Commodity C | High Growth | Exploration Off,FALSE,gray,0.03,0.05,solid,1,.,2
+C High Growth - Priority Active Off,Commodity C | High Growth | Priority Active Off,FALSE,Commodity C | High Growth | Priority Active Off,FALSE,b,0.03,0.05,solid,1,.,2
+C High Growth - Update Values On,Commodity C | High Growth | Update Values On,FALSE,Commodity C | High Growth | Update Values On,FALSE,g,0.03,0.05,solid,1,.,2
+D High Growth,Commodity D | High Growth,FALSE,Commodity D | High Growth,FALSE,r,0.03,0.05,solid,1,.,2
+D High Growth - Exploration Background Only,Commodity D | High Growth | Exploration Background Only,FALSE,Commodity D | High Growth | Exploration Background Only,FALSE,gold,0.03,0.05,solid,1,.,2
+D High Growth - Exploration Off,Commodity D | High Growth | Exploration Off,FALSE,Commodity D | High Growth | Exploration Off,FALSE,gray,0.03,0.05,solid,1,.,2
+D High Growth - Priority Active Off,Commodity D | High Growth | Priority Active Off,FALSE,Commodity D | High Growth | Priority Active Off,FALSE,b,0.03,0.05,solid,1,.,2
+D High Growth - Update Values On,Commodity D | High Growth | Update Values On,FALSE,Commodity D | High Growth | Update Values On,FALSE,g,0.03,0.05,solid,1,.,2
 Decoupling 0,Decoupling | Iteration 0,FALSE,Decoupling | Iteration 0,FALSE,black,1,1,solid,1,.,2
 Decoupling 1,Decoupling | Iteration 1,FALSE,Decoupling | Iteration 1,FALSE,black,1,1,solid,1,.,2
 Decoupling 2,Decoupling | Iteration 2,FALSE,Decoupling | Iteration 2,FALSE,black,1,1,solid,1,.,2
