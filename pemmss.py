@@ -367,10 +367,25 @@ def scenario(i, constants):
         output_path_expansion = output_folder_scenario / f'{j}-Expansion.csv'
         output_path_demand = output_folder_scenario / f'{j}-Demand.csv'
         output_path_status = output_folder_scenario / f'{j}-Status.csv'
+        # [BM] Setup for the shapefile
+        output_path_shapefile = output_folder_scenario / f'{j}-Shapefile.shp'
 
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
+
+        print(projects)
+
+        project_with_gdf = projects.merge(
+        shapefile_gdf[['REGION_1', 'geometry']], 
+        left_on='REGION', 
+        right_on='REGION_1',
+        how='left'
+        )
+        # Export the merged GeoDataFrame as a shapefile
+        project_with_gdf.to_file(output_path_shapefile)        
+
         file_export.export_projects(output_path_projects, projects)
+        # [BM] exporting shapefile
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_status, projects, 'status_timeseries', header='None', id_key='id_number', commodity='None', log_path=log)

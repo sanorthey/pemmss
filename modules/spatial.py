@@ -99,4 +99,49 @@ def add_coordinates_to_gdf(gdf, region_label,method='random'):
 
     return gdf
 
-## TBD -> [BM] Add function to generate shapefile from outputs
+def create_shapefile_from_projects(projects, shapefile_gdf, output_folder_scenario, iteration_index):
+    """
+    Creates a shapefile for the given iteration from a list of Mine objects.
+    
+    Parameters:
+    - projects: List of Mine objects.
+    - shapefile_gdf: GeoDataFrame containing the original shapefile with polygon data.
+    - output_folder_scenario: Path to the folder where outputs will be saved.
+    - iteration_index: Current iteration index (used for naming the shapefile).
+    """
+    # Step 1: Extract data from Mine objects into a list of dictionaries
+    project_data = []
+    for project in projects:
+        project_data.append({
+            'P_ID_NUM': project.id_number,
+            'PROJECT_NAME': project.name,
+            'REGION': project.region,
+            'LATITUDE': project.latitude,
+            'LONGITUDE': project.longitude,
+            # Add other fields as necessary
+        })
+
+    # Step 2: Convert the list of dictionaries into a DataFrame
+    projects_df = pd.DataFrame(project_data)
+
+    # Step 3: Convert DataFrame to GeoDataFrame with point geometry
+    projects_gdf = gpd.GeoDataFrame(
+        projects_df,
+        geometry=gpd.points_from_xy(projects_df.LONGITUDE, projects_df.LATITUDE),
+        crs="EPSG:4326"  # Assuming WGS 84 (lat/lon)
+    )
+
+    # Step 4: Merge the GeoDataFrame with the shapefile polygons based on the region
+    merged_gdf = projects_gdf.merge(
+        shapefile_gdf[['REGION_1', 'geometry']], 
+        left_on='REGION', 
+        right_on='REGION_1',
+        how='left'
+    )
+
+    # Step 5: Export the merged GeoDataFrame as a shapefile
+    output_path_shapefile = output_folder_scenario / f'{iteration_index}-Shapefile.shp'
+    merged_gdf.to_file(output_path_shapefile)
+
+    print(f"Shapefile created for iteration {iteration_index}: {output_path_shapefile}")
+
