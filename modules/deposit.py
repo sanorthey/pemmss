@@ -723,9 +723,6 @@ def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf,
     coordinates = generate_region_coordinate(shapefile_gdf, region_label, generated_region, method='random')
     latitude, longitude = coordinates  # Extract latitude and longitude from coordinates
 
-    # Debugging: Print the generated coordinates
-    print(f"Generated coordinates: latitude={latitude}, longitude={longitude}")
-
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
                        generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, latitude=latitude, longitude=longitude)
@@ -753,11 +750,6 @@ def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf,
                                'c': f['coproduct_cost_a'][index][x],
                                'd': f['coproduct_cost_a'][index][x]}}
                 new_project.add_commodity(c, g, r, st, bgf, vf, tranche=0)
-                print(f"After adding commodity {c}, value_factors: {new_project.value_factors}")
-
-    print(f"Final project value_factors: {new_project.value_factors}")
-    print(new_project.latitude, new_project.longitude)
-
     return new_project
 
 

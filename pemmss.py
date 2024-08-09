@@ -250,7 +250,6 @@ def scenario(i, constants):
             # P6
             if parameters['greenfield_background'] > 0:
                 for gb in range(parameters['greenfield_background']):
-                    print("TRIED P6")
                     projects.append(deposit.resource_discovery(factors, year_current, True, len(projects), shapefile_gdf, 'REGION_1'))
 
             # Priority Ranking Algorithm
@@ -290,7 +289,6 @@ def scenario(i, constants):
                     # P10
                     if parameters['greenfield_exploration_on'] == 1:
                         while demand[c][year_current] > demand[c]['demand_threshold']:
-                            print("TRIED P10")
                             projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1, shapefile_gdf, 'REGION_1'))
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
                             supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])

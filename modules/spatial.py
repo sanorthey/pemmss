@@ -61,7 +61,6 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
             random_point = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
             if region.contains(random_point):
                 # [BM] Was debugging with the following:
-                print(f"Got random coordinates for {region_value}: {random_point.y}, {random_point.x}")
                 return random_point.y, random_point.x
     elif method == 'centroid_within':
         # Calculate the centroid
