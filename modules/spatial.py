@@ -2,6 +2,7 @@
 Module with functions for handling spatial data
 """
 import geopandas as gpd
+import pandas as pd
 from shapely.geometry import Point
 from shapely.ops import nearest_points
 import random
@@ -99,7 +100,7 @@ def add_coordinates_to_gdf(gdf, region_label,method='random'):
 
     return gdf
 
-def create_shapefile_from_projects(projects, shapefile_gdf, output_folder_scenario, iteration_index):
+def add_geometry_to_projects(projects, shapefile_gdf):
     """
     Creates a shapefile for the given iteration from a list of Mine objects.
     
@@ -110,38 +111,44 @@ def create_shapefile_from_projects(projects, shapefile_gdf, output_folder_scenar
     - iteration_index: Current iteration index (used for naming the shapefile).
     """
     # Step 1: Extract data from Mine objects into a list of dictionaries
+
+    # [BM] Added automatic method with slots and get attributes:
     project_data = []
     for project in projects:
-        project_data.append({
-            'P_ID_NUM': project.id_number,
-            'PROJECT_NAME': project.name,
-            'REGION': project.region,
-            'LATITUDE': project.latitude,
-            'LONGITUDE': project.longitude,
-            # Add other fields as necessary
-        })
+        project_dict = {slot: getattr(project, slot) for slot in project.__slots__}
+        project_data.append(project_dict)
 
     # Step 2: Convert the list of dictionaries into a DataFrame
     projects_df = pd.DataFrame(project_data)
 
-    # Step 3: Convert DataFrame to GeoDataFrame with point geometry
-    projects_gdf = gpd.GeoDataFrame(
-        projects_df,
-        geometry=gpd.points_from_xy(projects_df.LONGITUDE, projects_df.LATITUDE),
-        crs="EPSG:4326"  # Assuming WGS 84 (lat/lon)
-    )
+    # Step 3: Initialize a new column in projects_df to store geometry
+    projects_df['geometry'] = None
 
-    # Step 4: Merge the GeoDataFrame with the shapefile polygons based on the region
-    merged_gdf = projects_gdf.merge(
-        shapefile_gdf[['REGION_1', 'geometry']], 
-        left_on='REGION', 
-        right_on='REGION_1',
-        how='left'
-    )
+    # Step 4: Loop through each row in projects_df
+    for idx, project_row in projects_df.iterrows():
+        region = project_row['region']  # Get the region for the current project
+        
+        # Step 3: Find the corresponding row in shapefile_gdf
+        matching_row = shapefile_gdf[shapefile_gdf['REGION_1'] == region]
+        
+        if not matching_row.empty:
+            # Step 4: Assign the geometry from shapefile_gdf to the corresponding row in projects_df
+            projects_df.at[idx, 'geometry'] = matching_row.iloc[0]['geometry']
+        else:
+            print(f"Warning: No matching region found for project {project_row['name']} with region {region}")
+    return projects_df
 
-    # Step 5: Export the merged GeoDataFrame as a shapefile
-    output_path_shapefile = output_folder_scenario / f'{iteration_index}-Shapefile.shp'
-    merged_gdf.to_file(output_path_shapefile)
+def save_projects_as_shapefile(projects_with_geometry, output_path_shapefile):
+    """
+    Saves the projects DataFrame with geometry as a shapefile.
+    
+    Parameters:
+    - projects_with_geometry: DataFrame with project data and geometry.
+    - output_path_shapefile: Path to save the shapefile.
+    """
 
-    print(f"Shapefile created for iteration {iteration_index}: {output_path_shapefile}")
+    # Convert the projects DataFrame to a GeoDataFrame
+    projects_gdf = gpd.GeoDataFrame(projects_with_geometry, geometry='geometry', crs="EPSG:4326")
 
+    # Save the GeoDataFrame as a shapefile
+    projects_gdf.to_file(output_path_shapefile)

@@ -372,20 +372,13 @@ def scenario(i, constants):
 
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
-
-        print(projects)
-
-        project_with_gdf = projects.merge(
-        shapefile_gdf[['REGION_1', 'geometry']], 
-        left_on='REGION', 
-        right_on='REGION_1',
-        how='left'
-        )
-        # Export the merged GeoDataFrame as a shapefile
-        project_with_gdf.to_file(output_path_shapefile)        
-
         file_export.export_projects(output_path_projects, projects)
+
         # [BM] exporting shapefile
+        projects_with_geometry = spatial.add_geometry_to_projects(projects, shapefile_gdf)
+        spatial.save_projects_as_shapefile(projects_with_geometry, output_path_shapefile)
+
+
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_status, projects, 'status_timeseries', header='None', id_key='id_number', commodity='None', log_path=log)
