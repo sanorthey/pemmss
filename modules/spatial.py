@@ -129,7 +129,7 @@ def add_geometry_to_projects(projects, shapefile_gdf):
         region = project_row['region']  # Get the region for the current project
         
         # Step 3: Find the corresponding row in shapefile_gdf
-        matching_row = shapefile_gdf[shapefile_gdf['REGION_1'] == region]
+        matching_row = shapefile_gdf[shapefile_gdf['REGION'] == region]
         
         if not matching_row.empty:
             # Step 4: Assign the geometry from shapefile_gdf to the corresponding row in projects_df
