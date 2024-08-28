@@ -11,10 +11,17 @@ def import_shapefile(shapefile_path):
     """
     Reads a shapefile (.shp) at 'shapefile_path' and returns a geopandas dataframe
     """
+    shapefile_loaded = False  # Set this to False by default
 
-    # Load the shapefile
-    gdf = gpd.read_file(shapefile_path)
-    return gdf
+    try:
+        # Load the shapefile
+        gdf = gpd.read_file(shapefile_path)
+        return gdf
+    except Exception as e:
+        print(f"Failed to load shapefile: {e}")
+        return None
+
+
 
 def generate_region_coordinate(shapefile_gdf, region_label, region_value, method='random'):
     """

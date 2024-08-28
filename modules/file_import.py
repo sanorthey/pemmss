@@ -26,6 +26,7 @@ from random import choices
 # Import custom modules
 import modules.deposit as deposit
 from modules.file_export import export_log
+import modules.spatial as spatial
 
 # Recreate deprecated functions
 def strtobool(value: str) -> bool: # distutils was deprecated in Python 3.12, recreating strtobool()
@@ -123,7 +124,14 @@ def import_parameters(path, copy_path=None, log_path=None):
     return imported_parameters
 
 
-def import_projects(f, path, copy_path=None, log_path=None):
+def import_projects(f, path, constants, copy_path=None, log_path=None):
+    
+    '''  
+    # [BM] Accessing the global constants
+        ## See comment in peemmss.py file, before def initialise()
+        global constants 
+    '''
+
     """
     import_projects()
     Imports projects from input_projects.csv in the working directory.
@@ -242,14 +250,33 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 weightings = [f['weighting'][i] for i in possible_indices]
                 index = choices(possible_indices, weights=weightings)[0]
                 deposit_type = str(f['deposit_type'][index])
+
+            # [BM] Extract region value from the row, this is necessary to run the generate_region_coordinate function
+            # [BM] I'm hardcoding the region_label here, since this is the expected CSV input
+            region_value = row['REGION']
+            region_label = 'REGION'
+
             if row['LATITUDE'] != "":
                 latitude = float(row['LATITUDE'])
             else:
-                latitude = None  # Todo: create deposit.capacity_coordinate_generate() for the None case
+                no_latitude += 1
+                if constants['shapefile_gdf'] is not None:
+                    latitude, _ = spatial.generate_region_coordinate(constants['shapefile_gdf'], region_label, region_value, method='random')
+                else:
+                    latitude = None
+
             if row['LONGITUDE'] != "":
                 longitude = float(row['LONGITUDE'])
             else:
-                longitude = None  # Todo: create deposit.capacity_coordinate_generate() for the None case
+                no_longitude += 1
+                if constants['shapefile_gdf'] is not None:
+                    if latitude is None:
+                        latitude, longitude = spatial.generate_region_coordinate(constants['shapefile_gdf'], region_label, region_value, method='random')
+                    else:
+                        _, longitude = spatial.generate_region_coordinate(constants['shapefile_gdf'], region_label, region_value, method='random')
+                else:
+                    longitude = None
+
             if row['COMMODITY'] == "":
                 no_commodity += 1
                 commodity = f['commodity_primary'][index]

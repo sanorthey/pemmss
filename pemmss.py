@@ -87,6 +87,11 @@ import modules.results as results
 import modules.post_processing as post_processing
 import modules.spatial as spatial
 
+# [BM] I'm defining constants as a global variable. This is used in the file_import/import_projects function
+## With this logic, we don't need to pass 'constants' as an argument when calling this function
+## The 'constants' argument (or global variable) is used when checking if we loaded the shapefile or not.
+## We can only generate_random_coordinate if the shapefile has been loaded (for now)
+# global constants
 
 def initialise():
     """
@@ -155,12 +160,17 @@ def initialise():
     # Import user input files and assign variables
     constants.update(file_import.import_static_files(constants['input_folder'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
 
+    # [BM] - Thinking where do I move these
     # [BM] Loading the shapefile
     shapefile_path = constants['input_folder'] / 'shapefile/shapefile.shp'
-    constants['shapefile_gdf'] = spatial.import_shapefile(shapefile_path)
+    if shapefile_path.exists():
+        constants['shapefile_gdf'] = spatial.import_shapefile(shapefile_path)
+    else:
+        constants['shapefile_gdf'] = None
+        # Added proper error code
+        print("Warning: Shapefile not found. Coordinates will not be generated based on regions.")
 
     return constants
-
 
 def scenario(i, constants):
     """
@@ -224,7 +234,7 @@ def scenario(i, constants):
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
-        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', copy_path=output_folder_input_copy, log_path=log)
+        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', constants, copy_path=output_folder_input_copy, log_path=log)
         projects = file_import.import_project_coproducts(factors, input_folder / 'input_project_coproducts.csv', projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
         log_message.append('\nScenario ' + str(parameters['scenario_name']) + ' Iteration ' + str(j) + '\nImported input_projects.csv\nImported input_project_coproducts.csv')
 

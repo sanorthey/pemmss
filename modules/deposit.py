@@ -728,7 +728,7 @@ def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf,
                        generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, latitude=latitude, longitude=longitude)
     
     # Debugging: Print the new project details
-    print(f"New project: {new_project.name}, {new_project.region}, {new_project.latitude}, {new_project.longitude}")
+    ## print(f"New project: {new_project.name}, {new_project.region}, {new_project.latitude}, {new_project.longitude}")
 
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
