@@ -87,12 +87,6 @@ import modules.results as results
 import modules.post_processing as post_processing
 import modules.spatial as spatial
 
-# [BM] I'm defining constants as a global variable. This is used in the file_import/import_projects function
-## With this logic, we don't need to pass 'constants' as an argument when calling this function
-## The 'constants' argument (or global variable) is used when checking if we loaded the shapefile or not.
-## We can only generate_random_coordinate if the shapefile has been loaded (for now)
-# global constants
-
 def initialise():
     """
     Generates the model run output directories, creates the log file and imports and copies non-stochastic input files.
