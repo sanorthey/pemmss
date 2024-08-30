@@ -719,15 +719,23 @@ def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf,
         start_time = current_year
         aggregation = 'Greenfield - Demanded'
 
-    # Generate coordinates within the region's polygon
-    coordinates = generate_region_coordinate(shapefile_gdf, region_label, generated_region, method='random')
-    latitude, longitude = coordinates  # Extract latitude and longitude from coordinates
+    # [BM] Only generate coordinates if shapefile_gdf is provided
+    if shapefile_gdf is not None:
+        coordinates = generate_region_coordinate(shapefile_gdf, region_label, generated_region, method='random')
+        if coordinates:
+            latitude, longitude = coordinates
+        else:
+            latitude, longitude = None, None
+    else:
+        # [BM] If there's no shapefile, this generates a lot of error messages:
+        ## print(f"No shapefile provided for region: {generated_region}. Skipping coordinate generation.")
+        latitude, longitude = None, None
 
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
                        generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, latitude=latitude, longitude=longitude)
     
-    # Debugging: Print the new project details
+    # [BM] Debugging: Print the new project details
     ## print(f"New project: {new_project.name}, {new_project.region}, {new_project.latitude}, {new_project.longitude}")
 
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
