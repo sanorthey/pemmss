@@ -256,6 +256,9 @@ def import_projects(f, path, constants, copy_path=None, log_path=None):
             region_value = row['REGION']
             region_label = 'REGION'
 
+            # [BM] The logic now accounts for 3 scenarios
+            ## lat+lon both missing, only lat missing, only lon missing
+
             # Check if either latitude or longitude is missing
             if row['LATITUDE'] == "" or row['LONGITUDE'] == "":
                 no_latitude += (row['LATITUDE'] == "")
