@@ -256,26 +256,29 @@ def import_projects(f, path, constants, copy_path=None, log_path=None):
             region_value = row['REGION']
             region_label = 'REGION'
 
-            if row['LATITUDE'] != "":
-                latitude = float(row['LATITUDE'])
-            else:
-                no_latitude += 1
-                if constants['shapefile_gdf'] is not None:
-                    latitude, _ = spatial.generate_region_coordinate(constants['shapefile_gdf'], region_label, region_value, method='random')
-                else:
-                    latitude = None
+            # Check if either latitude or longitude is missing
+            if row['LATITUDE'] == "" or row['LONGITUDE'] == "":
+                no_latitude += (row['LATITUDE'] == "")
+                no_longitude += (row['LONGITUDE'] == "")
 
-            if row['LONGITUDE'] != "":
-                longitude = float(row['LONGITUDE'])
-            else:
-                no_longitude += 1
                 if constants['shapefile_gdf'] is not None:
-                    if latitude is None:
+                    if row['LATITUDE'] == "" and row['LONGITUDE'] == "":
+                        # Both latitude and longitude are missing, generate both
                         latitude, longitude = spatial.generate_region_coordinate(constants['shapefile_gdf'], region_label, region_value, method='random')
+                    elif row['LATITUDE'] == "":
+                        # Only latitude is missing, generate it
+                        latitude, _ = spatial.generate_region_coordinate(constants['shapefile_gdf'], region_label, region_value, method='random')
+                        longitude = float(row['LONGITUDE'])
                     else:
+                        # Only longitude is missing, generate it
                         _, longitude = spatial.generate_region_coordinate(constants['shapefile_gdf'], region_label, region_value, method='random')
+                        latitude = float(row['LATITUDE'])
                 else:
-                    longitude = None
+                    latitude = float(row['LATITUDE']) if row['LATITUDE'] != "" else None
+                    longitude = float(row['LONGITUDE']) if row['LONGITUDE'] != "" else None
+            else:
+                latitude = float(row['LATITUDE'])
+                longitude = float(row['LONGITUDE'])
 
             if row['COMMODITY'] == "":
                 no_commodity += 1

@@ -20,8 +20,7 @@ def import_shapefile(shapefile_path):
     except Exception as e:
         print(f"Failed to load shapefile: {e}")
         return None
-
-
+     
 
 def generate_region_coordinate(shapefile_gdf, region_label, region_value, method='random'):
     """
@@ -63,12 +62,11 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
         centroid = region.centroid
         return centroid.y, centroid.x
     elif method == 'random':
-        # Generate a random point within the region's bounds
+        # Generate a random point strictly within the polygon
         minx, miny, maxx, maxy = region.bounds
         while True:
             random_point = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
             if region.contains(random_point):
-                # [BM] Was debugging with the following:
                 return random_point.y, random_point.x
     elif method == 'centroid_within':
         # Calculate the centroid
@@ -145,6 +143,9 @@ def add_geometry_to_projects(projects, shapefile_gdf):
             print(f"Warning: No matching region found for project {project_row['name']} with region {region}")
     return projects_df
 
+# [BM] Wont be using this one
+
+'''
 def save_projects_as_shapefile(projects_with_geometry, output_path_shapefile):
     """
     Saves the projects DataFrame with geometry as a shapefile.
@@ -159,3 +160,74 @@ def save_projects_as_shapefile(projects_with_geometry, output_path_shapefile):
 
     # Save the GeoDataFrame as a shapefile
     projects_gdf.to_file(output_path_shapefile)
+'''
+
+# [BM] The following function was written to remove the save_project_as_shapefile from the iteration loop, and out to the post-processing loop
+# It reads from the scenarios/iterations and generates 1 shapefile per Scenario (e.g. Decoupling). This shapefile will have j layers, where j is the number of iterations.
+# Each layer (j) will have a cloud of points respective to the Projects (i)
+
+def deduplicate_columns(columns):
+    """
+    Deduplicate column names by appending a suffix when a duplicate is found.
+    Ensures column names are unique within the DataFrame.
+    """
+    seen = {}
+    for i, col in enumerate(columns):
+        if col in seen:
+            seen[col] += 1
+            columns[i] = f"{col[:9]}_{seen[col]}"  # Keep names within 10 characters
+        else:
+            seen[col] = 0
+    return columns
+
+def save_scenario_shapefile(shapefile_gdf, scenario_folders, output_shapefile_base_path):
+    """
+    Creates and saves a shapefile for each scenario with data from all iterations combined.
+    
+    Parameters:
+    - shapefile_gdf (GeoDataFrame or None): The original GeoDataFrame from the shapefile. Can be None.
+    - scenario_folders (list): List of paths to scenario folders.
+    - output_shapefile_base_path (Path): Base path where the shapefiles will be saved.
+    """
+    for j, scenario_folder in enumerate(scenario_folders):
+        all_points_gdfs = []
+
+        # Convert the generator to a list to iterate over and get the length if needed
+        project_files = list(scenario_folder.glob('*-Projects.csv'))
+
+        for i, projects_csv_path in enumerate(project_files):
+            # Load the i-Projects.csv for this iteration
+            projects_df = pd.read_csv(projects_csv_path)
+
+            # Create GeoDataFrame from the CSV data
+            geometry = [Point(xy) for xy in zip(projects_df['LONGITUDE'], projects_df['LATITUDE'])]
+            projects_gdf = gpd.GeoDataFrame(projects_df, geometry=geometry)
+
+            # Set CRS to match the input shapefile if provided
+            if shapefile_gdf is not None:
+                projects_gdf.set_crs(shapefile_gdf.crs, inplace=True)
+            else:
+                projects_gdf.set_crs("EPSG:4326", inplace=True)  # Default CRS (WGS 84)
+
+            # Add an iteration column to distinguish between different iterations
+            projects_gdf['iteration'] = i
+
+            # Add this GeoDataFrame to the list
+            all_points_gdfs.append(projects_gdf)
+
+        # Combine all the points from different iterations into a single GeoDataFrame
+        combined_gdf = gpd.GeoDataFrame(pd.concat(all_points_gdfs, ignore_index=True))
+
+        # Deduplicate column names to ensure uniqueness and keep them within 10 characters
+        combined_gdf.columns = deduplicate_columns(combined_gdf.columns.to_list())
+
+        # Define the output path for the shapefile
+        output_shapefile_path = scenario_folder / f"{scenario_folder.name}_combined.shp"
+
+        # Save the shapefile
+        try:
+            combined_gdf.to_file(output_shapefile_path)
+        except Exception as e:
+            print(f"Failed to save shapefile for scenario {j}: {e}")
+
+    return output_shapefile_base_path

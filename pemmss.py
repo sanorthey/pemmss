@@ -162,7 +162,7 @@ def initialise():
     else:
         constants['shapefile_gdf'] = None
         # Added proper error code
-        print("Warning: Shapefile not found. Coordinates will not be generated based on regions.")
+        print("Warning: Shapefile not found. Coordinates for GENERATED deposits will not be generated based on regions.")
 
     return constants
 
@@ -372,15 +372,16 @@ def scenario(i, constants):
         output_path_demand = output_folder_scenario / f'{j}-Demand.csv'
         output_path_status = output_folder_scenario / f'{j}-Status.csv'
         # [BM] Setup for the shapefile
-        output_path_shapefile = output_folder_scenario / f'{j}-Shapefile.shp'
+        # output_path_shapefile = output_folder_scenario / f'{j}-Shapefile.shp'
 
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
         file_export.export_projects(output_path_projects, projects)
 
         # [BM] exporting shapefile
-        projects_with_geometry = spatial.add_geometry_to_projects(projects, shapefile_gdf)
-        spatial.save_projects_as_shapefile(projects_with_geometry, output_path_shapefile)
+        ## TBD -> Move to post-processing
+        # projects_with_geometry = spatial.add_geometry_to_projects(projects, shapefile_gdf)
+        # spatial.save_projects_as_shapefile(projects_with_geometry, output_path_shapefile)
 
 
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
@@ -414,7 +415,8 @@ def scenario(i, constants):
     return output_folder_scenario
 
 
-def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path):
+def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path, shapefile_gdf=None):
+    
     """
     Merges and filters scenario data, generate and export graphs and final results files.
 
@@ -461,6 +463,20 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     file_export.export_log('Figure generation duration '+str((pt2-pt1))+' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Exported to '+str(output_graphs_folder), output_path=log_path, print_on=1)
 
+    # [BM] Moved the shaepfile saving function here.
+    file_export.export_log('\nGenerating Shapefiles:', output_path=log_path, print_on=1)
+    # shapefile is non mandatory:
+    if shapefile_gdf is not None:
+        # Save the final shapefile with scenario layers if a shapefile was provided
+        # A better description of this process can be found in the save_scenario_shapefile function declaration
+        output_shapefile_path = output_stats_folder / 'output_scenarios_shapefile.shp'
+        spatial.save_scenario_shapefile(shapefile_gdf, scenario_folders, output_shapefile_path)
+
+        pt3 = (time())
+        file_export.export_log('Exported shapefile with scenario layers in '+str((pt3-pt2))+' seconds.', output_path=log_path, print_on=1)
+
+    else:
+        file_export.export_log('No shapefile provided; skipping shapefile export.', output_path=log_path, print_on=1)
 
 def main():
     """
@@ -507,7 +523,8 @@ def main():
                  imported_postprocessing=CONSTANTS['imported_postprocessing'],
                  imported_graphs=CONSTANTS['imported_graphs'],
                  imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
-                 log_path=CONSTANTS['log'])
+                 log_path=CONSTANTS['log'],
+                 shapefile_gdf=CONSTANTS['shapefile_gdf'])
 
     t2 = (time())
     log_message = ('\nPost-processing duration ' + str(t2 - t1) +
@@ -530,7 +547,8 @@ def post_process_only():
                      imported_postprocessing=CONSTANTS['imported_postprocessing'],
                      imported_graphs=CONSTANTS['imported_graphs'],
                      imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
-                     log_path=CONSTANTS['log'])
+                     log_path=CONSTANTS['log'],
+                     shapefile_gdf=CONSTANTS['shapefile_gdf'])
 
         pr.print_stats()
     # TODO: test
