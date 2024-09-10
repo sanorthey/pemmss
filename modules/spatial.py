@@ -180,15 +180,18 @@ def deduplicate_columns(columns):
             seen[col] = 0
     return columns
 
-def save_scenario_shapefile(shapefile_gdf, scenario_folders, output_shapefile_base_path):
+def save_scenario_geopackage(shapefile_gdf, scenario_folders):
     """
-    Creates and saves a shapefile for each scenario with data from all iterations combined.
-    
+    Creates and saves an OGC geopackage for each scenario with data from all iterations combined.
+
+    Files written: [scenario_folder]/_geopackage.gpkg
+
     Parameters:
     - shapefile_gdf (GeoDataFrame or None): The original GeoDataFrame from the shapefile. Can be None.
     - scenario_folders (list): List of paths to scenario folders.
-    - output_shapefile_base_path (Path): Base path where the shapefiles will be saved.
     """
+    output_paths = []
+
     for j, scenario_folder in enumerate(scenario_folders):
         all_points_gdfs = []
 
@@ -221,13 +224,14 @@ def save_scenario_shapefile(shapefile_gdf, scenario_folders, output_shapefile_ba
         # Deduplicate column names to ensure uniqueness and keep them within 10 characters
         combined_gdf.columns = deduplicate_columns(combined_gdf.columns.to_list())
 
-        # Define the output path for the shapefile
-        output_shapefile_path = scenario_folder / f"{scenario_folder.name}_combined.shp"
+        # Define the output path for the OGC GeoPackage
+        output_geopackage_path = scenario_folder / f'_geopackage.gpkg'
 
         # Save the shapefile
         try:
-            combined_gdf.to_file(output_shapefile_path)
+            combined_gdf.to_file(output_geopackage_path)
+            output_paths.append(output_geopackage_path)
         except Exception as e:
-            print(f"Failed to save shapefile for scenario {j}: {e}")
+            print(f"Failed to save geopackage for scenario {j}: {e}")
 
-    return output_shapefile_base_path
+    return output_paths
