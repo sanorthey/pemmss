@@ -6,7 +6,6 @@ import pandas as pd
 from shapely.geometry import Point
 from shapely.ops import nearest_points
 import random
-from modules.file_export import export_log
 
 
 def import_geopackage(path):
