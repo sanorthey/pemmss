@@ -6,50 +6,46 @@ import pandas as pd
 from shapely.geometry import Point
 from shapely.ops import nearest_points
 import random
+from modules.file_export import export_log
 
-def import_shapefile(shapefile_path):
-    """
-    Reads a shapefile (.shp) at 'shapefile_path' and returns a geopandas dataframe
-    """
-    shapefile_loaded = False  # Set this to False by default
 
+def import_geopackage(path):
+    """
+    Reads a geopackage (.shp) at 'shapefile_path' and returns a geopandas dataframe
+    """
     try:
         # Load the shapefile
-        gdf = gpd.read_file(shapefile_path)
+        gdf = gpd.read_file(path)
         return gdf
     except Exception as e:
         print(f"Failed to load shapefile: {e}")
         return None
-     
 
-def generate_region_coordinate(shapefile_gdf, region_label, region_value, method='random'):
+def generate_region_coordinate(geodataframe, region_label, region_value, method='random', log_path='None'):
     """
     Selects a region from a shapefile and generates latitude and longitude coordinates as decimal degrees.
 
     Parameters:
-    - shapefile_gdf (geopandas dataframe): The GeoDataFrame containing the shapefile data.
+    - geodataframe (geopandas dataframe): The GeoDataFrame containing the geopackage data.
     - region_label (str): The attribute used to identify the region (e.g., a column name such as REGION).
     - region_value (str): The value of the region_label to filter the desired region (e.g. 'Region 1', or 'Chile', or 'Asia').
     - method (str): 'midpoint' to return the spatial midpoint, 'random' to return a random coordinate within the region.
 
     Returns:
-    - (float, float): Latitude and longitude coordinates as decimal degrees.
+    - (float, float): Latitude and longitude coordinates as decimal degrees. Returns (None, None) if region_label or region_value not in geodataframe.
 
     Example use:
     lat, lon = generate_region_coordinate(shapefile_gdf, region_label, region_value, method)
     """
 
-    # Debug print statements
-    ##print(f"Columns in GeoDataFrame: {shapefile_gdf.columns}")
-    ##print(f"Unique values in {region_label}: {shapefile_gdf[region_label].unique()}")
-    ##print(f"Looking for region_label: {region_label}")
-    ##print(f"Looking for region_value: {region_value}")
+    if region_label not in geodataframe:
+        return None, None
 
     # Select the region based on the provided label and value
-    region = shapefile_gdf[shapefile_gdf[region_label] == region_value]
+    region = geodataframe[geodataframe[region_label] == region_value]
 
     if region.empty:
-        raise ValueError(f"No region found with {region_label} = {region_value}")
+        return None, None
 
     # Ensure the region is in a single geometry
     if len(region) > 1:
@@ -81,87 +77,6 @@ def generate_region_coordinate(shapefile_gdf, region_label, region_value, method
         raise ValueError("Method must be 'midpoint', 'random', or 'centroid_within'")
 
 
-def add_coordinates_to_gdf(gdf, region_label,method='random'):
-    """
-    Adds random latitude and longitude coordinates to each polygon/multipolygon in a GeoDataFrame.
-
-    Parameters:
-    - gdf (geopandas.GeoDataFrame): The GeoDataFrame containing the polygons.
-    - region_label (str): The attribute used to identify the region (e.g., a column name).
-
-    Returns:
-    - gdf (geopandas.GeoDataFrame): The GeoDataFrame with new latitude and longitude columns.
-    """
-    latitudes = []
-    longitudes = []
-
-    for _, row in gdf.iterrows():
-        latitude, longitude = generate_region_coordinate(gdf, region_label, row[region_label], method)
-        latitudes.append(latitude)
-        longitudes.append(longitude)
-
-    gdf['latitude'] = latitudes
-    gdf['longitude'] = longitudes
-
-    return gdf
-
-def add_geometry_to_projects(projects, shapefile_gdf):
-    """
-    Creates a shapefile for the given iteration from a list of Mine objects.
-    
-    Parameters:
-    - projects: List of Mine objects.
-    - shapefile_gdf: GeoDataFrame containing the original shapefile with polygon data.
-    - output_folder_scenario: Path to the folder where outputs will be saved.
-    - iteration_index: Current iteration index (used for naming the shapefile).
-    """
-    # Step 1: Extract data from Mine objects into a list of dictionaries
-
-    # [BM] Added automatic method with slots and get attributes:
-    project_data = []
-    for project in projects:
-        project_dict = {slot: getattr(project, slot) for slot in project.__slots__}
-        project_data.append(project_dict)
-
-    # Step 2: Convert the list of dictionaries into a DataFrame
-    projects_df = pd.DataFrame(project_data)
-
-    # Step 3: Initialize a new column in projects_df to store geometry
-    projects_df['geometry'] = None
-
-    # Step 4: Loop through each row in projects_df
-    for idx, project_row in projects_df.iterrows():
-        region = project_row['region']  # Get the region for the current project
-        
-        # Step 3: Find the corresponding row in shapefile_gdf
-        matching_row = shapefile_gdf[shapefile_gdf['REGION'] == region]
-        
-        if not matching_row.empty:
-            # Step 4: Assign the geometry from shapefile_gdf to the corresponding row in projects_df
-            projects_df.at[idx, 'geometry'] = matching_row.iloc[0]['geometry']
-        else:
-            print(f"Warning: No matching region found for project {project_row['name']} with region {region}")
-    return projects_df
-
-# [BM] Wont be using this one
-
-'''
-def save_projects_as_shapefile(projects_with_geometry, output_path_shapefile):
-    """
-    Saves the projects DataFrame with geometry as a shapefile.
-    
-    Parameters:
-    - projects_with_geometry: DataFrame with project data and geometry.
-    - output_path_shapefile: Path to save the shapefile.
-    """
-
-    # Convert the projects DataFrame to a GeoDataFrame
-    projects_gdf = gpd.GeoDataFrame(projects_with_geometry, geometry='geometry', crs="EPSG:4326")
-
-    # Save the GeoDataFrame as a shapefile
-    projects_gdf.to_file(output_path_shapefile)
-'''
-
 # [BM] The following function was written to remove the save_project_as_shapefile from the iteration loop, and out to the post-processing loop
 # It reads from the scenarios/iterations and generates 1 shapefile per Scenario (e.g. Decoupling). This shapefile will have j layers, where j is the number of iterations.
 # Each layer (j) will have a cloud of points respective to the Projects (i)
@@ -190,6 +105,9 @@ def save_scenario_geopackage(shapefile_gdf, scenario_folders):
     - shapefile_gdf (GeoDataFrame or None): The original GeoDataFrame from the shapefile. Can be None.
     - scenario_folders (list): List of paths to scenario folders.
     """
+    import warnings
+    warnings.filterwarnings('ignore', 'GeoSeries.notna', UserWarning)
+
     output_paths = []
 
     for j, scenario_folder in enumerate(scenario_folders):

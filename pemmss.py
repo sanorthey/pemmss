@@ -48,6 +48,7 @@ input_files/
     input_demand.csv
     input_input_exploration_production_factors.csv
     input_input_exploration_production_factors_timeseries.csv
+    input_geopackage.gpkg
     input_graphs.csv
     input_graphs_formatting.csv
     input_historic.csv
@@ -55,7 +56,6 @@ input_files/
     input_postprocessing.csv
     input_project_coproducts.csv
     input_projects.csv
-    shapefile/shapefile.shp
 modules/
     deposit.py
     file_export.py
@@ -100,7 +100,7 @@ def initialise():
     input_files/input_historic.csv
     input_files/input_parameters.csv
     input_files/input_postprocessing.csv
-    input_files/shapefile/input_shapefile.shp
+    input_files/geopackage.gpkg
 
     Files & directories written:
     output_files/[RUN_TIME]/
@@ -130,7 +130,6 @@ def initialise():
     constants['input_folder'] = constants['cwd'] / 'input_files'
     constants['output_folder'] = constants['cwd'] / 'output_files' / constants['run_time']
     constants['output_folder_input_copy'] = constants['output_folder'] / '_input_files'
-    constants['output_folder_input_shapefile_copy'] = constants['output_folder_input_copy'] / 'shapefile'
     constants['output_folder_statistics'] = constants['output_folder'] / '_statistics'
     constants['output_folder_graphs'] = constants['output_folder'] / '_graphs'
     constants['log'] = constants['output_folder'] / 'log.txt'
@@ -138,7 +137,6 @@ def initialise():
     # Make directories to store model outputs
     constants['output_folder'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_input_copy'].mkdir(parents=True, exist_ok=True)
-    constants['output_folder_input_shapefile_copy'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_statistics'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_graphs'].mkdir(parents=True, exist_ok=True)
 
@@ -198,7 +196,7 @@ def scenario(i, constants):
     output_folder_input_copy = constants['output_folder_input_copy']
     imported_historic = constants['imported_historic']
     log = constants['log']
-    imported_shapefile_gdf = constants['imported_shapefile_gdf']
+    imported_geopackage_gdf = constants['imported_geopackage_gdf']
 
     # --- Scenario Specific Data
 
@@ -221,7 +219,7 @@ def scenario(i, constants):
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
-        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', imported_shapefile_gdf, copy_path=output_folder_input_copy, log_path=log)
+        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', imported_geopackage_gdf, copy_path=output_folder_input_copy, log_path=log)
         projects = file_import.import_project_coproducts(factors, input_folder / 'input_project_coproducts.csv', projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
         log_message.append('\nScenario ' + str(parameters['scenario_name']) + ' Iteration ' + str(j) + '\nImported input_projects.csv\nImported input_project_coproducts.csv')
 
@@ -247,7 +245,7 @@ def scenario(i, constants):
             # P6
             if parameters['greenfield_background'] > 0:
                 for gb in range(parameters['greenfield_background']):
-                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects), shapefile_gdf=imported_shapefile_gdf))
+                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects), geodataframe=imported_geopackage_gdf))
 
             # Priority Ranking Algorithm
             # P7
@@ -286,7 +284,7 @@ def scenario(i, constants):
                     # P10
                     if parameters['greenfield_exploration_on'] == 1:
                         while demand[c][year_current] > demand[c]['demand_threshold']:
-                            projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1, shapefile_gdf=imported_shapefile_gdf))
+                            projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1, geodataframe=imported_geopackage_gdf))
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
                             supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                             if supplied == 1:
@@ -400,7 +398,7 @@ def scenario(i, constants):
     return output_folder_scenario
 
 
-def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path, shapefile_gdf=None):
+def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path, imported_geodataframe=None):
     
     """
     Merges and filters scenario data, generate and export graphs and final results files.
@@ -448,19 +446,19 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     file_export.export_log('Figure generation duration '+str((pt2-pt1))+' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Exported to '+str(output_graphs_folder), output_path=log_path, print_on=1)
 
-    # [BM] Moved the shapefile saving function here.
+    # [BM] Moved the geopackage saving function here.
     file_export.export_log('\nGenerating Geopackages:', output_path=log_path, print_on=1)
-    # shapefile is non mandatory:
-    if shapefile_gdf is not None:
-        # Save the final shapefile with scenario layers if a shapefile was provided
-        # A better description of this process can be found in the save_scenario_shapefile function declaration
-        spatial.save_scenario_geopackage(shapefile_gdf, scenario_folders)
+    # geopackage is non mandatory:
+    if imported_geodataframe is not None:
+        # Save the final geopackage with scenario layers if input_geopackage.gpkg was provided
+        # A better description of this process can be found in the save_scenario_geopackage function declaration
+        spatial.save_scenario_geopackage(imported_geodataframe, scenario_folders)
 
         pt3 = (time())
         file_export.export_log('Exported geopackage with scenario layers in '+str((pt3-pt2))+' seconds.', output_path=log_path, print_on=1)
 
     else:
-        file_export.export_log('No shapefile provided; skipping shapefile export.', output_path=log_path, print_on=1)
+        file_export.export_log('No geopackage provided; skipping geopackage export.', output_path=log_path, print_on=1)
 
 def main():
     """
@@ -508,7 +506,7 @@ def main():
                  imported_graphs=CONSTANTS['imported_graphs'],
                  imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
                  log_path=CONSTANTS['log'],
-                 shapefile_gdf=CONSTANTS['imported_shapefile_gdf'])
+                 imported_geodataframe=CONSTANTS['imported_geopackage_gdf'])
 
     t2 = (time())
     log_message = ('\nPost-processing duration ' + str(t2 - t1) +
@@ -531,7 +529,7 @@ def post_process_only():
                      imported_postprocessing=CONSTANTS['imported_postprocessing'],
                      imported_graphs=CONSTANTS['imported_graphs'],
                      imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
-                     shapefile_gdf=CONSTANTS['imported_shapefile_gdf'],
+                     imported_geodataframe=CONSTANTS['imported_geopackage_gdf'],
                      log_path=CONSTANTS['log']
                      )
 

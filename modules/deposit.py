@@ -33,7 +33,7 @@ from statistics import mean, stdev
 
 # Import from custom packages
 from modules.file_export import export_log
-from .spatial import generate_region_coordinate
+from modules.spatial import generate_region_coordinate
 
 class Mine:
     """ Mine Class.
@@ -642,7 +642,7 @@ class Mine:
 # Functions for discovering and defining resources 
 # ------------------------------------------------ #
 
-def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf=None, log_file=None):
+def resource_discovery(f, current_year, is_background, id_number, geodataframe=None, log_file=None):
     """
     resource_discovery()
     Randomly generates a new mineral deposit, based upon the parameter table 'f' outlined in the file
@@ -651,7 +651,7 @@ def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf=
     is_background == True | Background greenfield discovery, start year forward dated
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
     id_number | Unique ID for the generated Mine class instance, must be an integer
-    shapefile_gdf | GeoDataFrame containing the shapefile data
+    geodataframe | GeoDataFrame containing the geopackage data
     region_label | The attribute used to identify the region (e.g., a column name)
 
     Returns a new Mine object
@@ -716,9 +716,9 @@ def resource_discovery(f, current_year, is_background, id_number, shapefile_gdf=
         start_time = current_year
         aggregation = 'Greenfield - Demanded'
 
-    # [BM] Only generate coordinates if shapefile_gdf is provided
-    if shapefile_gdf is not None:
-        coordinates = generate_region_coordinate(shapefile_gdf, 'REGION', generated_region, method='random')
+    # Coordinate generation, only if geodataframe imported and region
+    if geodataframe is not None:
+        coordinates = generate_region_coordinate(geodataframe, f['geopackage_region_column'][index], generated_region, method='random')
         if coordinates:
             latitude, longitude = coordinates
         else:
@@ -949,7 +949,6 @@ def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life)
 
     return production_capacity
 
-# TODO: def coordinates_generate() for missing latitudes and longitudes, consider linking to regional shapefiles
 
 def update_exploration_production_factors(factors, updates):
     """
