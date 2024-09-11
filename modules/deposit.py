@@ -642,7 +642,7 @@ class Mine:
 # Functions for discovering and defining resources 
 # ------------------------------------------------ #
 
-def resource_discovery(f, current_year, is_background, id_number, geodataframe=None, log_file=None):
+def resource_discovery(f, current_year, is_background, id_number, log_file=None):
     """
     resource_discovery()
     Randomly generates a new mineral deposit, based upon the parameter table 'f' outlined in the file
@@ -651,7 +651,6 @@ def resource_discovery(f, current_year, is_background, id_number, geodataframe=N
     is_background == True | Background greenfield discovery, start year forward dated
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
     id_number | Unique ID for the generated Mine class instance, must be an integer
-    geodataframe | GeoDataFrame containing the geopackage data
     region_label | The attribute used to identify the region (e.g., a column name)
 
     Returns a new Mine object
@@ -716,15 +715,8 @@ def resource_discovery(f, current_year, is_background, id_number, geodataframe=N
         start_time = current_year
         aggregation = 'Greenfield - Demanded'
 
-    # Coordinate generation, only if geodataframe imported and region
-    if geodataframe is not None:
-        coordinates = generate_region_coordinate(geodataframe, f['geopackage_region_column'][index], generated_region, method='random')
-        if coordinates:
-            latitude, longitude = coordinates
-        else:
-            latitude, longitude = None, None
-    else:
-        latitude, longitude = None, None
+    # Coordinate generation
+    latitude, longitude = generate_region_coordinate(f['geopackage_region_gdf_dict'][index], f['gdf_prepared'][index])
 
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,

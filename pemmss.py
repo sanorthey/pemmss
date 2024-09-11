@@ -188,6 +188,7 @@ def scenario(i, constants):
     """
     parameters = constants['parameters'][i]
     imported_factors = constants['imported_factors']
+    gdf_prepared_list = spatial.prepare_gdf(imported_factors['geopackage_region_gdf_dict'])
     timeseries_project_updates = constants['timeseries_project_updates']
     timeseries_exploration_production_factors_updates = constants['timeseries_exploration_production_factors_updates']
     imported_demand = constants['imported_demand']
@@ -196,7 +197,6 @@ def scenario(i, constants):
     output_folder_input_copy = constants['output_folder_input_copy']
     imported_historic = constants['imported_historic']
     log = constants['log']
-    imported_geopackage_gdf = constants['imported_geopackage_gdf']
 
     # --- Scenario Specific Data
 
@@ -216,10 +216,11 @@ def scenario(i, constants):
         log_message = []
         jt0 = (time())
         factors = deepcopy(imported_factors)
+        factors.update({'gdf_prepared': gdf_prepared_list})  # Note, update must take place after deepcopy as prepared region can't be pickled
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
-        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', imported_geopackage_gdf, copy_path=output_folder_input_copy, log_path=log)
+        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', copy_path=output_folder_input_copy, log_path=log)
         projects = file_import.import_project_coproducts(factors, input_folder / 'input_project_coproducts.csv', projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
         log_message.append('\nScenario ' + str(parameters['scenario_name']) + ' Iteration ' + str(j) + '\nImported input_projects.csv\nImported input_project_coproducts.csv')
 
@@ -245,7 +246,7 @@ def scenario(i, constants):
             # P6
             if parameters['greenfield_background'] > 0:
                 for gb in range(parameters['greenfield_background']):
-                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects), geodataframe=imported_geopackage_gdf))
+                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects)))
 
             # Priority Ranking Algorithm
             # P7
@@ -284,7 +285,7 @@ def scenario(i, constants):
                     # P10
                     if parameters['greenfield_exploration_on'] == 1:
                         while demand[c][year_current] > demand[c]['demand_threshold']:
-                            projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1, geodataframe=imported_geopackage_gdf))
+                            projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1))
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
                             supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                             if supplied == 1:
