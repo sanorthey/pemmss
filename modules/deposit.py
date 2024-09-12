@@ -33,7 +33,7 @@ from statistics import mean, stdev
 
 # Import from custom packages
 from modules.file_export import export_log
-
+from modules.spatial import generate_region_coordinate
 
 class Mine:
     """ Mine Class.
@@ -101,12 +101,12 @@ class Mine:
     Mine.supply(ext_demand,year,ext_demand_commodity)
     Mine.resource_expansion(year)
     """
-    __slots__ = ('id_number', 'name', 'region', 'longitude', 'latitude', 'deposit_type', 'commodity',
+
+    __slots__ = ('id_number', 'name', 'region', 'latitude', 'longitude', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
-                 'current_tranche',
-                 'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
-                 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value', 'discovery_year',
-                 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
+                 'current_tranche', 'recovery', 'production_capacity', 'production_intermediate', 'production_ore',
+                 'expansion', 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value',
+                 'discovery_year', 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
                  'end_year', 'value_factors', 'aggregation', 'key_set')
 
     # Initialise mine variables
@@ -651,6 +651,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     is_background == True | Background greenfield discovery, start year forward dated
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
     id_number | Unique ID for the generated Mine class instance, must be an integer
+    region_label | The attribute used to identify the region (e.g., a column name)
 
     Returns a new Mine object
     """
@@ -714,10 +715,13 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
         start_time = current_year
         aggregation = 'Greenfield - Demanded'
 
+    # Coordinate generation
+    latitude, longitude = generate_region_coordinate(f['geopackage_region_gdf_dict'][index], f['gdf_prepared'][index])
+
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
-                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation)
-
+                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, latitude=latitude, longitude=longitude)
+    
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
         if len(f['coproduct_commodity'][index]) != 0:
@@ -937,7 +941,6 @@ def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life)
 
     return production_capacity
 
-# TODO: def coordinates_generate() for missing latitudes and longitudes, consider linking to regional shapefiles
 
 def update_exploration_production_factors(factors, updates):
     """
