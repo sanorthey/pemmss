@@ -1,8 +1,9 @@
 """
 Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
 
-Developed by Stephen A. Northey
-in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco
+Development led by Stephen A. Northey
+in collaboration with S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano, J. Hyman
+
 For further information email:
     stephen.northey@uts.edu.au
 
@@ -47,6 +48,7 @@ input_files/
     input_demand.csv
     input_input_exploration_production_factors.csv
     input_input_exploration_production_factors_timeseries.csv
+    input_geopackage.gpkg
     input_graphs.csv
     input_graphs_formatting.csv
     input_historic.csv
@@ -83,7 +85,7 @@ import modules.file_export as file_export
 import modules.deposit as deposit
 import modules.results as results
 import modules.post_processing as post_processing
-
+import modules.spatial as spatial
 
 def initialise():
     """
@@ -98,6 +100,7 @@ def initialise():
     input_files/input_historic.csv
     input_files/input_parameters.csv
     input_files/input_postprocessing.csv
+    input_files/geopackage.gpkg
 
     Files & directories written:
     output_files/[RUN_TIME]/
@@ -143,7 +146,7 @@ def initialise():
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                            "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
-                           "Developed led by Stephen A. Northey " +
+                           "Development led by Stephen A. Northey " +
                            'in collaboration with S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano and J. Hyman. \n \n' +
                            "For further information contact stephen.northey@uts.edu.au.\n" +
                            "- - - - - - - - - - - - - - - \n", output_path=constants['log'], print_on=1)
@@ -151,8 +154,9 @@ def initialise():
 
     # Import user input files and assign variables
     constants.update(file_import.import_static_files(constants['input_folder'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
-    return constants
 
+
+    return constants
 
 def scenario(i, constants):
     """
@@ -184,6 +188,7 @@ def scenario(i, constants):
     """
     parameters = constants['parameters'][i]
     imported_factors = constants['imported_factors']
+    gdf_prepared_list = spatial.prepare_gdf(imported_factors['geopackage_region_gdf_dict'])
     timeseries_project_updates = constants['timeseries_project_updates']
     timeseries_exploration_production_factors_updates = constants['timeseries_exploration_production_factors_updates']
     imported_demand = constants['imported_demand']
@@ -200,7 +205,7 @@ def scenario(i, constants):
 
     # As import_projects can have stochastic elements, need to use the scenario specific seed.
     random.seed(parameters['random_seed'])
-    output_folder_scenario = output_folder / i
+    output_folder_scenario = output_folder / str(i)
     output_path_stats = output_folder_scenario / '_statistics.csv'
     output_folder_scenario.mkdir(parents=True, exist_ok=True)
 
@@ -211,6 +216,7 @@ def scenario(i, constants):
         log_message = []
         jt0 = (time())
         factors = deepcopy(imported_factors)
+        factors.update({'gdf_prepared': gdf_prepared_list})  # Note, update must take place after deepcopy as prepared region can't be pickled
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
@@ -361,6 +367,7 @@ def scenario(i, constants):
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
         file_export.export_projects(output_path_projects, projects)
+
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_status, projects, 'status_timeseries', header='None', id_key='id_number', commodity='None', log_path=log)
@@ -392,7 +399,8 @@ def scenario(i, constants):
     return output_folder_scenario
 
 
-def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path):
+def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path, imported_geodataframe=None):
+    
     """
     Merges and filters scenario data, generate and export graphs and final results files.
 
@@ -439,6 +447,19 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     file_export.export_log('Figure generation duration '+str((pt2-pt1))+' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Exported to '+str(output_graphs_folder), output_path=log_path, print_on=1)
 
+    # [BM] Moved the geopackage saving function here.
+    file_export.export_log('\nGenerating Geopackages:', output_path=log_path, print_on=1)
+    # geopackage is non mandatory:
+    if imported_geodataframe is not None:
+        # Save the final geopackage with scenario layers if input_geopackage.gpkg was provided
+        # A better description of this process can be found in the save_scenario_geopackage function declaration
+        spatial.save_scenario_geopackage(imported_geodataframe, scenario_folders)
+
+        pt3 = (time())
+        file_export.export_log('Exported geopackage with scenario layers in '+str((pt3-pt2))+' seconds.', output_path=log_path, print_on=1)
+
+    else:
+        file_export.export_log('No geopackage provided; skipping geopackage export.', output_path=log_path, print_on=1)
 
 def main():
     """
@@ -485,7 +506,8 @@ def main():
                  imported_postprocessing=CONSTANTS['imported_postprocessing'],
                  imported_graphs=CONSTANTS['imported_graphs'],
                  imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
-                 log_path=CONSTANTS['log'])
+                 log_path=CONSTANTS['log'],
+                 imported_geodataframe=CONSTANTS['imported_geopackage_gdf'])
 
     t2 = (time())
     log_message = ('\nPost-processing duration ' + str(t2 - t1) +
@@ -508,7 +530,9 @@ def post_process_only():
                      imported_postprocessing=CONSTANTS['imported_postprocessing'],
                      imported_graphs=CONSTANTS['imported_graphs'],
                      imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
-                     log_path=CONSTANTS['log'])
+                     imported_geodataframe=CONSTANTS['imported_geopackage_gdf'],
+                     log_path=CONSTANTS['log']
+                     )
 
         pr.print_stats()
     # TODO: test

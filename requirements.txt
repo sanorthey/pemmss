@@ -1,4 +1,6 @@
-imageio==2.34.2
-matplotlib==3.9.1
-numpy==1.26.2
-pandas==2.1.4
+geopandas==1.0.1
+imageio==2.35.1
+matplotlib==3.9.2
+numpy==2.1.1
+pandas==2.2.2
+Shapely==2.0.6
