@@ -254,9 +254,6 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 if latitude is None and longitude is None:
                     if f['geopackage_region_gdf_dict'][index]['empty']:
                         geodataframe_error_flag = True
-                else:
-                    latitude = float(row['LATITUDE']) if row['LATITUDE'] != "" else None
-                    longitude = float(row['LONGITUDE']) if row['LONGITUDE'] != "" else None
             else:
                 latitude = float(row['LATITUDE'])
                 longitude = float(row['LONGITUDE'])
@@ -588,7 +585,9 @@ def import_exploration_production_factors(path, geodataframe=None, copy_path=Non
                         'geopackage_region_gdf_dict': [],
                         'lookup_table': {}}
     gdf_empty = False
+    gdf_column_missing = False
     gdf_regions_not_mapped = []
+    gdf_columns_not_mapped = []
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
@@ -657,12 +656,17 @@ def import_exploration_production_factors(path, geodataframe=None, copy_path=Non
             imported_factors['coproduct_cost_d'].extend([row['COPRODUCT_COST_D'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
 
             # extracting geodataframe for region from input_geopackage.gpkg
-            gdf = geodataframe[geodataframe[row['GEOPACKAGE_REGION_COLUMN']] == row['REGION']]
+            if row['GEOPACKAGE_REGION_COLUMN'] in geodataframe.columns:
+                gdf = geodataframe[geodataframe[row['GEOPACKAGE_REGION_COLUMN']] == row['REGION']]
+                if gdf.empty:
+                    gdf_empty = True
+                    gdf_regions_not_mapped.append(row['REGION'])
+            else:
+                gdf = None
+                gdf_column_missing = True
+                gdf_columns_not_mapped.append(row['GEOPACKAGE_REGION_COLUMN'])
             gdf_dict = spatial.gdf_region_preprocess(gdf)
             imported_factors['geopackage_region_gdf_dict'].append(gdf_dict)
-            if gdf.empty:
-                gdf_empty = True
-                gdf_regions_not_mapped.append(row['REGION'])
 
             region_key = imported_factors['region'][-1]
             deposit_type_key = imported_factors['deposit_type'][-1]
@@ -676,11 +680,16 @@ def import_exploration_production_factors(path, geodataframe=None, copy_path=Non
     if log_path is not None:
         export_log('Imported input_exploration_production_factors.csv', output_path=log_path, print_on=1)
         if gdf_empty:
-            export_log('---Failed to map region(s) in input_exploration_production_factors.csv to input_geopackage.gpkg\n'
-                       '---See log file for list of regions\n'
-                       '---Coordinates for greenfield discoveries in these regions will not be assigned.\n'
-                       '---Coordinates missing in input_projects.csv for these regions will not be assigned.', output_path=log_path, print_on=True)
+            export_log('+++ Failed to map region(s) in input_exploration_production_factors.csv to input_geopackage.gpkg\n'
+                       '---See log file for list of regions\n', output_path=log_path, print_on=True)
             export_log(gdf_regions_not_mapped, output_path=log_path, print_on=False)
+        if gdf_column_missing:
+            export_log('+++ Failed to map GEOPACKAGE_REGION_COLUMN value(s) in input_exploration_production_factors.csv to column headers in input_geopackage.gpkg\n'
+                       '---See log file for list of missing column headers\n', output_path=log_path, print_on=True)
+            export_log(gdf_columns_not_mapped, output_path=log_path, print_on=False)
+        if gdf_empty or gdf_column_missing:
+            export_log('---Coordinates for greenfield discoveries in associated regions will not be assigned.\n'
+                       '---Coordinates missing in input_projects.csv in associated regions will not be assigned.', output_path=log_path, print_on=True)
 
     return imported_factors
 

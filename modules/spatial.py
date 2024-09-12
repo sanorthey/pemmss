@@ -23,7 +23,16 @@ def import_geopackage(path):
 
 def gdf_region_preprocess(geodataframe, simplify=False):
 
-    if geodataframe.empty:
+    if geodataframe is None:
+        gdf_dict = {'gdf': None,
+                    'gdf_simplified': None,
+                    'spatial_index': None,
+                    'minx': None,
+                    'miny': None,
+                    'maxx': None,
+                    'maxy': None,
+                    'empty': True}
+    elif geodataframe.empty:
         gdf_dict = {'gdf': geodataframe,
                     'gdf_simplified': geodataframe,
                     'spatial_index': None,
