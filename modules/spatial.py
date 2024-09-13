@@ -56,12 +56,13 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=False, prepare
 
         if gdf.empty:
             regions_missing.update(r)
-            gdf_dict = {'gdf': geodataframe,
+            gdf_dict = {'gdf': gdf,
                         'spatial_index': None,
                         'minx': None,
                         'miny': None,
                         'maxx': None,
-                        'maxy': None}
+                        'maxy': None,
+                        'empty': True}
         else:
             if len(gdf) > 1:
                 region = geodataframe.unary_union
@@ -72,18 +73,19 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=False, prepare
                 # Simplify the geometry to speed up point containment check
                 gdf = gdf.simplify(tolerance=0.001, preserve_topology=True)
 
+            geometries = gdf['geometry'].tolist()
+            # Build a spatial index to reduce the number of containment checks
+            spatial_index = STRtree(geometries)
+
             if prepare:
                 # Convert to a prepared region, which dramatically improves caching and performance
                 # Any subsequent transformations will un-prepare the region
-                gdf = prep(gdf)
-
-            # Build a spatial index to reduce the number of containment checks
-            spatial_index = STRtree([gdf])
+                gdf = prep(geometries)
 
             # Generate region bounds
             minx, miny, maxx, maxy = region.bounds
 
-            gdf_dict = {'gdf': geodataframe,
+            gdf_dict = {'gdf': gdf,
                         'spatial_index': spatial_index,
                         'minx': minx,
                         'miny': miny,
@@ -174,7 +176,7 @@ def generate_region_coordinate(gdf_dict):
     Example use:
     lat, lon = generate_region_coordinate(geodataframe, region_label, region_value, method)
     """
-    if gdf_dict['gdf'].empty:
+    if gdf_dict['empty']:
         return None, None
     else:
         prepared_region = gdf_dict['gdf']

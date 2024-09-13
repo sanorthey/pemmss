@@ -198,7 +198,7 @@ def scenario(i, constants):
     log = constants['log']
 
     # Import and prepare spatial datastets
-    imported_geodataframe = file_import.import_geopackage(input_folder / 'input_geopackage.csv', log_path=log)
+    imported_geodataframe = file_import.import_geopackage(input_folder / 'input_geopackage.gpkg', log_path=log)
     prepared_geodataframe_dict_list = spatial.create_geodataframe_dict_list(imported_factors, imported_geodataframe, log_path=log)
 
     # --- Scenario Specific Data

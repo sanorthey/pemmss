@@ -256,7 +256,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
             if row['LATITUDE'] == "" or row['LONGITUDE'] == "":  # Generate a new coordinate from scratch.
                 no_latitude += (row['LATITUDE'] == "")
                 no_longitude += (row['LONGITUDE'] == "")
-                latitude, longitude = spatial.generate_region_coordinate(f['geopackage_region_gdf_dict'][index], f['gdf_prepared'][index])
+                latitude, longitude = spatial.generate_region_coordinate(f['gdf'][index])
                 if latitude is None and longitude is None:
                     if f['geopackage_region_gdf_dict'][index]['empty']:
                         geodataframe_error_flag = True
