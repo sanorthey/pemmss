@@ -23,6 +23,9 @@ from shutil import copyfile
 from collections import defaultdict
 from random import choices
 
+# Import non-standard packages
+from geopandas import GeoDataFrame
+
 # Import custom modules
 import modules.deposit as deposit
 from modules.file_export import export_log
@@ -55,13 +58,16 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
     static_files = {}
     static_files['parameters'] = import_parameters(path / 'input_parameters.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_geopackage_gdf'] = import_geopackage(path / 'input_geopackage.gpkg', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_factors'] = import_exploration_production_factors(path / 'input_exploration_production_factors.csv', geodataframe=static_files['imported_geopackage_gdf'], copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_factors'] = import_exploration_production_factors(path / 'input_exploration_production_factors.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path / 'input_exploration_production_factors_timeseries.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_demand'] = import_demand(path / 'input_demand.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_graphs'] = import_graphs(path / 'input_graphs.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_graphs_formatting'] = import_graphs_formatting(path / 'input_graphs_formatting.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_postprocessing'] = import_postprocessing(path / 'input_postprocessing.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_historic'] = import_historic(path / 'input_historic.csv', copy_path=copy_path_folder, log_path=log_file)
+
+    # Note, only copying input_geopackage.gpkg here. Importing the file within the scenario() function due to issues with pickling prepared regions in geodatasets
+    copyfile(path / 'input_geopackage.gpkg', copy_path_folder / 'input_geopackage.gpkg')
 
     return static_files
 
@@ -556,7 +562,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
     return projects
 
 
-def import_exploration_production_factors(path, geodataframe=None, copy_path=None, log_path=None):
+def import_exploration_production_factors(path, copy_path=None, log_path=None):
     """
     import_exploration_production_factors()
     Imports parameters from input_exploration_production_factors.csv located in the working directory.
@@ -584,10 +590,6 @@ def import_exploration_production_factors(path, geodataframe=None, copy_path=Non
                         'coproduct_cost_model': [], 'coproduct_cost_a': [], 'coproduct_cost_b': [], 'coproduct_cost_c': [], 'coproduct_cost_d': [],
                         'geopackage_region_gdf_dict': [],
                         'lookup_table': {}}
-    gdf_empty = False
-    gdf_column_missing = False
-    gdf_regions_not_mapped = []
-    gdf_columns_not_mapped = []
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
@@ -655,19 +657,6 @@ def import_exploration_production_factors(path, geodataframe=None, copy_path=Non
             imported_factors['coproduct_cost_c'].extend([row['COPRODUCT_COST_C'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
             imported_factors['coproduct_cost_d'].extend([row['COPRODUCT_COST_D'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
 
-            # extracting geodataframe for region from input_geopackage.gpkg
-            if row['GEOPACKAGE_REGION_COLUMN'] in geodataframe.columns:
-                gdf = geodataframe[geodataframe[row['GEOPACKAGE_REGION_COLUMN']] == row['REGION']]
-                if gdf.empty:
-                    gdf_empty = True
-                    gdf_regions_not_mapped.append(row['REGION'])
-            else:
-                gdf = None
-                gdf_column_missing = True
-                gdf_columns_not_mapped.append(row['GEOPACKAGE_REGION_COLUMN'])
-            gdf_dict = spatial.gdf_region_preprocess(gdf)
-            imported_factors['geopackage_region_gdf_dict'].append(gdf_dict)
-
             region_key = imported_factors['region'][-1]
             deposit_type_key = imported_factors['deposit_type'][-1]
             if region_key in imported_factors['lookup_table']:
@@ -676,20 +665,9 @@ def import_exploration_production_factors(path, geodataframe=None, copy_path=Non
                 imported_factors['lookup_table'].update({region_key: {deposit_type_key: imported_factors['index'][-1]}})
     if copy_path is not None:
         copyfile(path, copy_path / 'input_exploration_production_factors.csv')
-        
+
     if log_path is not None:
         export_log('Imported input_exploration_production_factors.csv', output_path=log_path, print_on=1)
-        if gdf_empty:
-            export_log('+++ Failed to map region(s) in input_exploration_production_factors.csv to input_geopackage.gpkg\n'
-                       '---See log file for list of regions\n', output_path=log_path, print_on=True)
-            export_log(gdf_regions_not_mapped, output_path=log_path, print_on=False)
-        if gdf_column_missing:
-            export_log('+++ Failed to map GEOPACKAGE_REGION_COLUMN value(s) in input_exploration_production_factors.csv to column headers in input_geopackage.gpkg\n'
-                       '---See log file for list of missing column headers\n', output_path=log_path, print_on=True)
-            export_log(gdf_columns_not_mapped, output_path=log_path, print_on=False)
-        if gdf_empty or gdf_column_missing:
-            export_log('---Coordinates for greenfield discoveries in associated regions will not be assigned.\n'
-                       '---Coordinates missing in input_projects.csv in associated regions will not be assigned.', output_path=log_path, print_on=True)
 
     return imported_factors
 
@@ -1143,6 +1121,7 @@ def import_geopackage(path, copy_path=None, log_path=None):
     if path.exists():
         geopackage_gdf = spatial.import_geopackage(path)
         log_message = 'Imported input_geopackage.gpkg'
+
         if copy_path is not None:
             copyfile(path, copy_path / 'input_geopackage.gpkg')
     else:

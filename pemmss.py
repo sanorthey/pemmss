@@ -188,7 +188,6 @@ def scenario(i, constants):
     """
     parameters = constants['parameters'][i]
     imported_factors = constants['imported_factors']
-    gdf_prepared_list = spatial.prepare_gdf(imported_factors['geopackage_region_gdf_dict'])
     timeseries_project_updates = constants['timeseries_project_updates']
     timeseries_exploration_production_factors_updates = constants['timeseries_exploration_production_factors_updates']
     imported_demand = constants['imported_demand']
@@ -197,6 +196,10 @@ def scenario(i, constants):
     output_folder_input_copy = constants['output_folder_input_copy']
     imported_historic = constants['imported_historic']
     log = constants['log']
+
+    # Import and prepare spatial datastets
+    imported_geodataframe = file_import.import_geopackage(input_folder / 'input_geopackage.csv', log_path=log)
+    prepared_geodataframe_dict_list = spatial.create_geodataframe_dict_list(imported_factors, imported_geodataframe, log_path=log)
 
     # --- Scenario Specific Data
 
@@ -216,7 +219,7 @@ def scenario(i, constants):
         log_message = []
         jt0 = (time())
         factors = deepcopy(imported_factors)
-        factors.update({'gdf_prepared': gdf_prepared_list})  # Note, update must take place after deepcopy as prepared region can't be pickled
+        factors.update({'gdf': prepared_geodataframe_dict_list})  # Note, update must take place after deepcopy as prepared region can't be pickled
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
