@@ -8,8 +8,6 @@ import random
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
-from shapely.strtree import STRtree  # Spatial index for faster querying
-from shapely.prepared import prep
 
 # Import custom modules
 from modules.file_export import export_log
@@ -31,10 +29,12 @@ def import_geopackage(path, log_path=None):
         return gdf
 
 
-def create_geodataframe_dict_list(factors, geodataframe, simplify=False, prepare=True, log_path=None):
+def create_geodataframe_dict_list(factors, geodataframe, simplify=True, log_path=None):
     """
+    Separate and process geopackage components for regions specified in input_exploration_production_factors.csv
     Arguments:
          factors | {k: [v0, v1, vn], k: [v0, v1, vn]}
+    Returns {'gdf': geodataframe, 'geoseries': geoseries, 'empty': boolean}
     """
     gdf_list = []
     columns_missing_log = False
@@ -57,40 +57,22 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=False, prepare
         if gdf.empty:
             regions_missing.update(r)
             gdf_dict = {'gdf': gdf,
-                        'spatial_index': None,
-                        'minx': None,
-                        'miny': None,
-                        'maxx': None,
-                        'maxy': None,
+                        'geoseries': None,
                         'empty': True}
         else:
+            # Combine geodataframe indices if multiple
             if len(gdf) > 1:
-                region = geodataframe.unary_union
+                region = gdf.unary_all()
             else:
-                region = geodataframe.geometry.iloc[0]
-
+                region = gdf.geometry.iloc[0]
             if simplify:
                 # Simplify the geometry to speed up point containment check
-                gdf = gdf.simplify(tolerance=0.001, preserve_topology=True)
+                region = region.simplify(tolerance=0.01, preserve_topology=True)
 
-            geometries = gdf['geometry'].tolist()
-            # Build a spatial index to reduce the number of containment checks
-            spatial_index = STRtree(geometries)
-
-            if prepare:
-                # Convert to a prepared region, which dramatically improves caching and performance
-                # Any subsequent transformations will un-prepare the region
-                gdf = prep(geometries)
-
-            # Generate region bounds
-            minx, miny, maxx, maxy = region.bounds
+            region_geoseries = gpd.GeoSeries([region])
 
             gdf_dict = {'gdf': gdf,
-                        'spatial_index': spatial_index,
-                        'minx': minx,
-                        'miny': miny,
-                        'maxx': maxx,
-                        'maxy': maxy,
+                        'geoseries': region_geoseries,
                         'empty': False}
         gdf_list.append(gdf_dict)
 
@@ -112,88 +94,26 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=False, prepare
     return gdf_list
 
 
-def gdf_region_preprocess(geodataframe, simplify=False):
-    if geodataframe.empty:
-        gdf_dict = {'gdf': geodataframe,
-                    'gdf_simplified': geodataframe,
-                    'spatial_index': None,
-                    'minx': None,
-                    'miny': None,
-                    'maxx': None,
-                    'maxy': None,
-                    'empty': True}
-    else:
-        if len(geodataframe) > 1:
-            region = geodataframe.unary_union
-        else:
-            region = geodataframe.geometry.iloc[0]
-
-        if simplify:
-            # Simplify the geometry to speed up point containment check (optional)
-            # Defaulting to False as prepared_region conversion seems to be sufficient with test datasets
-            simplified_region = region.simplify(tolerance=0.001, preserve_topology=True)
-        else:
-            simplified_region = region
-
-        # Build a spatial index to reduce the number of containment checks
-        spatial_index = STRtree([simplified_region])
-
-        # Generate region bounds
-        minx, miny, maxx, maxy = region.bounds
-
-        gdf_dict = {'gdf': geodataframe,
-                    'gdf_simplified': simplified_region,
-                    'spatial_index': spatial_index,
-                    'minx': minx,
-                    'miny': miny,
-                    'maxx': maxx,
-                    'maxy': maxy,
-                    'empty': False}
-
-    return gdf_dict
-
-
-def prepare_gdf(gdf_dict):
-    # For use in pemmss.scenario() as prepared regions can't be pickled, so don't work with multiprocessing or deepcopy
-    # Prepare the region to enable faster, cached containment checks
-    return_list = []
-    for i in gdf_dict:
-        prepared_region = prep(i['gdf_simplified'])
-        return_list.append(prepared_region)
-
-    return return_list
-
 def generate_region_coordinate(gdf_dict):
     """
-    Generates a region coordinate within polygons of a geodataframe and generates latitude and longitude coordinates as decimal degrees. This will typically be filtered prior to this function call.
+    Generates a region coordinate within polygons of a geoseries and returns latitude and longitude coordinates
+    as decimal degrees.
 
     Parameters:
-    - gdf_dict containing a geodatabase and preprocessed spatial_index (STRtree), bounds
+    - gdf_dict: A dictionary containing {'empty': bool, 'geoseries': gpd.Geoseries}
 
     Returns:
-    - (float, float): Latitude and longitude coordinates as decimal degrees. Returns (None, None) if region_label or region_value not in geodataframe.
-
-    Example use:
-    lat, lon = generate_region_coordinate(geodataframe, region_label, region_value, method)
+    - (float, float): Latitude and longitude coordinates as decimal degrees.
+      Returns (None, None) if the region is empty or invalid.
     """
     if gdf_dict['empty']:
         return None, None
-    else:
-        prepared_region = gdf_dict['gdf']
-        spatial_index = gdf_dict['spatial_index']
-        minx = gdf_dict['minx']
-        miny = gdf_dict['miny']
-        maxx = gdf_dict['maxx']
-        maxy = gdf_dict['maxy']
 
-        # Try generating a random point within the bounds
-        # for _ in range(100):  # Reduce the number of attempts if needed
-        while True:
-            random_point = Point(random.uniform(minx, maxx), random.uniform(miny, maxy))
+    # Generate a random point within the polygon using sample_points()
+    random_point = gdf_dict['geoseries'].sample_points(1).iloc[0]
 
-            # Only check if the point is within the polygon using the spatial index
-            if any(prepared_region.contains(random_point) for r in spatial_index.query(random_point)):
-                return random_point.y, random_point.x
+    # Return latitude and longitude as decimal degrees
+    return random_point.y, random_point.x
 
 def deduplicate_columns(columns):
     """

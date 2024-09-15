@@ -23,9 +23,6 @@ from shutil import copyfile
 from collections import defaultdict
 from random import choices
 
-# Import non-standard packages
-from geopandas import GeoDataFrame
-
 # Import custom modules
 import modules.deposit as deposit
 from modules.file_export import export_log
@@ -56,18 +53,15 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
     Returns file structures within a tuple
     """
     static_files = {}
-    static_files['parameters'] = import_parameters(path / 'input_parameters.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_geopackage_gdf'] = import_geopackage(path / 'input_geopackage.gpkg', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_demand'] = import_demand(path / 'input_demand.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_factors'] = import_exploration_production_factors(path / 'input_exploration_production_factors.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path / 'input_exploration_production_factors_timeseries.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_demand'] = import_demand(path / 'input_demand.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_geopackage'] = import_geopackage(path / 'input_geopackage.gpkg', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_graphs'] = import_graphs(path / 'input_graphs.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_graphs_formatting'] = import_graphs_formatting(path / 'input_graphs_formatting.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_postprocessing'] = import_postprocessing(path / 'input_postprocessing.csv', copy_path=copy_path_folder, log_path=log_file)
     static_files['imported_historic'] = import_historic(path / 'input_historic.csv', copy_path=copy_path_folder, log_path=log_file)
-
-    # Note, only copying input_geopackage.gpkg here. Importing the file within the scenario() function due to issues with pickling prepared regions in geodatasets
-    copyfile(path / 'input_geopackage.gpkg', copy_path_folder / 'input_geopackage.gpkg')
+    static_files['parameters'] = import_parameters(path / 'input_parameters.csv', copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_postprocessing'] = import_postprocessing(path / 'input_postprocessing.csv', copy_path=copy_path_folder, log_path=log_file)
 
     return static_files
 
@@ -258,7 +252,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 no_longitude += (row['LONGITUDE'] == "")
                 latitude, longitude = spatial.generate_region_coordinate(f['gdf'][index])
                 if latitude is None and longitude is None:
-                    if f['geopackage_region_gdf_dict'][index]['empty']:
+                    if f['gdf'][index]['empty']:
                         geodataframe_error_flag = True
             else:
                 latitude = float(row['LATITUDE'])

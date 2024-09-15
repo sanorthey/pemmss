@@ -716,7 +716,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
         aggregation = 'Greenfield - Demanded'
 
     # Coordinate generation
-    latitude, longitude = generate_region_coordinate(f['geopackage_region_gdf_dict'][index], f['gdf_prepared'][index])
+    latitude, longitude = generate_region_coordinate(f['gdf'][index])
 
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,

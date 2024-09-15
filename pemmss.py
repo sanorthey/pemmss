@@ -155,6 +155,9 @@ def initialise():
     # Import user input files and assign variables
     constants.update(file_import.import_static_files(constants['input_folder'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
 
+    # Preprocess spatial data
+    file_export.export_log('\nPre-processing spatial data\n', output_path=constants['log'], print_on=True)
+    constants['imported_factors'].update({'gdf': spatial.create_geodataframe_dict_list(constants['imported_factors'], constants['imported_geopackage'], log_path=constants['log'])})
 
     return constants
 
@@ -197,12 +200,7 @@ def scenario(i, constants):
     imported_historic = constants['imported_historic']
     log = constants['log']
 
-    # Import and prepare spatial datastets
-    imported_geodataframe = file_import.import_geopackage(input_folder / 'input_geopackage.gpkg', log_path=log)
-    prepared_geodataframe_dict_list = spatial.create_geodataframe_dict_list(imported_factors, imported_geodataframe, log_path=log)
-
     # --- Scenario Specific Data
-
     year_start = parameters['year_start']
     year_end = parameters['year_end']
 
@@ -219,7 +217,6 @@ def scenario(i, constants):
         log_message = []
         jt0 = (time())
         factors = deepcopy(imported_factors)
-        factors.update({'gdf': prepared_geodataframe_dict_list})  # Note, update must take place after deepcopy as prepared region can't be pickled
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
@@ -510,7 +507,7 @@ def main():
                  imported_graphs=CONSTANTS['imported_graphs'],
                  imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
                  log_path=CONSTANTS['log'],
-                 imported_geodataframe=CONSTANTS['imported_geopackage_gdf'])
+                 imported_geodataframe=CONSTANTS['imported_geopackage'])
 
     t2 = (time())
     log_message = ('\nPost-processing duration ' + str(t2 - t1) +
