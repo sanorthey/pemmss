@@ -73,6 +73,7 @@ Attribution and citation information available in CITATION.cff
 import datetime
 import random
 import cProfile
+import argparse
 from time import time
 from copy import deepcopy
 from multiprocessing import Pool, cpu_count
@@ -398,6 +399,37 @@ def scenario(i, constants):
 
     return output_folder_scenario
 
+def scenario_execute(CONSTANTS, sequential=False):
+    """
+    scenario_execute():
+    """
+    scenario_folder_objects = []
+    scenario_folders = []
+
+    if sequential:
+        for scenario_name in CONSTANTS['parameters']:
+            i = scenario_name
+            scenario_folders.append(scenario(i, constants=CONSTANTS))  # R2, W1 and P3 to P14
+            print('Scenario ' + scenario_name + ' initialised.')
+    else:
+        # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
+        with Pool(cpu_count() - 1) as pool:
+            for scenario_name in CONSTANTS['parameters']:
+                i = scenario_name
+                scenario_folder_objects.append(
+                    pool.apply_async(scenario, (i,), dict(constants=CONSTANTS)))  # R2, W1 and P3 to P14
+                print('Scenario ' + scenario_name + ' initialised.')
+            print('\nScenarios being modelled.')
+            pool.close()
+            pool.join()
+
+            # Check for pooled process errors and exceptions
+            for o in scenario_folder_objects:
+                # Get returned values from AsyncResult objects.
+                # .get() will also raise any pooled process errors and exceptions.
+                scenario_folders.append(o.get())
+
+    return scenario_folders
 
 def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path, imported_geodataframe=None):
     
@@ -461,7 +493,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     else:
         file_export.export_log('No geopackage provided; skipping geopackage export.', output_path=log_path, print_on=1)
 
-def main():
+def main(sequential=False):
     """
     Execute scenario modelling across parallel processes
 
@@ -475,24 +507,9 @@ def main():
 
     # P1 - Import input files
     CONSTANTS = initialise()
-    scenario_folder_objects = []
-    scenario_folders = []
 
     # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
-    with Pool(cpu_count() - 1) as pool:
-        for scenario_name in CONSTANTS['parameters']:
-            i = scenario_name
-            scenario_folder_objects.append(pool.apply_async(scenario, (i,), dict(constants=CONSTANTS)))  # R2, W1 and P3 to P14
-            print('Scenario ' + scenario_name + ' initialised.')
-        print('\nScenarios being modelled.')
-        pool.close()
-        pool.join()
-
-    # Check for pooled process errors and exceptions
-    for o in scenario_folder_objects:
-        # Get returned values from AsyncResult objects.
-        # .get() will also raise any pooled process errors and exceptions.
-        scenario_folders.append(o.get())
+    scenario_folders = scenario_execute(CONSTANTS, sequential=sequential)
 
     t1 = (time())
     file_export.export_log('\nScenario modelling duration ' + str(t1 - t0) + ' seconds.\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.\n',
@@ -539,4 +556,9 @@ def post_process_only():
 
 
 if __name__ == '__main__':
-    main()
+    # Capture command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sequential', action='store_true',help='Executes scenario modelling sequentially. Useful for profiing execution processes and debugging multi-processing error messages.')
+    args = parser.parse_args()
+    # Execute PEMMSS
+    main(sequential=args.sequential)
