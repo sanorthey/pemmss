@@ -84,7 +84,7 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=True, log_path
         if regions_missing_log:
             export_log('+++ Failed to map region(s) in input_exploration_production_factors.csv to input_geopackage.gpkg\n'
                        '---See log file for list of regions\n', output_path=log_path, print_on=True)
-            export_log(f'Region(s) Missing: {columns_missing}', output_path=log_path, print_on=False)
+            export_log(f'Region(s) Missing: {regions_missing}', output_path=log_path, print_on=False)
         if columns_missing_log and regions_missing_log:
             export_log("Note that some (but not necessarily all) missing regions may be caused by the missing columns.", output_path=log_path, print_on=True)
         if columns_missing_log or regions_missing_log:
