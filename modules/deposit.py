@@ -28,7 +28,7 @@ Module with data structures and functions for handling deposit data
 import random
 import copy
 from collections import defaultdict
-from math import log
+from math import log, log10
 from statistics import mean, stdev
 
 # Import from custom packages
@@ -698,7 +698,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     recovery = f['recovery'][index]
 
     # Estimate supply capacity, check that within mine life constraints
-    capacity = capacity_generate(tonnage[0], f['capacity_a'][index], f['capacity_b'][index], f['capacity_sigma'][index], f['life_min'][index], f['life_max'][index])
+    capacity = capacity_generate(tonnage[0], f['capacity_a'][index], f['capacity_b'][index], f['capacity_sigma'][index], f['life_min'][index], f['life_max'][index], sigma_log10=f['capacity_sigma_log10'][index])
 
     # Generate Value
     value = value_generate(value_factors, tonnage, {commodity: grade}, {commodity: recovery}, capacity, tranche=0, log_file=log_file)
@@ -923,15 +923,21 @@ def value_model(value_factors, ore, ore_grade, recovery, production_capacity, lo
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
 
 
-def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life):
+def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life, sigma_log10=False):
     """
     Returns a production capacity based upon the taylor rule factors and uncertainty given input_exploration_production_factors.csv
     production_capacity = random gaussian distribution (a * resource_tonnage ** b, sigma), constrained to between the min and max mine life
 
     sigma = standard deviation
+    sigma_log10 | boolean indicating whether the sigma value has been log10 transformed. If it is then
     """
-    capacity_mean = a * resource_tonnage ** b
-    production_capacity = random.gauss(capacity_mean, sigma)
+    if sigma_log10:
+        log10_capacity_mean = log10(a * resource_tonnage ** b)
+        production_capacity = 10 ** random.gauss(log10_capacity_mean, sigma)
+    else:
+        capacity_mean = a * resource_tonnage ** b
+        production_capacity = random.gauss(capacity_mean, sigma)
+
 
     mine_life = resource_tonnage / production_capacity
     if mine_life < minimum_life:
