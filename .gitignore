@@ -1,6 +1,7 @@
 # Project files
 output_files/
 input_files_examples/
+input_files/_cached_input_files
 
 
 # Byte-compiled / optimized / DLL files
