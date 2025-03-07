@@ -166,7 +166,7 @@ def export_statistics(path, stats_flat_dict, time_range):
     header = ['SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
     header.extend(time_range)
 
-    with open(path, 'a', newline='') as output_file:
+    with open(path, 'a', newline='', encoding='UTF-8') as output_file:
         w = csv.DictWriter(output_file, header)
         if existing == 0:
             w.writeheader()

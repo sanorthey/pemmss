@@ -14,7 +14,7 @@ from modules.file_export import export_log
 
 def import_geopackage(path, log_path=None):
     """
-    Reads a geopackage (.shp) at 'path' and returns a geopandas dataframe. If fails, returns a blank geodataframe
+    Reads a geopackage (.gpkg) at 'path' and returns a geopandas dataframe. If fails, returns a blank geodataframe
     """
     try:
         # Load the geopackage
@@ -50,7 +50,7 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=True, log_path
             if gdf.empty:
                 regions_missing_log = True
         else:
-            gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(), crs=gdf.crs)  # Blank geodataframe
+            gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(), crs=geodataframe.crs)  # Blank geodataframe
             columns_missing_log = True
             columns_missing.update(column)
 

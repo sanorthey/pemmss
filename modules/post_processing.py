@@ -51,7 +51,7 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
 
     filter_columns = ["STATISTIC" for s in updated_postprocessing]
     filter_keys = [[s] for s in updated_postprocessing]
-    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder,filter_columns,filter_keys, filenameend="statistics.csv")
+    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder, filter_columns, filter_keys, filenameend="_statistics.csv")
     for s, path in key_output_filepath_dict.items():
         updated_postprocessing[s[0]].update({'path': path})  #s [0] because s is a tuple (s,) with an extra, empty element. Should really fix this up.
 
