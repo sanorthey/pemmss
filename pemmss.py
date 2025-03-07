@@ -129,6 +129,7 @@ def initialise():
     # Set-up file management constants
     constants['cwd'] = Path.cwd()
     constants['input_folder'] = constants['cwd'] / 'input_files'
+    constants['input_folder_cache'] = constants['input_folder'] / '_cached_input_files'
     constants['output_folder'] = constants['cwd'] / 'output_files' / constants['run_time']
     constants['output_folder_input_copy'] = constants['output_folder'] / '_input_files'
     constants['output_folder_statistics'] = constants['output_folder'] / '_statistics'
@@ -136,6 +137,7 @@ def initialise():
     constants['log'] = constants['output_folder'] / 'log.txt'
 
     # Make directories to store model outputs
+    constants['input_folder_cache'].mkdir(parents=True, exist_ok=True)
     constants['output_folder'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_input_copy'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_statistics'].mkdir(parents=True, exist_ok=True)
@@ -154,11 +156,12 @@ def initialise():
     file_export.export_log('Model executed at ' + constants['run_time'] + '\n', output_path=constants['log'], print_on=1)
 
     # Import user input files and assign variables
-    constants.update(file_import.import_static_files(constants['input_folder'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
+    constants.update(file_import.import_static_files(constants['input_folder'], constants['input_folder_cache'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
 
     # Preprocess spatial data
-    file_export.export_log('\nPre-processing spatial data\n', output_path=constants['log'], print_on=True)
-    constants['imported_factors'].update({'gdf': spatial.create_geodataframe_dict_list(constants['imported_factors'], constants['imported_geopackage'], log_path=constants['log'])})
+    #file_export.export_log('\nPre-processing spatial data\n', output_path=constants['log'], print_on=True)
+    #gdf_preprocessed = cache_create_geodataframe_dict_list(constants['imported_factors'], constants['imported_geopackage'], log_path=constants['log'])
+    #constants['imported_factors'].update({'gdf': spatial.create_geodataframe_dict_list(constants['imported_factors'], constants['imported_geopackage'], log_path=constants['log'])})
 
     return constants
 
@@ -558,7 +561,7 @@ def post_process_only():
 if __name__ == '__main__':
     # Capture command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sequential', action='store_true',help='Executes scenario modelling sequentially. Useful for profiing execution processes and debugging multi-processing error messages.')
+    parser.add_argument('--sequential', action='store_true',help='Executes scenario modelling sequentially. Useful for profiling execution processes and debugging multi-processing error messages.')
     args = parser.parse_args()
     # Execute PEMMSS
     main(sequential=args.sequential)

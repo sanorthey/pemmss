@@ -19,9 +19,13 @@ Module with routines for importing PEMMSS model parameters and data files.
 
 # Import standard packages
 import csv
+import pickle
 from shutil import copyfile
 from collections import defaultdict
 from random import choices
+
+# Import non-standard packages
+import pandas as pd
 
 # Import custom modules
 import modules.deposit as deposit
@@ -37,7 +41,7 @@ def strtobool(value: str) -> bool: # distutils was deprecated in Python 3.12, re
 
 #Import Data Functions
 
-def import_static_files(path, copy_path_folder=None, log_file=None):
+def import_static_files(path, cache_path, copy_path_folder=None, log_file=None):
     """
     import_static_files()
     Imports the input files that don't need to be reimported through the model run.
@@ -47,21 +51,43 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
         input_exploration_production_factors_timeseries.csv
         input_demand.csv
         input_graphs.csv
+        input_graphs_formatting.csv
         input_postprocessing.csv
         input_historic.csv
+        input_geopackage.pkg or input_geopackage.pkl or input_geopackage.pre.pkl
     Files will be copied to copy_path_folder if specified.
     Returns file structures within a tuple
     """
     static_files = {}
-    static_files['imported_demand'] = import_demand(path / 'input_demand.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_factors'] = import_exploration_production_factors(path / 'input_exploration_production_factors.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path / 'input_exploration_production_factors_timeseries.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_geopackage'] = import_geopackage(path / 'input_geopackage.gpkg', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs'] = import_graphs(path / 'input_graphs.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs_formatting'] = import_graphs_formatting(path / 'input_graphs_formatting.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_historic'] = import_historic(path / 'input_historic.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['parameters'] = import_parameters(path / 'input_parameters.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_postprocessing'] = import_postprocessing(path / 'input_postprocessing.csv', copy_path=copy_path_folder, log_path=log_file)
+
+    # Define paths for expected static files
+    path_demand = path / 'input_demand.csv'
+    path_geopackage = path / 'input_geopackage.gpkg'
+    path_factors = path / 'input_exploration_production_factors.csv'
+    path_factors_timeseries = path / 'input_exploration_production_factors_timeseries.csv'
+    path_graphs = path / 'input_graphs.csv'
+    path_graphs_formatting = path / 'input_graphs_formatting.csv'
+    path_historic = path / 'input_historic.csv'
+    path_parameters = path / 'input_parameters.csv'
+    path_postprocessing = path / 'input_postprocessing.csv'
+
+    # Define cache file paths
+    cache_path_geopackage = cache_path / 'input_geopackage.pkl'
+    cache_path_gdf_dict_list = cache_path / 'gdf_dict_list.pkl'
+
+    # Import static files
+    static_files['imported_demand'] = import_demand(path_demand, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_factors'] = import_exploration_production_factors(path_factors, copy_path=copy_path_folder, log_path=log_file)
+    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path_factors_timeseries, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_geopackage'] = import_geopackage(path_geopackage, cache_path=cache_path_geopackage, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs'] = import_graphs(path_graphs, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs_formatting'] = import_graphs_formatting(path_graphs_formatting, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_historic'] = import_historic(path_historic, copy_path=copy_path_folder, log_path=log_file)
+    static_files['parameters'] = import_parameters(path_parameters, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_postprocessing'] = import_postprocessing(path_postprocessing, copy_path=copy_path_folder, log_path=log_file)
+
+    # Import preprocessed geodataframe_dict_list cache if exists otherwise generate
+    static_files['imported_factors'].update({'gdf': import_cache_geodataframe_dict_list(cache_path_gdf_dict_list, static_files['imported_factors'], static_files['imported_geopackage'], path_factors, path_geopackage, log_path=log_file)})
 
     return static_files
 
@@ -561,7 +587,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
     """
     import_exploration_production_factors()
     Imports parameters from input_exploration_production_factors.csv located in the working directory.
-    Returns a dictionary, imported_factors[variable][index]
+    Returns a dictionary imported_factors[variable][index]
 
     Files will be copied to copy_path_folder if specified.
 
@@ -1104,7 +1130,7 @@ def import_statistics_keyed(path, base_key='STATISTIC', base_key_values=None, lo
         export_log('Imported statistics.csv', output_path=log_path, print_on=1)
     return imported_statistics, time_keys
 
-def import_geopackage(path, copy_path=None, log_path=None):
+def import_geopackage(path, copy_path=None, log_path=None, cache_path=None):
     """
         import_geopackage()
         Imports a geopackage (.gpkg) as a geopandas dataframe.
@@ -1114,9 +1140,25 @@ def import_geopackage(path, copy_path=None, log_path=None):
 
         Returns a geopandas dataframe
         """
+    geopackage_gdf = None
+
+    if cache_path is None:
+        cache_path = path.with_suffix('.pkl')
+
     if path.exists():
-        geopackage_gdf = spatial.import_geopackage(path)
-        log_message = 'Imported input_geopackage.gpkg'
+        if cache_path.exists():
+            # Check if the geopackage has been modified since cache was created
+            file_mod_time = path.stat().st_mtime
+            cache_mod_time = cache_path.stat().st_mtime
+            if file_mod_time <= cache_mod_time:
+                geopackage_gdf = pd.read_pickle(cache_path)
+                log_message = 'Imported input_geopackage.pkl, cached file.'
+
+        if geopackage_gdf is None:
+            geopackage_gdf = spatial.import_geopackage(path)
+            geopackage_gdf.to_pickle(cache_path)
+            log_message = ('Imported input_geopackage.gpkg\n'
+                           'Created cache file input_geopackage.pkl')
 
         if copy_path is not None:
             copyfile(path, copy_path / 'input_geopackage.gpkg')
@@ -1128,3 +1170,29 @@ def import_geopackage(path, copy_path=None, log_path=None):
         export_log(log_message, output_path=log_path, print_on=1)
 
     return geopackage_gdf
+
+def import_cache_geodataframe_dict_list(cache_path, factors, geodataframe, factors_path, geopackage_path, simplify=True, log_path=None):
+    if cache_path.exists():
+        # Check files haven't been modified since cache generated
+        cache_path_time = cache_path.stat().st_mtime
+        factors_path_time = factors_path.stat().st_mtime
+        geopackage_path_time = geopackage_path.stat().st_mtime
+        if factors_path_time <= cache_path_time and geopackage_path_time <= cache_path_time:
+            with open(cache_path, 'rb') as f:
+                gdf_dict_list = pickle.load(f)
+            log_message = 'Imported pre-processed spatial data cache\n'
+        else:
+            gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
+            with open(cache_path, 'wb') as f:
+                pickle.dump(gdf_dict_list, f)
+            log_message = 'Preprocessed spatial data cache out of date.\nReprocessed spatial data and created new cache\n'
+    else:
+        gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
+        with open(cache_path, 'wb') as f:
+            pickle.dump(gdf_dict_list, f)
+        log_message = 'No preprocessed spatial data cache exists.\nProcessed spatial data and created new cache.\n'
+
+    if log_path is not None:
+        export_log(log_message, output_path=log_path, print_on=1)
+
+    return gdf_dict_list
