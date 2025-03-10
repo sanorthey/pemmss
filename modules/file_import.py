@@ -32,14 +32,16 @@ import modules.deposit as deposit
 from modules.file_export import export_log
 import modules.spatial as spatial
 
+
 # Recreate deprecated functions
-def strtobool(value: str) -> bool: # distutils was deprecated in Python 3.12, recreating strtobool()
+def strtobool(value: str) -> bool:  # distutils was deprecated in Python 3.12, recreating strtobool()
     value = value.lower()
     if value in ("y", "yes", "on", "1", "true", "t"):
         return True
     return False
 
-#Import Data Functions
+# Import Data Functions
+
 
 def import_static_files(path, cache_path, copy_path_folder=None, log_file=None):
     """
@@ -129,7 +131,7 @@ def import_parameters(path, copy_path=None, log_path=None):
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
-        #Import scenarios
+        # Import scenarios
         for row in csv_reader:
             imported_parameters.update({row['SCENARIO_NAME']: {'scenario_name': str(row['SCENARIO_NAME']),
                                                                'year_start': int(row['YEAR_START']),
@@ -228,7 +230,6 @@ def import_projects(f, path, copy_path=None, log_path=None):
     # Open and generate projects from input_projects.csv
     imported_projects = []
 
-
     with open(path, mode='r') as input_file:
 
         # Iterate through each row
@@ -291,19 +292,19 @@ def import_projects(f, path, copy_path=None, log_path=None):
             if row['GRADE'] == "":
                 no_grade += 1
                 grade = [deposit.grade_generate(f['grade_model'][index], {'a': f['grade_a'][index],
-                                                                   'b': f['grade_b'][index],
-                                                                   'c': f['grade_c'][index],
-                                                                   'd': f['grade_d'][index]},
+                                                                          'b': f['grade_b'][index],
+                                                                          'c': f['grade_c'][index],
+                                                                          'd': f['grade_d'][index]},
                                                 log_file=log_path)]
             else:
                 grade = [float(x) for x in row['GRADE'].split(';')]
             if row['REMAINING_RESOURCE'] == "":
                 no_remaining_resource += 1
                 remaining_resource = [deposit.tonnage_generate(f['tonnage_model'][index],
-                                                              {'a': f['tonnage_a'][index],
-                                                               'b': f['tonnage_b'][index],
-                                                               'c': f['tonnage_c'][index],
-                                                               'd': f['tonnage_d'][index]},
+                                                               {'a': f['tonnage_a'][index],
+                                                                'b': f['tonnage_b'][index],
+                                                                'c': f['tonnage_c'][index],
+                                                                'd': f['tonnage_d'][index]},
                                                                grade, log_file=log_path)]
             else:
                 remaining_resource = [float(x) for x in row['REMAINING_RESOURCE'].split(';')]
@@ -598,7 +599,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'tonnage_model': [], 'tonnage_a': [], 'tonnage_b': [], 'tonnage_c': [], 'tonnage_d': [],
                         'brownfield_tonnage_factor': [], 'brownfield_grade_factor': [],
                         'capacity_basis': [],
-                        'capacity_a': [], 'capacity_b': [], 'capacity_sigma': [],'capacity_sigma_log10': [], 'life_min': [], 'life_max': [],
+                        'capacity_a': [], 'capacity_b': [], 'capacity_sigma': [], 'capacity_sigma_log10': [], 'life_min': [], 'life_max': [],
                         'recovery': [],
                         'revenue_model': [], 'revenue_a': [], 'revenue_b': [], 'revenue_c': [], 'revenue_d': [],
                         'cost_model': [], 'cost_a': [], 'cost_b': [], 'cost_c': [], 'cost_d': [],
@@ -613,7 +614,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
-        #Import scenarios
+        # Import scenarios
         for row in csv_reader:
             imported_factors['index'].append(int(row['INDEX']))  # Sequential integers starting at 0
             imported_factors['weighting'].append(float(row['WEIGHTING']))  # Probability of greenfield discovery, float
@@ -657,7 +658,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['mine_cost_c'].append(float(row['MINE_COST_C']))  # value, see model parameter in deposit.value_model()
             imported_factors['mine_cost_d'].append(float(row['MINE_COST_D']))  # value, see model parameter in deposit.value_model()
             imported_factors['development_period'].append(int(row['DEVELOPMENT_PERIOD']))  # integer, minimum time period between discovery and production
-            imported_factors['development_probability'].append(float(row['DEVELOPMENT_PROBABILITY'])) # value (ratio), probability of deposit development when supply triggered in a given time period
+            imported_factors['development_probability'].append(float(row['DEVELOPMENT_PROBABILITY']))  # value (ratio), probability of deposit development when supply triggered in a given time period
             imported_factors['coproduct_commodity'].extend([row['COPRODUCT_COMMODITY'].split(';')])  # string separated by semicolons for each commodity, don't include whitespace
             imported_factors['coproduct_grade_model'].extend([row['COPRODUCT_GRADE_MODEL'].split(';')])  # strings separated by semicolons for each commodity, don't include whitespace, corresponding to models in deposit.grade_generate()
             imported_factors['coproduct_a'].extend([row['COPRODUCT_A'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
@@ -691,6 +692,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
 
     return imported_factors
 
+
 def import_exploration_production_factors_timeseries(path, copy_path=None, log_path=None):
     """
     Import parameter overrides for each point in time from input_exploration_production_factors_timeseries.csv
@@ -716,7 +718,7 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
         csv_reader = csv.DictReader(input_file)
         # Iterate through each row to populate time series of variable overrides.
         for row in csv_reader:
-            #index = factors['lookup_table'][row['REGION']][row['DEPOSIT_TYPE']]
+            # index = factors['lookup_table'][row['REGION']][row['DEPOSIT_TYPE']]
             if int(row['UPDATE_PROJECTS']) == 1:
                 project_updates = timeseries_dictionary_merge_row(project_updates, row)
             if int(row['UPDATE_EXPLORATION_PRODUCTION_FACTORS']) == 1:
@@ -727,6 +729,7 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
     export_log('Imported input_exploration_production_factors_timeseries.csv', output_path=log_path, print_on=1)
 
     return (project_updates, exploration_production_factors_updates)
+
 
 def timeseries_dictionary_merge_row(dictionary, row):
     """
@@ -750,6 +753,7 @@ def timeseries_dictionary_merge_row(dictionary, row):
             else:
                 dictionary.update({int(key): {row['REGION']: {row['DEPOSIT_TYPE']: {row['VARIABLE']: {row['COMMODITY']: row[key]}}}}})
     return dictionary
+
 
 def import_demand(path, copy_path=None, log_path=None):
     """
@@ -800,13 +804,14 @@ def import_demand(path, copy_path=None, log_path=None):
         
     return imported_demand
 
+
 def import_graphs(path, copy_path=None, log_path=None):
     """
-    import_graphs(()
+    import_graphs()
     Imports graph generation parameters from input_graphs.csv located at 'path'.
     Typical path is WORKING DIRECTORY / input_files / input_graphs.csv
 
-    Returns a list of dictionaries [{row0_keys: row0_values}, {row1_keys: row1_values}, etc.
+    Returns a list of dictionaries [{row0_keys: row0_values}, {row1_keys: row1_values}, etc.]
 
     Files will be copied to copy_path_folder if specified.
 
@@ -898,7 +903,6 @@ def import_graphs(path, copy_path=None, log_path=None):
             elif imported_graphs[-1]['gif_delete_frames'].lower() == "true":
                 imported_graphs[-1]['gif_delete_frames'] = True
 
-
     if copy_path is not None:
         copyfile(path, copy_path / 'input_graphs.csv')
 
@@ -958,12 +962,13 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
     export_log('Imported input_graphs_formatting.csv', log_path, 1)
     return imported_graphs_formatting
 
+
 def import_postprocessing(path, copy_path=None, log_path=None):
     """
     import_postprocessing()
     Imports postprocessing parameters from a csv located at 'path'.
     Typical path is WORKING_DIRECTORY / input_files / input_postprocessing.csv
-    Output is a dictionaries {statistic: {'postprocess': True}] for statistics where 'POSTPROCESS' csv column == True
+    Output is a dictionaries {statistic: {'postprocess': True}} for statistics where 'POSTPROCESS' csv column == True
                               
     Copies input_parameters if copy_path directory specified.
                               
@@ -979,7 +984,7 @@ def import_postprocessing(path, copy_path=None, log_path=None):
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
-        #Import scenarios
+        # Import scenarios
         for row in csv_reader:
             if row['POSTPROCESS'].lower() == 'true':
                 imported_postprocessing.update({row["STATISTIC"]: {'postprocess': True}})
@@ -988,6 +993,7 @@ def import_postprocessing(path, copy_path=None, log_path=None):
         copyfile(path, copy_path / 'input_postprocessing.csv')
     export_log('Imported input_postprocessing.csv', log_path, 1)
     return imported_postprocessing  
+
 
 def import_historic(path, copy_path=None, log_path=None):
     """
@@ -1012,8 +1018,7 @@ def import_historic(path, copy_path=None, log_path=None):
     export_log('Imported input_historic.csv', log_path, 1)
     
     return imported_historic
-    
-    
+
 
 def import_statistics(path, log_path=None, custom_keys=False, convert_values=False):
     """
@@ -1069,6 +1074,7 @@ def import_statistics(path, log_path=None, custom_keys=False, convert_values=Fal
 
     return imported_statistics
 
+
 def import_statistics_keyed(path, base_key='STATISTIC', base_key_values=None, log_path=None):
     """
     import_statistics_keyed()
@@ -1109,16 +1115,17 @@ def import_statistics_keyed(path, base_key='STATISTIC', base_key_values=None, lo
             # Add row to nested stats
             else:
                 if base_key_values is None or row[base_key] in base_key_values:
-                    time_dict = dict(zip(time_keys,row['TIME']))
+                    time_dict = dict(zip(time_keys, row['TIME']))
                     imported_statistics[row[base_key]].update({(row['SCENARIO_INDEX'],
-                                                                  row['ITERATION'],
-                                                                  row['AGGREGATION'],
-                                                                  row['REGION'],
-                                                                  row['DEPOSIT_TYPE'],
-                                                                  row['COMMODITY'],
-                                                                  row['STATISTIC']): time_dict})
+                                                                row['ITERATION'],
+                                                                row['AGGREGATION'],
+                                                                row['REGION'],
+                                                                row['DEPOSIT_TYPE'],
+                                                                row['COMMODITY'],
+                                                                row['STATISTIC']): time_dict})
     export_log('Imported statistics.csv', output_path=log_path, print_on=1)
     return imported_statistics, time_keys
+
 
 def import_geopackage(path, copy_path=None, log_path=None, cache_path=None):
     """
@@ -1142,23 +1149,21 @@ def import_geopackage(path, copy_path=None, log_path=None, cache_path=None):
             cache_mod_time = cache_path.stat().st_mtime
             if file_mod_time <= cache_mod_time:
                 geopackage_gdf = pd.read_pickle(cache_path)
-                log_message = 'Imported input_geopackage.pkl, cached file.'
+                export_log('Imported input_geopackage.pkl, cached file.', output_path=log_path, print_on=1)
 
         if geopackage_gdf is None:
             geopackage_gdf = spatial.import_geopackage(path)
             geopackage_gdf.to_pickle(cache_path)
-            log_message = ('Imported input_geopackage.gpkg\n'
-                           'Created cache file input_geopackage.pkl')
+            export_log('Imported input_geopackage.gpkg\nCreated cache file input_geopackage.pkl', output_path=log_path, print_on=1)
 
         if copy_path is not None:
             copyfile(path, copy_path / 'input_geopackage.gpkg')
     else:
         geopackage_gdf = None
-        log_message = "Warning: Geopackage not found. Missing coordinates or coordinates for greenfield deposits will not be generated."
-
-    export_log(log_message, output_path=log_path, print_on=1)
+        export_log("Warning: Geopackage not found. Missing coordinates or coordinates for greenfield deposits will not be generated.", output_path=log_path, print_on=1)
 
     return geopackage_gdf
+
 
 def import_cache_geodataframe_dict_list(cache_path, factors, geodataframe, factors_path, geopackage_path, simplify=True, log_path=None):
     if cache_path.exists():

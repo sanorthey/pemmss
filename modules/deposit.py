@@ -35,6 +35,7 @@ from statistics import mean, stdev
 from modules.file_export import export_log
 from modules.spatial import generate_region_coordinate
 
+
 class Mine:
     """ Mine Class.
     Used to initialise and track the current state of each mining project overtime.
@@ -145,13 +146,13 @@ class Mine:
         self.value_factors = value_factors
         self.aggregation = aggregation
         self.key_set = {('ALL', 'ALL', 'ALL', 'ALL'),
-                       ('ALL', 'ALL', deposit_type, 'ALL'),
-                       ('ALL', region, 'ALL', 'ALL'),
-                       ('ALL', region, deposit_type, 'ALL'),
-                       (aggregation, 'ALL', 'ALL', 'ALL'),
-                       (aggregation, 'ALL', deposit_type, 'ALL'),
-                       (aggregation, region, 'ALL', 'ALL'),
-                       (aggregation, region, deposit_type, 'ALL'),
+                        ('ALL', 'ALL', deposit_type, 'ALL'),
+                        ('ALL', region, 'ALL', 'ALL'),
+                        ('ALL', region, deposit_type, 'ALL'),
+                        (aggregation, 'ALL', 'ALL', 'ALL'),
+                        (aggregation, 'ALL', deposit_type, 'ALL'),
+                        (aggregation, region, 'ALL', 'ALL'),
+                        (aggregation, region, deposit_type, 'ALL'),
                         ('ALL', 'ALL', 'ALL', commodity),
                         ('ALL', 'ALL', deposit_type, commodity),
                         ('ALL', region, 'ALL', commodity),
@@ -178,7 +179,7 @@ class Mine:
 
         update_value == True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
         add_grade | should be list of tranche ore grades [tranche 0, tranche 1, etc.]
-        tranche   | optional, can be used to modify tranche used to assign current grade
+        tranche   | optional, can be used to modify tranche used to assign current grade. TODO: add this functionality
         # Note assumes all commodities would initially be added in the first year
         """
         self.commodity.update({add_commodity: int(is_balanced)})
@@ -188,19 +189,18 @@ class Mine:
         self.recovery.update({add_commodity: float(add_recovery)})
         self.brownfield_grade.update({add_commodity: float(add_brownfield_grade)})
         self.value_factors.update({add_commodity: add_value_factors})
-        if update_value == True:
+        if update_value:
             self.value_update(log_file=log_file)
         self.production_intermediate.update({add_commodity: {}})
         self.expansion_contained.update({add_commodity: {}})
         self.key_set.update({('ALL', 'ALL', 'ALL', add_commodity),
-                        ('ALL', 'ALL', self.deposit_type, add_commodity),
-                        ('ALL', self.region, 'ALL', add_commodity),
-                        ('ALL', self.region, self.deposit_type, add_commodity),
-                        (self.aggregation, 'ALL', 'ALL', add_commodity),
-                        (self.aggregation, 'ALL', self.deposit_type, add_commodity),
-                        (self.aggregation, self.region, 'ALL', add_commodity),
-                        (self.aggregation, self.region, self.deposit_type, add_commodity)})
-
+                             ('ALL', 'ALL', self.deposit_type, add_commodity),
+                             ('ALL', self.region, 'ALL', add_commodity),
+                             ('ALL', self.region, self.deposit_type, add_commodity),
+                             (self.aggregation, 'ALL', 'ALL', add_commodity),
+                             (self.aggregation, 'ALL', self.deposit_type, add_commodity),
+                             (self.aggregation, self.region, 'ALL', add_commodity),
+                             (self.aggregation, self.region, self.deposit_type, add_commodity)})
 
     def get(self, variable, get_commodity=None):
         """
@@ -215,9 +215,9 @@ class Mine:
             return self.name
         elif variable == 'region':
             return self.region
-        elif variable =='latitude':
+        elif variable == 'latitude':
             return self.latitude
-        elif variable =='longitude':
+        elif variable == 'longitude':
             return self.longitude
         elif variable == 'deposit_type':
             return self.deposit_type
@@ -308,8 +308,6 @@ class Mine:
             print('Attempted to get variable ' + str(variable) +
                   'that does not exist from Mine class object.')
 
-
-
     def update_key_dict(self, key_dict, i, j):
         """
         Mine.update_key_dict(key_dict, i, j)
@@ -327,7 +325,6 @@ class Mine:
                 key_dict.update({key: [self]})
 
         return key_dict
-
 
     def update_by_region_deposit_type(self, update_factors, log_file=None):
         """
@@ -374,7 +371,6 @@ class Mine:
                 variables.update(update_factors[self.region][self.deposit_type])
 
         self.update_variables(variables, log_file=log_file)
-
 
     def update_variables(self, variables, log_file=None):
         """
@@ -431,7 +427,6 @@ class Mine:
             self.end_year = int(variables['end_year'][''])
         if 'development_probability' in variables:
             self.development_probability = float(variables['development_probability'][''])
-
 
     def supply(self, ext_demand, year, ext_demand_commodity, marginal_recovery=False):
         """
@@ -518,7 +513,7 @@ class Mine:
 
             for tranche, _ in enumerate(self.remaining_resource):
 
-                if production_capacity_residual > 0 and demand_residual > 0 and self.grade[ext_demand_commodity][tranche] != 0: # Checking for grade == 0 is to avoid divide by zero bugs in supply requirement calculation.
+                if production_capacity_residual > 0 and demand_residual > 0 and self.grade[ext_demand_commodity][tranche] != 0:  # Checking for grade == 0 is to avoid divide by zero bugs in supply requirement calculation.
                     self.current_tranche = tranche
                     # Convert residual external demand into tranche ore demand by accounting for recovery and tranche specific ore grade
                     supply_requirement = demand_residual / self.grade[ext_demand_commodity][tranche] / self.recovery[ext_demand_commodity]
@@ -590,7 +585,6 @@ class Mine:
             else:
                 # Return Mine as having not supplied
                 return 0
-
 
     def resource_expansion(self, year):
         """
@@ -811,6 +805,7 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
     tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
     tonnage distribution, 4. User-defined tonnage distribution
+    # TODO: cleanup, grade-dependent distribution currently not implemented
     """
     a = factors['a']
     b = factors['b']
@@ -829,6 +824,7 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     else:
         export_log('Invalid tonnage model ' + str(size_model), output_path=log_file, print_on=1)
     return tonnage
+
 
 def lognormal_factors(value_list):
     """
@@ -878,6 +874,7 @@ def value_generate(value_factors, resource, ore_grade, recovery, production_capa
                 return_value[c] -= value
                 return_value['ALL'] -= value
     return return_value
+
 
 def value_model(value_factors, ore, ore_grade, recovery, production_capacity, log_file=None):
     """

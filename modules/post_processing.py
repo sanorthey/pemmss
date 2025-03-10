@@ -107,8 +107,8 @@ def project_iteration_statistics(directories):
     """
     filepath_nested_dict = {}
 
-    for dir in directories:
-        status_filepath = count_iteration_frequencies(dir,
+    for d in directories:
+        status_filepath = count_iteration_frequencies(d,
                                                       int_labels={-3: 'Development Probability Test Failed',
                                                                        -2: 'Not Valuable Enough to Mine',
                                                                        -1: 'Depleted',
@@ -117,7 +117,7 @@ def project_iteration_statistics(directories):
                                                                        2: 'Producing',
                                                                        3: 'Produced and Depleted'},
                                                       nan_label='Undiscovered')
-        filepath_nested_dict[dir] = {'status': status_filepath}
+        filepath_nested_dict[d] = {'status': status_filepath}
 
     return filepath_nested_dict
 
@@ -345,9 +345,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
     x | for stacked plots x[0] should equal any x[any]
     """
-    matplotlib.use('Agg') # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
-
-
+    matplotlib.use('Agg')  # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
 
     # Plot text formatting
     TEXT_SIZE_DEFAULT = 7
@@ -492,6 +490,7 @@ def series_modify(data_series, cumulative=False, replace_none=False):
         else:
             modified_series.append(series_list)
     return modified_series
+
 
 def series_stack(data_series, data_height):
     # Convert data_series and data_height to NumPy arrays

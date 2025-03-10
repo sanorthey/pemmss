@@ -88,6 +88,7 @@ import modules.results as results
 import modules.post_processing as post_processing
 import modules.spatial as spatial
 
+
 def initialise():
     """
     Generates the model run output directories, creates the log file and imports and copies non-stochastic input files.
@@ -158,12 +159,8 @@ def initialise():
     # Import user input files and assign variables
     constants.update(file_import.import_static_files(constants['input_folder'], constants['input_folder_cache'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
 
-    # Preprocess spatial data
-    #file_export.export_log('\nPre-processing spatial data\n', output_path=constants['log'], print_on=True)
-    #gdf_preprocessed = cache_create_geodataframe_dict_list(constants['imported_factors'], constants['imported_geopackage'], log_path=constants['log'])
-    #constants['imported_factors'].update({'gdf': spatial.create_geodataframe_dict_list(constants['imported_factors'], constants['imported_geopackage'], log_path=constants['log'])})
-
     return constants
+
 
 def scenario(i, constants):
     """
@@ -281,7 +278,7 @@ def scenario(i, constants):
                         if supplied == 1:
                             for p_commodity in project.commodity:
                                 if p_commodity not in demand:
-                                    log_message.append('Project '+str(project.name)+' attempted to supply commodity '+str(p_commodity)+ ' that has no corresponding demand list. Supply of this commodity has not been recorded. To address this ensure in input_demand.csv all commodities have a corresponding demand entry for scenario '+parameters['scenario_name']+' (this can be blank).')
+                                    log_message.append('Project ' + str(project.name) + ' attempted to supply commodity ' + str(p_commodity) + ' that has no corresponding demand list. Supply of this commodity has not been recorded. To address this ensure in input_demand.csv all commodities have a corresponding demand entry for scenario '+parameters['scenario_name']+' (this can be blank).')
                                 else:
                                     demand[p_commodity][year_current] -= project.production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
 
@@ -383,7 +380,7 @@ def scenario(i, constants):
             output_path_grade_timeseries = output_folder_scenario / f'{j}-Grade_Timeseries_{c}.csv'
 
             # Export commodity specific project data
-            file_export.export_project_dictionary(output_path_production_intermediate, projects,'production_intermediate', header='None', id_key='id_number', commodity=c, log_path=log)
+            file_export.export_project_dictionary(output_path_production_intermediate, projects, 'production_intermediate', header='None', id_key='id_number', commodity=c, log_path=log)
             file_export.export_project_dictionary(output_path_expansion_contained, projects, 'expansion_contained', header='None', id_key='id_number', commodity=c, log_path=log)
             file_export.export_project_dictionary(output_path_grade_timeseries, projects, 'grade_timeseries', header='None', id_key='id_number', commodity=c, log_path=log)
 
@@ -401,6 +398,7 @@ def scenario(i, constants):
         file_export.export_log(''.join(log_message), output_path=log, print_on=1)
 
     return output_folder_scenario
+
 
 def scenario_execute(CONSTANTS, sequential=False):
     """
@@ -433,6 +431,7 @@ def scenario_execute(CONSTANTS, sequential=False):
                 scenario_folders.append(o.get())
 
     return scenario_folders
+
 
 def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path, imported_geodataframe=None):
     
@@ -495,6 +494,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
 
     else:
         file_export.export_log('No geopackage provided; skipping geopackage export.', output_path=log_path, print_on=1)
+
 
 def main(sequential=False):
     """
@@ -567,7 +567,7 @@ def post_process_only():
 if __name__ == '__main__':
     # Capture command line arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--sequential', action='store_true',help='Executes scenario modelling sequentially. Useful for profiling execution processes and debugging multi-processing error messages.')
+    parser.add_argument('--sequential', action='store_true', help='Executes scenario modelling sequentially. Useful for profiling execution processes and debugging multi-processing error messages.')
     args = parser.parse_args()
     # Execute PEMMSS
     main(sequential=args.sequential)
