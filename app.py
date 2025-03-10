@@ -335,7 +335,7 @@ def server(input, output, session):
     @reactive.Effect
     @reactive.event(input.btn)
     async def run_pemmss():
-        static_files = import_static_files(input_files_path)
+        static_files = import_static_files(input_files_path, input_files_cache_path)
         parameters = static_files['parameters']
         total_simulations = sum(param['iterations'] for param in parameters.values())
         with ui.Progress(min=0, max=total_simulations) as p:
