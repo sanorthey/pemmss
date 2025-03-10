@@ -22,10 +22,9 @@ def import_geopackage(path, log_path=None):
         return gdf
     except:
         gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(), crs='EPSG:4326')  # Blank geodataframe
-        if log_path is not None:
-            export_log('+++ Failed to import input_geopackage.gpkg.'
-                       '--- Unable to generate coordinates for greenfield discoveries.'
-                       '--- Unable to generate missing coordinates in input_projects.csv', output_path=log_path, print_on=True)
+        export_log('+++ Failed to import input_geopackage.gpkg.'
+                   '--- Unable to generate coordinates for greenfield discoveries.'
+                   '--- Unable to generate missing coordinates in input_projects.csv', output_path=log_path, print_on=True)
         return gdf
 
 
@@ -76,20 +75,19 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=True, log_path
                         'empty': False}
         gdf_list.append(gdf_dict)
 
-    if log_path is not None:
-        if columns_missing_log:
-            export_log('+++ Failed to map GEOPACKAGE_REGION_COLUMN value(s) in input_exploration_production_factors.csv to column headers in input_geopackage.gpkg\n'
-                       '---See log file for list of missing column headers\n', output_path=log_path, print_on=True)
-            export_log(f'Column(s) Missing: {columns_missing}', output_path=log_path, print_on=False)
-        if regions_missing_log:
-            export_log('+++ Failed to map region(s) in input_exploration_production_factors.csv to input_geopackage.gpkg\n'
-                       '---See log file for list of regions\n', output_path=log_path, print_on=True)
-            export_log(f'Region(s) Missing: {regions_missing}', output_path=log_path, print_on=False)
-        if columns_missing_log and regions_missing_log:
-            export_log("Note that some (but not necessarily all) missing regions may be caused by the missing columns.", output_path=log_path, print_on=True)
-        if columns_missing_log or regions_missing_log:
-            export_log('+++Coordinates for greenfield discoveries in associated regions will not be assigned.\n'
-                       '+++Coordinates missing in input_projects.csv in associated regions will not be assigned.', output_path=log_path, print_on=True)
+    if columns_missing_log:
+        export_log('+++ Failed to map GEOPACKAGE_REGION_COLUMN value(s) in input_exploration_production_factors.csv to column headers in input_geopackage.gpkg\n'
+                   '---See log file for list of missing column headers\n', output_path=log_path, print_on=True)
+        export_log(f'Column(s) Missing: {columns_missing}', output_path=log_path, print_on=False)
+    if regions_missing_log:
+        export_log('+++ Failed to map region(s) in input_exploration_production_factors.csv to input_geopackage.gpkg\n'
+                   '---See log file for list of regions\n', output_path=log_path, print_on=True)
+        export_log(f'Region(s) Missing: {regions_missing}', output_path=log_path, print_on=False)
+    if columns_missing_log and regions_missing_log:
+        export_log("Note that some (but not necessarily all) missing regions may be caused by the missing columns.", output_path=log_path, print_on=True)
+    if columns_missing_log or regions_missing_log:
+        export_log('+++Coordinates for greenfield discoveries in associated regions will not be assigned.\n'
+                   '+++Coordinates missing in input_projects.csv in associated regions will not be assigned.', output_path=log_path, print_on=True)
 
     return gdf_list
 

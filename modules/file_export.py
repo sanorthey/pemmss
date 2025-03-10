@@ -22,11 +22,12 @@ def export_log(entry, output_path='log.txt', print_on=0):
     If the file exists than the entry will be appended, otherwise a new file will be created.
     If 'print_on' == 1 then the entry will also be printed in the console.
     """
-    with open(output_path, mode='a') as output_file:
-        e = str(entry)+'\n'
-        output_file.write(e)
-        if print_on == 1:
-            print(str(entry))
+    if output_path is not None:
+        with open(output_path, mode='a') as output_file:
+            e = str(entry)+'\n'
+            output_file.write(e)
+            if print_on == 1:
+                print(str(entry))
 
 
 def export_projects(output_path, project_list):
@@ -121,7 +122,7 @@ def export_project_dictionary(path, project_list, variable, header='None', id_ke
         p_dictionary = p.get(variable, commodity)
         if type(p_dictionary) == dict:
             list_of_dictionary[-1].update(p_dictionary)
-        elif log_path is not None:
+        else:
             export_log('Unable to export Mine.'+str(variable)+' as the type is not dict.', output_path=log_path, print_on=1)
     export_list_of_dictionary(path, list_of_dictionary, header, key)
 
