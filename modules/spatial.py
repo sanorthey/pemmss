@@ -113,6 +113,7 @@ def generate_region_coordinate(gdf_dict):
     # Return latitude and longitude as decimal degrees
     return random_point.y, random_point.x
 
+
 def deduplicate_columns(columns):
     """
     Deduplicate column names by appending a suffix when a duplicate is found.
@@ -130,6 +131,7 @@ def deduplicate_columns(columns):
 # [BM] The following function was written to remove the geopackage generation from the iteration loop and out to the post-processing loop
 # It reads from the scenarios/iterations and generates 1 geopackage per Scenario (e.g. Decoupling). This geopackage will have j layers, where j is the number of iterations.
 # Each layer (j) will have a cloud of points respective to the Projects (i)
+
 
 def save_scenario_geopackage(geodataframe, scenario_folders):
     """
