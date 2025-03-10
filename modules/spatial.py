@@ -2,7 +2,6 @@
 Module with functions for handling spatial data
 """
 # Import standard packages
-import random
 
 # Import non-standard packages
 import geopandas as gpd
@@ -11,6 +10,7 @@ from shapely.geometry import Point
 
 # Import custom modules
 from modules.file_export import export_log
+
 
 def import_geopackage(path, log_path=None):
     """
