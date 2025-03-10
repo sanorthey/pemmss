@@ -38,8 +38,10 @@ from shinywidgets import output_widget, render_widget
 
 current_dir = Path.cwd()
 input_files_path = current_dir / "input_files"
+input_files_cache_path = current_dir / "input_files" / "_cached_input_files"
 output_files_path = current_dir / "output_files"
 input_files_path.mkdir(parents=True, exist_ok=True)
+input_files_cache_path.mkdir(parents=True, exist_ok=True)
 output_files_path.mkdir(parents=True, exist_ok=True)
 plt.rcParams['font.size'] = 8
 
