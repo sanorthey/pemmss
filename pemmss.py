@@ -498,7 +498,9 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
 
 def main(sequential=False):
     """
-    Execute scenario modelling across parallel processes
+    Execute scenario modelling.
+    sequential = False, scenarios will be modelled across parallel processes
+    sequential = True, scenarios will be modelled consecutively (avoids python multiprocessing which can assist with debugging)
 
     --- Journal article cross-references ---
     P1 - Import input files
@@ -511,11 +513,15 @@ def main(sequential=False):
     # P1 - Import input files
     CONSTANTS = initialise()
 
+    t1 = (time())
+    file_export.export_log('Static file import duration ' + str(t1-t0) + ' seconds.\n',
+                           output_path=CONSTANTS['log'], print_on=1)
+
     # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
     scenario_folders = scenario_execute(CONSTANTS, sequential=sequential)
 
-    t1 = (time())
-    file_export.export_log('\nScenario modelling duration ' + str(t1 - t0) + ' seconds.\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.\n',
+    t2 = (time())
+    file_export.export_log('\nScenario modelling duration ' + str(t2 - t1) + ' seconds.\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.\n',
                            output_path=CONSTANTS['log'], print_on=1)
 
     # P16 - Filter and Merge Results
@@ -529,10 +535,10 @@ def main(sequential=False):
                  log_path=CONSTANTS['log'],
                  imported_geodataframe=CONSTANTS['imported_geopackage'])
 
-    t2 = (time())
-    log_message = ('\nPost-processing duration ' + str(t2 - t1) +
+    t3 = (time())
+    log_message = ('\nPost-processing duration ' + str(t3 - t2) +
                    '\n--- Post-Processing Complete---\n\nResults available in:\n' + str(CONSTANTS['output_folder']) +
-                   '\nExecution time (s): ' + str(t2 - t0))
+                   '\nExecution time (s): ' + str(t3 - t0))
     file_export.export_log(log_message, output_path=CONSTANTS['log'], print_on=1)
 
     # Scenario generation complete. Congratulations !!

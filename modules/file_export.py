@@ -95,7 +95,7 @@ def export_list_of_dictionary(path, list_of_dictionary, header='None', id_key='N
     output_file.close()
 
 
-def export_project_dictionary(path, project_list, variable, header='None', id_key='id_number', commodity='None', log_path='None'):
+def export_project_dictionary(path, project_list, variable, header='None', id_key='id_number', commodity='None', log_path=None):
     """
     Generates a list of project dictionaries
     path                 | file path of export .csv

@@ -52,17 +52,17 @@ def create_geodataframe_dict_list(factors, geodataframe, simplify=True, log_path
         else:
             gdf = gpd.GeoDataFrame(geometry=gpd.GeoSeries(), crs=geodataframe.crs)  # Blank geodataframe
             columns_missing_log = True
-            columns_missing.update(column)
+            columns_missing.add(column)
 
         if gdf.empty:
-            regions_missing.update(r)
+            regions_missing.add(r)
             gdf_dict = {'gdf': gdf,
                         'geoseries': None,
                         'empty': True}
         else:
             # Combine geodataframe indices if multiple
             if len(gdf) > 1:
-                region = gdf.unary_all()
+                region = gdf.union_all()
             else:
                 region = gdf.geometry.iloc[0]
             if simplify:

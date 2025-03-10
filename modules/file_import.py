@@ -1180,19 +1180,23 @@ def import_cache_geodataframe_dict_list(cache_path, factors, geodataframe, facto
         if factors_path_time <= cache_path_time and geopackage_path_time <= cache_path_time:
             with open(cache_path, 'rb') as f:
                 gdf_dict_list = pickle.load(f)
-            log_message = 'Imported pre-processed spatial data cache\n'
+            if log_path is not None:
+                export_log('Imported pre-processed spatial data cache\n', output_path=log_path, print_on=1)
         else:
+            if log_path is not None:
+                export_log('Preprocessed spatial data cache out of date.\nProcessing spatial data (this may take some time for large datasets)\n', output_path=log_path, print_on=1)
             gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
             with open(cache_path, 'wb') as f:
                 pickle.dump(gdf_dict_list, f)
-            log_message = 'Preprocessed spatial data cache out of date.\nReprocessed spatial data and created new cache\n'
+            if log_path is not None:
+                export_log('Reprocessed spatial data and created new cache\n', output_path=log_path, print_on=1)
     else:
+        if log_path is not None:
+            export_log('No preprocessed spatial data cache exists.\nProcessing spatial data (this may take some time for large datasets)\n', output_path=log_path, print_on=1)
         gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
         with open(cache_path, 'wb') as f:
             pickle.dump(gdf_dict_list, f)
-        log_message = 'No preprocessed spatial data cache exists.\nProcessed spatial data and created new cache.\n'
-
-    if log_path is not None:
-        export_log(log_message, output_path=log_path, print_on=1)
+        if log_path is not None:
+            export_log('Processed spatial data and created new cache.\n', output_path=log_path, print_on=1)
 
     return gdf_dict_list
