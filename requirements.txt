@@ -3,8 +3,10 @@ imageio==2.35.1
 matplotlib==3.9.2
 numpy==2.1.1
 pandas==2.2.2
-Shapely==2.0.6
+shapely==2.0.6
 shiny==0.10.2
-shinywidgets==0.3.2
+shinywidgets==0.2.4
 ipyleaflet==0.18.2
 ipywidgets==7.6.5
+plotly==4.14.3
+anywidget==0.9.18

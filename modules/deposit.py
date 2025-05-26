@@ -916,6 +916,14 @@ def value_model(value_factors, ore, ore_grade, recovery, production_capacity, lo
         return ore * ore_grade * recovery * a
     elif model == 'power_of_production_capacity':
         return a * production_capacity ** b
+    elif model == 'production_capacity':
+        return production_capacity
+    elif model == 'production_capacity_commodity':
+        return ore_grade * production_capacity
+    elif model == 'production_capacity_commodity_recoverable':
+        return ore_grade * production_capacity * recovery
+    elif model == 'production_capacity_commodity_recoverable_value':
+        return ore_grade * production_capacity * recovery * a
     else:
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
 

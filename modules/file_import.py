@@ -416,15 +416,9 @@ def import_projects(f, path, copy_path=None, log_path=None):
 
             # Project aggregation descriptor
             if int(row['STATUS']) == 1:
-                if row['START_YEAR'] == "":
-                    aggregation = 'Existing Mines'
-                else:
-                    aggregation = 'Existing Mines with defined start year'
+                aggregation = 'Existing Mines'
             else:
-                if row['START_YEAR'] == "":
-                    aggregation = 'Identified Resources'
-                else:
-                    aggregation = 'Identified Resources with defined start year'
+                aggregation = 'Identified Resources'
             imported_projects.append(
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
