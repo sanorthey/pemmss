@@ -425,7 +425,12 @@ def server(input, output, session):
             with reactive.isolate():
                 selected_file_path = input_files_path / input.csv_input()
                 if selected_file_path.exists():
-                    subprocess.run(["open" if sys.platform == "darwin" else "xdg-open" if sys.platform != "win32" else "start", str(selected_file_path)])
+                    if sys.platform == "win32":
+                        subprocess.run(f'start "" "{selected_file_path}"', shell=True)
+                    elif sys.platform == "darwin":
+                        subprocess.run(["open", str(selected_file_path)])
+                    else:
+                        subprocess.run(["xdg-open", str(selected_file_path)])
 
     @output
     @render.data_frame
