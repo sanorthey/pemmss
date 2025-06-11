@@ -12,21 +12,24 @@ This app.py file should exist in the same directory as the pemmss.py file.
 To run the app, in the terminal run the command 'shiny run app.py', or 'python app.py'.
 
 Author: Jayden Hyman
-Date: 2024-07-29
-Version: 0.1.1
+Date: 2025-05-26
+Version: 0.2.0
 Compatability: PEMMSS Version 1.3.1
 License: BSD 3-Clause License
-Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets
+Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets, plotly, anywidget
 """
 
 # ==================== Imports and Setup ====================
 
 import sys
 import os
+import subprocess
 import asyncio
 import shutil
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
+import plotly.graph_objects as go
 from shiny import App, render, ui, reactive
 from pathlib import Path
 from threading import Thread
@@ -65,10 +68,110 @@ STATUS_COLORS = {
     'Produced and Depleted': 'purple'
 }
 
+# ==================== Shared Functions ====================
+
+def calculate_contained_resource(resource_str, grade_str):
+    """Calculate contained resource from resource and grade strings."""
+    resources = [float(r) for r in str(resource_str).split(';')]
+    grades = [float(g) for g in str(grade_str).split(';')]
+    return sum(r * g for r, g in zip(resources, grades))
+
+def get_project_status_info(project_id, status_df, year):
+    """Get status information for a project at a given year."""
+    project_status_data = status_df[status_df['P_ID_NUMBER'] == project_id]
+    total_simulations = project_status_data[str(year)].sum()
+    
+    status_info = {}
+    max_percentage = 0
+    max_status = ""
+    
+    for status_code, status_label in STATUS_LABELS.items():
+        status_count = project_status_data[
+            (project_status_data['STATUS'] == status_label) & 
+            (project_status_data[str(year)] > 0)
+        ][str(year)].sum()
+        status_percentage = (status_count / total_simulations * 100) if total_simulations > 0 else 0
+        status_info[status_label] = status_percentage
+        
+        if status_percentage > max_percentage:
+            max_percentage = status_percentage
+            max_status = status_label
+    
+    return status_info, max_status
+
+def prepare_project_data(projects_df, status_df, year):
+    """Prepare project data with status information for visualization."""
+    required_columns = ['LATITUDE', 'LONGITUDE', 'NAME', 'P_ID_NUMBER', 'REGION', 
+                       'DEPOSIT_TYPE', 'COMMODITY', 'REMAINING_RESOURCE', 'GRADE', 'STATUS']
+    
+    missing_columns = [col for col in required_columns if col not in projects_df.columns]
+    if missing_columns:
+        return None
+    
+    # Filter valid projects
+    valid_projects = projects_df.copy()
+    valid_projects = valid_projects.dropna(subset=['LATITUDE', 'LONGITUDE', 'REMAINING_RESOURCE', 'GRADE'])
+    valid_projects = valid_projects[
+        (valid_projects['LATITUDE'].between(-90, 90)) & 
+        (valid_projects['LONGITUDE'].between(-180, 180))
+    ]
+    
+    if valid_projects.empty:
+        return None
+    
+    valid_projects['CONTAINED_RESOURCE'] = valid_projects.apply(
+        lambda row: calculate_contained_resource(row['REMAINING_RESOURCE'], row['GRADE']), 
+        axis=1
+    )
+    
+    valid_projects['FIRST_RESOURCE'] = valid_projects['REMAINING_RESOURCE'].apply(
+        lambda x: float(str(x).split(';')[0])
+    )
+    valid_projects['FIRST_GRADE'] = valid_projects['GRADE'].apply(
+        lambda x: float(str(x).split(';')[0])
+    )
+    
+    min_resource = valid_projects['CONTAINED_RESOURCE'].min()
+    max_resource = valid_projects['CONTAINED_RESOURCE'].max()
+    valid_projects['NORMALIZED_RESOURCE'] = (valid_projects['CONTAINED_RESOURCE'] - min_resource) / (max_resource - min_resource)
+    
+    status_data = []
+    for _, row in valid_projects.iterrows():
+        status_info, max_status = get_project_status_info(row['P_ID_NUMBER'], status_df, year)
+        status_data.append({
+            'status_info': status_info,
+            'max_status': max_status,
+            'marker_color': STATUS_COLORS.get(max_status, 'gray')
+        })
+    
+    valid_projects['STATUS_INFO'] = [s['status_info'] for s in status_data]
+    valid_projects['MAX_STATUS'] = [s['max_status'] for s in status_data]
+    valid_projects['MARKER_COLOR'] = [s['marker_color'] for s in status_data]
+    
+    return valid_projects
+
+def create_hover_text(row, status_info, year):
+    """Create hover text for project information."""
+    status_text = "<br>".join([f"{label}: {percentage:.2f}%" for label, percentage in status_info.items()])
+    return (f"<b>{row['NAME']}</b><br>"
+            f"<b>Project ID:</b> {row['P_ID_NUMBER']}<br>"
+            f"<b>Region:</b> {row['REGION']}<br>"
+            f"<b>Deposit type:</b> {row['DEPOSIT_TYPE']}<br>"
+            f"<b>Commodity:</b> {row['COMMODITY']}<br>"
+            f"<b>Initial resource:</b> {row['REMAINING_RESOURCE']}<br>"
+            f"<b>Grade:</b> {row['GRADE']}<br>"
+            f"<b>Contained commodity:</b> {row['CONTAINED_RESOURCE']:.0f}<br>"
+            f"<b>Initial status:</b> {row['STATUS']}<br>"
+            f"<b>Status percentages for {year}:</b><br>"
+            f"{status_text}")
+
 # ==================== User Interface ====================
 
 app_ui = ui.page_fluid(ui.tags.style(
-    """ .leaflet-container {height: 900px !important;}"""),
+    """ 
+    .leaflet-container {height: 900px !important;}
+    .plotly-container {height: 900px !important;}
+    """),
     ui.navset_tab(
         ui.nav_panel("Inputs",
             ui.layout_sidebar(
@@ -104,18 +207,30 @@ app_ui = ui.page_fluid(ui.tags.style(
                 )
             )
         ),
-        ui.nav_panel("Map",
+        ui.nav_panel("Projects",
             ui.layout_sidebar(
                 ui.panel_sidebar(
                     ui.output_ui("map_folder_ui"),
-                    ui.input_select("map_layer", "Base layer:", choices=["Satellite", "Street Map"]),
                     ui.output_ui("subfolder_ui"),
                     ui.output_ui("year_slider"),
                     width=2
                 ),
                 ui.panel_main(
-                    ui.div(
-                        output_widget("map")
+                    ui.row(
+                        ui.column(6,
+                            ui.h4("Geographic distribution"),
+                            ui.div(
+                                output_widget("map"),
+                                class_="map-container"
+                            )
+                        ),
+                        ui.column(6,
+                            ui.h4("Resource and grade"),
+                            ui.div(
+                                output_widget("scatter_plot"),
+                                class_="plotly-container"
+                            )
+                        )
                     )
                 )
             )
@@ -138,6 +253,7 @@ app_ui = ui.page_fluid(ui.tags.style(
 
 def server(input, output, session):
     log_content = reactive.Value("")
+    current_year = reactive.Value(None)
 
     current_selections = reactive.Value({
         "png_file": None,
@@ -188,7 +304,7 @@ def server(input, output, session):
         folder = input.folder()
         if folder:
             graphs_folder = output_files_path / folder / "_graphs"
-            return [f for f in os.listdir(graphs_folder) if f.endswith('.png')] if graphs_folder.exists() else []
+            return [f for f in os.listdir(graphs_folder) if f.endswith(('.png', '.gif'))] if graphs_folder.exists() else []
         return []
 
     @reactive.Calc
@@ -253,7 +369,7 @@ def server(input, output, session):
     @output
     @render.ui
     def png_files_ui():
-        files = get_png_files()
+        files = sorted(get_png_files())
         if files:
             selected = current_selections()["png_file"] if current_selections()["png_file"] in files else files[0]
             return ui.input_select("png_file", "Output figures:", choices=files, selected=selected)
@@ -309,7 +425,7 @@ def server(input, output, session):
             with reactive.isolate():
                 selected_file_path = input_files_path / input.csv_input()
                 if selected_file_path.exists():
-                    os.startfile(selected_file_path)
+                    subprocess.run(["open" if sys.platform == "darwin" else "xdg-open" if sys.platform != "win32" else "start", str(selected_file_path)])
 
     @output
     @render.data_frame
@@ -462,7 +578,7 @@ def server(input, output, session):
         else:
             return None
 
-    # ==================== Map Rendering ====================
+    # ==================== Map and Scatter Plot Rendering ====================
     
     @output
     @render.ui
@@ -502,8 +618,19 @@ def server(input, output, session):
                 df = pd.read_csv(status_file)
                 years = [col for col in df.columns if col.isdigit()]
                 min_year, max_year = int(min(years)), int(max(years))
-                return ui.input_slider("year", "Select Year:", min=min_year, max=max_year, value=min_year, sep='')
+                selected_year = current_year.get()
+                if selected_year is None or selected_year < min_year or selected_year > max_year:
+                    selected_year = min_year
+                    current_year.set(selected_year)
+                
+                return ui.input_slider("year", "Select Year:", min=min_year, max=max_year, value=selected_year, sep='')
         return ui.div()
+
+    @reactive.Effect
+    @reactive.event(input.year)
+    def update_current_year():
+        if input.year() is not None:
+            current_year.set(input.year())
 
     @reactive.Calc
     def load_status_data():
@@ -515,130 +642,176 @@ def server(input, output, session):
                 return pd.read_csv(status_file)
         return None
 
-    @render_widget
-    def map():
+    @reactive.Calc
+    def load_and_prepare_data():
+        """Load and prepare project data for both map and scatter plot."""
         folder = input.map_folder()
         subfolder = input.subfolder()
         year = input.year()
-        map_layer = input.map_layer()
+        
         if not folder or not subfolder:
-            return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
+            return None
+            
         try:
             projects_file_path = output_files_path / folder / "_input_files" / "input_projects.csv"
             if not projects_file_path.exists():
-                return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
+                return None
+                
             projects_df = pd.read_csv(projects_file_path)
             status_df = load_status_data()
+            
             if status_df is None:
-                return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
-            required_columns = ['LATITUDE', 'LONGITUDE', 'NAME', 'P_ID_NUMBER', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'REMAINING_RESOURCE', 'GRADE', 'STATUS']
-            missing_columns = [col for col in required_columns if col not in projects_df.columns]
-            if missing_columns:
-                return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
-            valid_projects = projects_df.dropna(subset=['LATITUDE', 'LONGITUDE', 'REMAINING_RESOURCE', 'GRADE'])
-            valid_projects = valid_projects[
-                (valid_projects['LATITUDE'].between(-90, 90)) & 
-                (valid_projects['LONGITUDE'].between(-180, 180))
-            ]
-            if valid_projects.empty:
-                return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
-            center_lat = valid_projects["LATITUDE"].mean()
-            center_lon = valid_projects["LONGITUDE"].mean()
-            if not hasattr(map, 'base_map'):
-                map.base_map = Map(center=(center_lat, center_lon), zoom=2, scroll_wheel_zoom=True, layout={'height': '900px'})
-                if map_layer == "Satellite":
-                    satellite = TileLayer(
-                        url='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                        attribution='Esri',
-                        name='Esri Satellite'
-                    )
-                    map.base_map.add_layer(satellite)
-                else:
-                    osm = TileLayer(
-                        url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                        attribution='OpenStreetMap',
-                        name='OpenStreetMap'
-                    )
-                    map.base_map.add_layer(osm)
-                layer_control = LayersControl(position='topright')
-                map.base_map.add_control(layer_control)
-            if hasattr(map, 'marker_layer'):
-                map.base_map.remove_layer(map.marker_layer)
-            map.marker_layer = LayerGroup()
-            
-            def calculate_contained_resource(resource_str, grade_str):
-                resources = [float(r) for r in resource_str.split(';')]
-                grades = [float(g) for g in grade_str.split(';')]
-                return sum(r * g for r, g in zip(resources, grades))
-            
-            valid_projects['CONTAINED_RESOURCE'] = valid_projects.apply(
-                lambda row: calculate_contained_resource(str(row['REMAINING_RESOURCE']), str(row['GRADE'])), 
-                axis=1
-            )
-            
-            min_resource = valid_projects['CONTAINED_RESOURCE'].min()
-            max_resource = valid_projects['CONTAINED_RESOURCE'].max()
-            
-            valid_projects['NORMALIZED_RESOURCE'] = (valid_projects['CONTAINED_RESOURCE'] - min_resource) / (max_resource - min_resource)
-
-            for _, row in valid_projects.iterrows():
-                project_status_data = status_df[status_df['P_ID_NUMBER'] == row['P_ID_NUMBER']]
-                total_simulations = project_status_data[str(year)].sum()
+                return None
                 
-                status_info = ""
-                max_percentage = 0
-                max_status = ""
-                
-                for status_code, status_label in STATUS_LABELS.items():
-                    status_count = project_status_data[
-                        (project_status_data['STATUS'] == status_label) & 
-                        (project_status_data[str(year)] > 0)
-                    ][str(year)].sum()
-                    status_percentage = (status_count / total_simulations * 100) if total_simulations > 0 else 0
-                    status_info += f"<strong>{status_label}:</strong> {status_percentage:.2f}%<br>"
-                    
-                    if status_percentage > max_percentage:
-                        max_percentage = status_percentage
-                        max_status = status_label
-                
-                marker_color = STATUS_COLORS.get(max_status, 'gray')
-                size = int(5 + (row['NORMALIZED_RESOURCE'] * 15))
-                
-                popup = HTML(f"""
-                <h4>{row['NAME']}</h4>
-                <br>
-                <strong>Input files:</strong><br>
-                <br>
-                <strong>Project ID:</strong> {row['P_ID_NUMBER']}<br>
-                <strong>Region:</strong> {row['REGION']}<br>
-                <strong>Deposit type:</strong> {row['DEPOSIT_TYPE']}<br>
-                <strong>Commodity:</strong> {row['COMMODITY']}<br>
-                <strong>Initial resource:</strong> {row['REMAINING_RESOURCE']}<br>
-                <strong>Grade:</strong> {row['GRADE']}<br>
-                <strong>Contained resource:</strong> {row['CONTAINED_RESOURCE']:.2f}<br>
-                <strong>Initial status:</strong> {row['STATUS']}<br>
-                <br>
-                <strong>Status percentages for {year}:</strong><br>
-                <br>
-                {status_info}
-                """)
-                
-                circle = CircleMarker(
-                    location=(row["LATITUDE"], row["LONGITUDE"]),
-                    radius=size,
-                    color=marker_color,
-                    fill_color=marker_color,
-                    fill_opacity=0.7
-                )
-                circle.popup = popup
-                map.marker_layer.add_layer(circle)
+            return prepare_project_data(projects_df, status_df, year)
             
-            map.base_map.add_layer(map.marker_layer)
-            return map.base_map
-        
         except Exception as e:
-            print(f"Error creating map: {str(e)}")
+            print(f"Error loading data: {str(e)}")
+            return None
+
+    @render_widget
+    def map():
+        valid_projects = load_and_prepare_data()
+        year = input.year()
+        
+        if valid_projects is None or valid_projects.empty:
             return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
+        
+        center_lat = valid_projects["LATITUDE"].mean()
+        center_lon = valid_projects["LONGITUDE"].mean()
+        
+        if not hasattr(map, 'base_map'):
+            map.base_map = Map(center=(center_lat, center_lon), zoom=2, scroll_wheel_zoom=True, layout={'height': '900px'})
+            google_hybrid = TileLayer(
+                url='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+                attribution='Google',
+                name='Google Hybrid',
+                base=True
+            )
+            google_sat = TileLayer(
+                url='https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',
+                attribution='Google',
+                name='Google Satellite',
+                base=True
+            )
+            google_roads = TileLayer(
+                url='https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                attribution='Google',
+                name='Google Roads',
+                base=True
+            )
+
+            map.base_map.add_layer(google_roads)
+            map.base_map.add_layer(google_sat)
+            map.base_map.add_layer(google_hybrid)
+            layer_control = LayersControl(position='topright')
+            map.base_map.add_layer(layer_control)
+        
+        if hasattr(map, 'marker_layer'):
+            map.base_map.remove_layer(map.marker_layer)
+        map.marker_layer = LayerGroup(name='Projects')
+        
+        for _, row in valid_projects.iterrows():
+            size = int(5 + (row['NORMALIZED_RESOURCE'] * 15))
+            
+            popup_html = create_hover_text(row, row['STATUS_INFO'], year)
+            popup = HTML(popup_html)
+            
+            circle = CircleMarker(
+                location=(row["LATITUDE"], row["LONGITUDE"]),
+                radius=size,
+                color=row['MARKER_COLOR'],
+                fill_color=row['MARKER_COLOR'],
+                fill_opacity=0.9,
+                weight=0
+            )
+            circle.popup = popup
+            map.marker_layer.add_layer(circle)
+        
+        map.base_map.add_layer(map.marker_layer)
+        return map.base_map
+
+    @render_widget
+    def scatter_plot():
+        valid_projects = load_and_prepare_data()
+        year = input.year()
+        
+        if valid_projects is None or valid_projects.empty:
+            fig = go.Figure()
+            fig.update_layout(
+                title="No data available",
+                height=900,
+                template="plotly_white",
+            )
+            return fig
+        
+        fig = go.Figure()
+        
+        for status in STATUS_LABELS.values():
+            status_projects = valid_projects[valid_projects['MAX_STATUS'] == status]
+            if not status_projects.empty:
+                hover_texts = []
+                for _, row in status_projects.iterrows():
+                    hover_texts.append(create_hover_text(row, row['STATUS_INFO'], year))
+                
+                sizes = 5 + (status_projects['NORMALIZED_RESOURCE'] * 34)
+                
+                fig.add_trace(go.Scatter(
+                    x=status_projects['FIRST_RESOURCE'],
+                    y=status_projects['FIRST_GRADE'],
+                    mode='markers',
+                    name=status,
+                    marker=dict(
+                        size=sizes,
+                        color=STATUS_COLORS[status],
+                        line=dict(width=1, color='white')
+                    ),
+                    hovertext=hover_texts,
+                    hoverinfo='text',
+                    hoverlabel=dict(
+                        bgcolor="white",
+                        font_size=12,
+                        font_family="Arial"
+                    ),
+                    legendgroup=status,
+                    showlegend=True
+                ))
+        
+        fig.update_layout(
+            xaxis=dict(
+                title="Remaining Resource (log scale)",
+                type="log",
+                gridcolor='rgba(128,128,128,0.2)',
+                showgrid=True,
+                showline=True,
+                linewidth=1,
+                linecolor='rgba(128,128,128,0.2)',
+                mirror=True
+            ),
+            yaxis=dict(
+                title="Grade",
+                gridcolor='rgba(128,128,128,0.2)',
+                showgrid=True,
+                showline=True,
+                linewidth=1,
+                linecolor='rgba(128,128,128,0.2)',
+                mirror=True
+            ),
+            height=900,
+            template="plotly_white",
+            hovermode='closest',
+            legend=dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="left",
+                x=0.01,
+                itemsizing='constant',
+                bordercolor='rgba(128,128,128,0.2)',
+                borderwidth=1
+            )
+        )
+        
+        return fig
 
 # ==================== Server Startup ====================
 
