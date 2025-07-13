@@ -366,7 +366,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     if share_scale == True:
         # Subplots have common scale
         fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
-    elif share_scale == False:
+    else:  # share_scale == False
         # Subplots have independent scales
         fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
 
