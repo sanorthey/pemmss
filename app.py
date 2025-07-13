@@ -28,8 +28,8 @@ import asyncio
 import shutil
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 import plotly.graph_objects as go
+import chardet
 from shiny import App, render, ui, reactive
 from pathlib import Path
 from threading import Thread
@@ -78,38 +78,61 @@ def calculate_contained_resource(resource_str, grade_str):
 
 def get_project_status_info(project_id, status_df, year):
     """Get status information for a project at a given year."""
+    year_str = str(year)
+
+    # Convert the year column to numeric, coercing errors to 0
+    if year_str in status_df.columns:
+        status_df[year_str] = pd.to_numeric(status_df[year_str], errors='coerce').fillna(0)
+    else:
+        # If year column missing, return empty info
+        return {}, ""
+
     project_status_data = status_df[status_df['P_ID_NUMBER'] == project_id]
-    total_simulations = project_status_data[str(year)].sum()
-    
+
+    total_simulations = project_status_data[year_str].sum()
+
     status_info = {}
     max_percentage = 0
     max_status = ""
-    
+
     for status_code, status_label in STATUS_LABELS.items():
-        status_count = project_status_data[
-            (project_status_data['STATUS'] == status_label) & 
-            (project_status_data[str(year)] > 0)
-        ][str(year)].sum()
+        # Filter rows where STATUS matches and year column > 0 safely
+        filtered = project_status_data[
+            (project_status_data['STATUS'] == status_label) &
+            (project_status_data[year_str] > 0)
+        ]
+        status_count = filtered[year_str].sum()
+
         status_percentage = (status_count / total_simulations * 100) if total_simulations > 0 else 0
         status_info[status_label] = status_percentage
-        
+
         if status_percentage > max_percentage:
             max_percentage = status_percentage
             max_status = status_label
-    
+
     return status_info, max_status
+
 
 def prepare_project_data(projects_df, status_df, year):
     """Prepare project data with status information for visualization."""
-    required_columns = ['LATITUDE', 'LONGITUDE', 'NAME', 'P_ID_NUMBER', 'REGION', 
+
+    # Convert year columns to numeric to avoid comparison issues
+    status_df = status_df.copy()
+    year_columns = [col for col in status_df.columns if col.isdigit()]
+    for col in year_columns:
+        status_df[col] = pd.to_numeric(status_df[col], errors='coerce').fillna(0)
+
+    required_columns = ['LATITUDE', 'LONGITUDE', 'NAME', 'P_ID_NUMBER', 'REGION',
                        'DEPOSIT_TYPE', 'COMMODITY', 'REMAINING_RESOURCE', 'GRADE', 'STATUS']
     
     missing_columns = [col for col in required_columns if col not in projects_df.columns]
     if missing_columns:
         return None
     
-    # Filter valid projects
-    valid_projects = projects_df.copy()
+    # Filter valid projects, convert LATITUDE and LONGITUDE to numeric, make errors or missing as NaN
+    valid_projects = projects_df
+    valid_projects['LATITUDE'] = pd.to_numeric(valid_projects['LATITUDE'], errors='coerce')
+    valid_projects['LONGITUDE'] = pd.to_numeric(valid_projects['LONGITUDE'], errors='coerce')
     valid_projects = valid_projects.dropna(subset=['LATITUDE', 'LONGITUDE', 'REMAINING_RESOURCE', 'GRADE'])
     valid_projects = valid_projects[
         (valid_projects['LATITUDE'].between(-90, 90)) & 
@@ -165,6 +188,24 @@ def create_hover_text(row, status_info, year):
             f"<b>Status percentages for {year}:</b><br>"
             f"{status_text}")
 
+def safe_read_csv(path):
+    """Ensures csv files are read by pandas even when non-standard CSV encodings used"""
+    with open(path, 'rb') as f:
+        raw = f.read(32768)
+        detected = chardet.detect(raw)
+        encodings = [detected["encoding"], "utf-8-sig", "latin1", "cp1252"]
+
+    for enc in encodings:
+        try:
+            df = pd.read_csv(path, dtype=str, encoding=enc)
+            print(f"Read with encoding: {enc}")
+            return df
+        except UnicodeDecodeError:
+            print(f"Failed with encoding: {enc}")
+            continue
+    print("All encoding attempts failed.")
+    return pd.DataFrame()
+
 # ==================== User Interface ====================
 
 app_ui = ui.page_fluid(ui.tags.style(
@@ -175,75 +216,69 @@ app_ui = ui.page_fluid(ui.tags.style(
     ui.navset_tab(
         ui.nav_panel("Inputs",
             ui.layout_sidebar(
-                ui.panel_sidebar(
+                ui.sidebar(
                     ui.output_ui("csv_inputs"),
                     ui.input_action_button("open_csv", "Open file", class_="btn-success"),
                     ui.input_action_button("btn", "Run simulation", class_="btn-primary"),
-                    width=2
                 ),
-                ui.panel_main(
-                    ui.output_data_frame("editable_df")
-                )
+                ui.output_data_frame("editable_df"),
+            width=2
+
             )
         ),
         ui.nav_panel("Outputs",
             ui.layout_sidebar(
-                ui.panel_sidebar(
+                ui.sidebar(
                     ui.output_ui("folder_ui"),
                     ui.input_action_button("rename_folder_btn", "Rename folder", class_="btn-primary"),
                     ui.output_ui("png_files_ui"),
                     ui.output_ui("inp_arc_ui"),
                     ui.output_ui("stats_files_ui"),
                     ui.input_action_button("reprocess_btn", "Reprocess outputs", class_="btn-primary"),
-                    width=2
                 ),
-                ui.panel_main(
-                    ui.navset_tab(
-                        ui.nav_panel("Plots", ui.output_image("image", height="100%", width="100%")),
-                        ui.nav_panel("Inputs", ui.output_data_frame("table_inputs")),
-                        ui.nav_panel("Statistics", ui.output_data_frame("table_stats")),
-                        ui.nav_panel("Log", ui.output_text_verbatim("log_text")),
-                    )
-                )
+                ui.navset_tab(
+                    ui.nav_panel("Plots", ui.output_image("image", height="100%", width="100%")),
+                    ui.nav_panel("Inputs", ui.output_data_frame("table_inputs")),
+                    ui.nav_panel("Statistics", ui.output_data_frame("table_stats")),
+                    ui.nav_panel("Log", ui.output_text_verbatim("log_text")),
+                ),
+            width=2
             )
         ),
         ui.nav_panel("Projects",
             ui.layout_sidebar(
-                ui.panel_sidebar(
+                ui.sidebar(
                     ui.output_ui("map_folder_ui"),
                     ui.output_ui("subfolder_ui"),
                     ui.output_ui("year_slider"),
-                    width=2
+
                 ),
-                ui.panel_main(
-                    ui.row(
-                        ui.column(6,
-                            ui.h4("Geographic distribution"),
-                            ui.div(
-                                output_widget("map"),
-                                class_="map-container"
-                            )
-                        ),
-                        ui.column(6,
-                            ui.h4("Resource and grade"),
-                            ui.div(
-                                output_widget("scatter_plot"),
-                                class_="plotly-container"
-                            )
+                ui.row(
+                    ui.column(6,
+                        ui.h4("Geographic distribution"),
+                        ui.div(
+                            output_widget("map"),
+                            class_="map-container"
+                        )
+                    ),
+                    ui.column(6,
+                        ui.h4("Resource and grade"),
+                        ui.div(
+                            output_widget("scatter_plot"),
+                            class_="plotly-container"
                         )
                     )
-                )
+                ),
+            width=2
             )
         ),
         ui.nav_panel("About",
             ui.layout_sidebar(
-                ui.panel_sidebar(
+                ui.sidebar(
                     ui.input_dark_mode(),
                     width=2
                 ),
-                ui.panel_main(
-                    ui.markdown(Path("README.md").read_text(encoding="utf-8"))
-                )
+                ui.markdown(Path("README.md").read_text(encoding="utf-8"))
             )
         )
     )
@@ -414,7 +449,8 @@ def server(input, output, session):
     def load_csv():
         csv_path = input_files_path / input.csv_input()
         if csv_path.exists():
-            return pd.read_csv(csv_path, dtype=str) 
+            df = safe_read_csv(csv_path)
+            return df
         else:
             print(f"CSV file not found: {csv_path}")
             return pd.DataFrame()
@@ -444,7 +480,7 @@ def server(input, output, session):
     @editable_df.set_patch_fn
     def _(*, patch: render.CellPatch) -> render.CellValue:
         csv_path = input_files_path / input.csv_input()
-        df = pd.read_csv(csv_path) 
+        df = safe_read_csv(csv_path)
         df = df.astype('object')
         column_name = df.columns[patch["column_index"]]
         df.at[patch["row_index"], column_name] = patch["value"]
@@ -560,7 +596,7 @@ def server(input, output, session):
         folder = input.folder()
         if selected_csv and folder:
             full_path = output_files_path / folder / "_input_files" / selected_csv
-            df = pd.read_csv(full_path)
+            df = safe_read_csv(full_path)
             return render.DataGrid(
                 df,
                 height="900px",
@@ -575,7 +611,7 @@ def server(input, output, session):
         folder = input.folder()
         if selected_csv and folder:
             full_path = output_files_path / folder / "_statistics" / selected_csv
-            df = pd.read_csv(full_path)
+            df = safe_read_csv(full_path)
             return render.DataGrid(
                 df,
                 height="900px"
@@ -620,14 +656,15 @@ def server(input, output, session):
         if folder and subfolder:
             status_file = output_files_path / folder / subfolder / "_status.csv"
             if status_file.exists():
-                df = pd.read_csv(status_file)
+                df = safe_read_csv(status_file)
                 years = [col for col in df.columns if col.isdigit()]
                 min_year, max_year = int(min(years)), int(max(years))
                 selected_year = current_year.get()
                 if selected_year is None or selected_year < min_year or selected_year > max_year:
                     selected_year = min_year
-                    current_year.set(selected_year)
-                
+                    if current_year.get() != selected_year:
+                        current_year.set(selected_year)
+
                 return ui.input_slider("year", "Select Year:", min=min_year, max=max_year, value=selected_year, sep='')
         return ui.div()
 
@@ -644,7 +681,8 @@ def server(input, output, session):
         if folder and subfolder:
             status_file = output_files_path / folder / subfolder / "_status.csv"
             if status_file.exists():
-                return pd.read_csv(status_file)
+                df = safe_read_csv(status_file)
+                return df
         return None
 
     @reactive.Calc
@@ -653,7 +691,9 @@ def server(input, output, session):
         folder = input.map_folder()
         subfolder = input.subfolder()
         year = input.year()
-        
+        if year is None:
+            return
+
         if not folder or not subfolder:
             return None
             
@@ -661,23 +701,29 @@ def server(input, output, session):
             projects_file_path = output_files_path / folder / "_input_files" / "input_projects.csv"
             if not projects_file_path.exists():
                 return None
-                
-            projects_df = pd.read_csv(projects_file_path)
+
+            projects_df = safe_read_csv(projects_file_path)
             status_df = load_status_data()
-            
+
             if status_df is None:
                 return None
-                
+
             return prepare_project_data(projects_df, status_df, year)
             
         except Exception as e:
             print(f"Error loading data: {str(e)}")
             return None
 
+    @reactive.Calc
+    def projects_validated():
+        return load_and_prepare_data()
+
     @render_widget
     def map():
-        valid_projects = load_and_prepare_data()
+        valid_projects = projects_validated()
         year = input.year()
+        if year is None:
+            return
         
         if valid_projects is None or valid_projects.empty:
             return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
@@ -738,8 +784,10 @@ def server(input, output, session):
 
     @render_widget
     def scatter_plot():
-        valid_projects = load_and_prepare_data()
+        valid_projects = projects_validated()
         year = input.year()
+        if year is None:
+            return
         
         if valid_projects is None or valid_projects.empty:
             fig = go.Figure()
