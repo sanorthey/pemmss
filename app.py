@@ -715,60 +715,46 @@ def server(input, output, session):
             return None
 
     @reactive.Calc
-    def projects_validated():
+    def valid_projects():
         return load_and_prepare_data()
 
     @render_widget
     def map():
-        valid_projects = projects_validated()
+        projects = valid_projects()
         year = input.year()
         if year is None:
             return
-        
-        if valid_projects is None or valid_projects.empty:
-            return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
-        
-        center_lat = valid_projects["LATITUDE"].mean()
-        center_lon = valid_projects["LONGITUDE"].mean()
-        
-        if not hasattr(map, 'base_map'):
-            map.base_map = Map(center=(center_lat, center_lon), zoom=2, scroll_wheel_zoom=True, layout={'height': '900px'})
-            google_hybrid = TileLayer(
-                url='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-                attribution='Google',
-                name='Google Hybrid',
-                base=True
-            )
-            google_sat = TileLayer(
-                url='https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}',
-                attribution='Google',
-                name='Google Satellite',
-                base=True
-            )
-            google_roads = TileLayer(
-                url='https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-                attribution='Google',
-                name='Google Roads',
-                base=True
-            )
 
-            map.base_map.add_layer(google_roads)
-            map.base_map.add_layer(google_sat)
-            map.base_map.add_layer(google_hybrid)
-            layer_control = LayersControl(position='topright')
-            map.base_map.add_layer(layer_control)
-        
-        if hasattr(map, 'marker_layer'):
-            map.base_map.remove_layer(map.marker_layer)
-        map.marker_layer = LayerGroup(name='Projects')
-        
-        for _, row in valid_projects.iterrows():
+        if projects is None or projects.empty:
+            return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
+
+        # Calculate center
+        center_lat = projects["LATITUDE"].mean()
+        center_lon = projects["LONGITUDE"].mean()
+
+        # --- Create a new map object each time ---
+        base_map = Map(center=(center_lat, center_lon), zoom=2, scroll_wheel_zoom=True, layout={'height': '900px'})
+
+        # Add base tile layers
+        tile_layers = [
+            TileLayer(url='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', name='Google Hybrid', base=True),
+            TileLayer(url='https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', name='Google Satellite', base=True),
+            TileLayer(url='https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', name='Google Roads', base=True),
+        ]
+        for tile in tile_layers:
+            base_map.add(tile)
+
+        base_map.add(LayersControl(position='topright'))
+
+        # --- Add project markers ---
+        marker_layer = LayerGroup(name='Projects')
+
+        for _, row in projects.iterrows():
             size = int(5 + (row['NORMALIZED_RESOURCE'] * 15))
-            
             popup_html = create_hover_text(row, row['STATUS_INFO'], year)
             popup = HTML(popup_html)
-            
-            circle = CircleMarker(
+
+            marker = CircleMarker(
                 location=(row["LATITUDE"], row["LONGITUDE"]),
                 radius=size,
                 color=row['MARKER_COLOR'],
@@ -776,20 +762,22 @@ def server(input, output, session):
                 fill_opacity=0.9,
                 weight=0
             )
-            circle.popup = popup
-            map.marker_layer.add_layer(circle)
-        
-        map.base_map.add_layer(map.marker_layer)
-        return map.base_map
+            marker.popup = popup
+            marker_layer.add(marker)
+
+        base_map.add(marker_layer)
+
+        return base_map
 
     @render_widget
     def scatter_plot():
-        valid_projects = projects_validated()
+        projects = valid_projects()
         year = input.year()
         if year is None:
             return
-        
-        if valid_projects is None or valid_projects.empty:
+
+        # Handle no data
+        if projects is None or projects.empty:
             fig = go.Figure()
             fig.update_layout(
                 title="No data available",
@@ -797,40 +785,48 @@ def server(input, output, session):
                 template="plotly_white",
             )
             return fig
-        
+
+        # --- Create new figure ---
         fig = go.Figure()
-        
+
         for status in STATUS_LABELS.values():
-            status_projects = valid_projects[valid_projects['MAX_STATUS'] == status]
-            if not status_projects.empty:
-                hover_texts = []
-                for _, row in status_projects.iterrows():
-                    hover_texts.append(create_hover_text(row, row['STATUS_INFO'], year))
-                
-                sizes = 5 + (status_projects['NORMALIZED_RESOURCE'] * 34)
-                
-                fig.add_trace(go.Scatter(
-                    x=status_projects['FIRST_RESOURCE'],
-                    y=status_projects['FIRST_GRADE'],
-                    mode='markers',
-                    name=status,
-                    marker=dict(
-                        size=sizes,
-                        color=STATUS_COLORS[status],
-                        line=dict(width=1, color='white')
-                    ),
-                    hovertext=hover_texts,
-                    hoverinfo='text',
-                    hoverlabel=dict(
-                        bgcolor="white",
-                        font_size=12,
-                        font_family="Arial"
-                    ),
-                    legendgroup=status,
-                    showlegend=True
-                ))
-        
+            status_projects = projects[projects['MAX_STATUS'] == status]
+
+            if status_projects.empty:
+                continue
+
+            # Generate hover text and marker sizes
+            hover_texts = [
+                create_hover_text(row, row['STATUS_INFO'], year)
+                for _, row in status_projects.iterrows()
+            ]
+            sizes = 5 + (status_projects['NORMALIZED_RESOURCE'] * 34)
+
+            # Add one trace per status
+            fig.add_trace(go.Scatter(
+                x=status_projects['FIRST_RESOURCE'],
+                y=status_projects['FIRST_GRADE'],
+                mode='markers',
+                name=status,
+                marker=dict(
+                    size=sizes,
+                    color=STATUS_COLORS.get(status, 'gray'),
+                    line=dict(width=1, color='white')
+                ),
+                hovertext=hover_texts,
+                hoverinfo='text',
+                hoverlabel=dict(
+                    bgcolor="white",
+                    font_size=12,
+                    font_family="Arial"
+                ),
+                legendgroup=status,
+                showlegend=True
+            ))
+
+        # --- Layout configuration ---
         fig.update_layout(
+            title="Contained Resource vs. Grade",
             xaxis=dict(
                 title="Remaining Resource (log scale)",
                 type="log",
@@ -863,8 +859,9 @@ def server(input, output, session):
                 borderwidth=1
             )
         )
-        
+
         return fig
+
 
 # ==================== Server Startup ====================
 
