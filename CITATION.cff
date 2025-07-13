@@ -16,9 +16,15 @@ authors:
   - family-names: Giurco
     given-names: Damien
     orcid: https://orcid.org/0000-0002-1707-9531
+  - family-names: Mendonca Severiano
+    given-names: Bernardo
+    orcid: https://orcid.org/0000-0002-2201-3473
+  - family-names: Hyman
+    given-names: Jayden
+    orcid: https://orcid.org/0000-0002-8160-1742
 
 title: "Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) Model"
-version: 1.3.1
+version: 1.4.0
 doi: 10.5281/zenodo.7001908
 date-released: 2024-07-10
 
