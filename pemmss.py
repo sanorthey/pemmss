@@ -457,6 +457,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     # P16, R3, W2 - Filter and merge scenario and iteration statistics
     file_export.export_log('Merging scenario data', output_path=log_path, print_on=1)
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
+    file_export.export_log('Merging project iteration data', output_path=log_path, print_on=1)
     project_statistics_files = post_processing.project_iteration_statistics(scenario_folders)
     pt1 = (time())
     file_export.export_log('Merge duration ' + str((pt1 - pt0)) + ' seconds.', output_path=log_path, print_on=1)
