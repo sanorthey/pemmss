@@ -6,6 +6,7 @@ Module with functions for handling spatial data
 # Import non-standard packages
 import geopandas as gpd
 import pandas as pd
+import chardet
 from shapely.geometry import Point
 
 # Import custom modules
@@ -132,6 +133,12 @@ def deduplicate_columns(columns):
 # It reads from the scenarios/iterations and generates 1 geopackage per Scenario (e.g. Decoupling). This geopackage will have j layers, where j is the number of iterations.
 # Each layer (j) will have a cloud of points respective to the Projects (i)
 
+def detect_encoding(filepath):
+    with open(filepath, 'rb') as f:
+        raw = f.read()
+        result = chardet.detect(raw)
+        encoding = result['encoding']
+        return encoding
 
 def save_scenario_geopackage(geodataframe, scenario_folders):
     """
@@ -156,7 +163,8 @@ def save_scenario_geopackage(geodataframe, scenario_folders):
 
         for i, projects_csv_path in enumerate(project_files):
             # Load the i-Projects.csv for this iteration
-            projects_df = pd.read_csv(projects_csv_path)
+            encoding = detect_encoding(projects_csv_path)
+            projects_df = pd.read_csv(projects_csv_path, encoding=encoding)
 
             # Create GeoDataFrame from the CSV data
             geometry = [Point(xy) for xy in zip(projects_df['LONGITUDE'], projects_df['LATITUDE'])]
