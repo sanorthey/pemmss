@@ -7,7 +7,8 @@ Module with functions for handling spatial data
 import geopandas as gpd
 import pandas as pd
 import charset_normalizer
-from shapely.geometry import Point
+import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Import custom modules
 from modules.file_export import export_log
@@ -115,20 +116,6 @@ def generate_region_coordinate(gdf_dict):
     return random_point.y, random_point.x
 
 
-def deduplicate_columns(columns):
-    """
-    Deduplicate column names by appending a suffix when a duplicate is found.
-    Ensures column names are unique within the DataFrame.
-    """
-    seen = {}
-    for i, col in enumerate(columns):
-        if col in seen:
-            seen[col] += 1
-            columns[i] = f"{col}_{seen[col]}"
-        else:
-            seen[col] = 0
-    return columns
-
 # [BM] The following function was written to remove the geopackage generation from the iteration loop and out to the post-processing loop
 # It reads from the scenarios/iterations and generates 1 geopackage per Scenario (e.g. Decoupling). This geopackage will have j layers, where j is the number of iterations.
 # Each layer (j) will have a cloud of points respective to the Projects (i)
@@ -140,62 +127,107 @@ def detect_encoding(filepath):
         encoding = result['encoding']
         return encoding
 
-def save_scenario_geopackage(geodataframe, scenario_folders):
+def deduplicate_columns(columns):
     """
-    Creates and saves an OGC geopackage for each scenario (i) with data from all iterations (j) combined.
-
-    Files written: [scenario_folder]/_geopackage.gpkg
-
-    Parameters:
-    - geodataframe (GeoDataFrame or None): The original GeoDataFrame from the input_geopackage.gpkg. Can be None.
-    - scenario_folders (list): List of paths to scenario folders.
+    Return a new list of column names with duplicates suffixed (e.g., 'col', 'col_1', 'col_2', ...).
     """
-    import warnings
-    warnings.filterwarnings('ignore', 'GeoSeries.notna', UserWarning)
+    seen = {}
+    deduped = []
 
-    output_paths = []
+    for col in columns:
+        count = seen.get(col, 0)
+        if count:
+            new_col = f"{col}_{count}"
+        else:
+            new_col = col
+        deduped.append(new_col)
+        seen[col] = count + 1
 
-    for j, scenario_folder in enumerate(scenario_folders):
-        all_points_gdfs = []
+    return deduped
 
-        # Convert the generator to a list to iterate over and get the length if needed
-        project_files = list(scenario_folder.glob('*-Projects.csv'))
 
-        for i, projects_csv_path in enumerate(project_files):
-            # Load the i-Projects.csv for this iteration
-            encoding = detect_encoding(projects_csv_path)
-            projects_df = pd.read_csv(projects_csv_path, encoding=encoding)
+def process_scenario_folder(j, scenario_folder, geodataframe):
+    """
+    Processes project CSV files in a scenario folder into a combined GeoDataFrame.
 
-            # Create GeoDataFrame from the CSV data
-            geometry = [Point(xy) for xy in zip(projects_df['LONGITUDE'], projects_df['LATITUDE'])]
-            projects_gdf = gpd.GeoDataFrame(projects_df, geometry=geometry)
+    Reads all '*-Projects.csv' files, converts coordinate data to geometries, and combines them.
+    Saves the result as a GeoPackage in the scenario folder.
 
-            # Set CRS to match the input shapefile if provided
-            if geodataframe is not None:
-                projects_gdf.set_crs(geodataframe.crs, inplace=True)
-            else:
-                projects_gdf.set_crs("EPSG:4326", inplace=True)  # Default CRS (WGS 84)
+    Args:
+        j (int): Index of the scenario (unused but passed in).
+        scenario_folder (Path): Path to the scenario directory containing CSV files.
+        geodataframe (GeoDataFrame): Reference GeoDataFrame for CRS alignment.
 
-            # Add an iteration column to distinguish between different iterations
-            projects_gdf['iteration'] = i
+    Returns:
+        Path or None: Path to the saved GeoPackage file, or None if processing fails.
+    """
 
-            # Add this GeoDataFrame to the list
-            all_points_gdfs.append(projects_gdf)
+    all_points = []
+    project_files = list(scenario_folder.glob('*-Projects.csv'))
 
-        # Combine all the points from different iterations into a single GeoDataFrame
-        combined_gdf = gpd.GeoDataFrame(pd.concat(all_points_gdfs, ignore_index=True))
-
-        # Deduplicate column names to ensure uniqueness
-        combined_gdf.columns = deduplicate_columns(combined_gdf.columns.to_list())
-
-        # Define the output path for the OGC GeoPackage
-        output_geopackage_path = scenario_folder / f'_geopackage.gpkg'
-
-        # Save the geopackage
+    for i, csv_path in enumerate(project_files):
         try:
-            combined_gdf.to_file(output_geopackage_path)
-            output_paths.append(output_geopackage_path)
-        except Exception as e:
-            print(f"Failed to save geopackage for scenario {j}: {e}")
+            encoding = detect_encoding(csv_path)
+            df = pd.read_csv(csv_path, encoding=encoding, low_memory=False)
 
+            # Drop rows missing coordinates
+            df = df.dropna(subset=['LONGITUDE', 'LATITUDE'])
+
+            if df.empty:
+                continue
+
+            geometry = gpd.points_from_xy(df['LONGITUDE'], df['LATITUDE'], crs="EPSG:4326")
+            gdf = gpd.GeoDataFrame(df, geometry=geometry)
+
+            if geodataframe is not None:
+                gdf = gdf.set_crs(geodataframe.crs, allow_override=True)
+
+            gdf['iteration'] = i
+            all_points.append(gdf)
+
+        except Exception as e:
+            print(f"[WARN] Error processing {csv_path.name}: {e}")
+
+    if not all_points:
+        return None
+
+    combined = pd.concat(all_points, ignore_index=True)
+    combined.columns = deduplicate_columns(combined.columns.tolist())
+    combined_gdf = gpd.GeoDataFrame(combined, geometry='geometry')
+
+    out_path = scenario_folder / '_geopackage.gpkg'
+    try:
+        combined_gdf.to_file(out_path)
+        return out_path
+    except Exception as e:
+        print(f"[ERROR] Failed to save {out_path.name}: {e}")
+        return None
+
+
+def save_scenario_geopackage(geodataframe, scenario_folders, max_workers=4):
+    """
+    Processes multiple scenario folders in parallel and saves their GeoPackages.
+
+    Uses a thread pool to run `process_scenario_folder` for each scenario folder concurrently.
+
+    Args:
+        geodataframe (GeoDataFrame): Reference GeoDataFrame for CRS alignment.
+        scenario_folders (List[Path]): List of scenario folder paths to process.
+        max_workers (int, optional): Maximum number of parallel threads. Defaults to 4.
+
+    Returns:
+        List[Path]: List of paths to successfully saved GeoPackage files.
+    """
+
+    warnings.filterwarnings('ignore', 'GeoSeries.notna', UserWarning)
+    output_paths = []
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {
+            executor.submit(process_scenario_folder, j, folder, geodataframe): folder
+            for j, folder in enumerate(scenario_folders)
+        }
+        for future in as_completed(futures):
+            result = future.result()
+            if result:
+                output_paths.append(result)
     return output_paths

@@ -488,8 +488,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     if imported_geodataframe is not None:
         # Save the final geopackage with scenario layers if input_geopackage.gpkg was provided
         # A better description of this process can be found in the save_scenario_geopackage function declaration
-        spatial.save_scenario_geopackage(imported_geodataframe, scenario_folders)
-
+        spatial.save_scenario_geopackage(imported_geodataframe, scenario_folders, max_workers=cpu_count()-1)
         pt3 = (time())
         file_export.export_log('Exported geopackage with scenario layers in '+str((pt3-pt2))+' seconds.', output_path=log_path, print_on=1)
 
