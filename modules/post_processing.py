@@ -30,8 +30,8 @@ import matplotlib.pyplot as plt
 from numpy import nan
 import numpy as np
 import imageio
-import pandas as pd
 import polars as pl
+from functools import reduce
 
 # Import custom modules
 
@@ -59,45 +59,47 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
     return updated_postprocessing
 
 
-def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv", chunksize=100000):
-    """
-    Combines CSV files from multiple directories based on filter keys and saves the filtered data into separate CSV files.
+def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv"):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    Args:
-        input_dirs (list): List of input directories containing CSV files.
-        output_dir (str): Output directory to save the generated CSV files.
-        filter_columns (list): List of column names to filter on.
-        filter_keys (list): List of filter key combinations.
-        filenameend (str, optional): Ending of the input CSV filenames. Defaults to "statistics.csv".
-        chunksize (int, optional): Number of csv lines read and processed at once. Defaults to 100,000.
-
-    Returns:
-        dict: {key, filepath} Dictionary containing the filter keys and corresponding paths of the generated CSV files.
-    """
     key_path_dict = {}
+    written_files = set()
+
+    for keys in filter_keys:
+        output_file = "_".join(keys) + ".csv"
+        output_path = output_dir / output_file
+        key_path_dict[tuple(keys)] = output_path
+        if output_path.exists():
+            output_path.unlink()
 
     for input_dir in input_dirs:
         for entry in Path(input_dir).iterdir():
             if entry.name.endswith(filenameend) and entry.is_file():
-                file_path = entry
+                df_lazy = pl.read_csv(entry).lazy()
 
-                df_chunks = pd.read_csv(file_path, chunksize=chunksize)
-                for chunk in df_chunks:
-                    for keys in filter_keys:
-                        filters = [chunk[column] == key for column, key in zip(filter_columns, keys)]
-                        filtered_chunk = chunk[np.logical_and.reduce(filters)]
+                for keys in filter_keys:
+                    filters = [(pl.col(col) == val) for col, val in zip(filter_columns, keys)]
+                    combined_filter = reduce(lambda a, b: a & b, filters)
+                    filtered_lazy = df_lazy.filter(combined_filter)
 
-                        if tuple(keys) not in key_path_dict:
-                            output_file = "_".join(keys) + ".csv"
-                            output_path = Path(output_dir) / output_file
+                    result = filtered_lazy.collect()
+                    if result.is_empty():
+                        continue
 
-                            filtered_chunk.to_csv(output_path, index=False)
-                            key_path_dict[tuple(keys)] = output_path
-                        else:
-                            output_path = key_path_dict[tuple(keys)]
-                            filtered_chunk.to_csv(output_path, mode='a', header=False, index=False)
+                    output_path = key_path_dict[tuple(keys)]
+
+                    if output_path not in written_files:
+                        result.write_csv(output_path)
+                        written_files.add(output_path)
+                    else:
+                        csv_str = result.write_csv()
+                        lines = csv_str.splitlines(True)
+                        with open(output_path, "a", encoding="utf8") as f:
+                            f.writelines(lines[1:])  # skip header line
 
     return key_path_dict
+
 
 
 def project_iteration_statistics(directories):
