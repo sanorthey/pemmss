@@ -6,7 +6,7 @@ Module with functions for handling spatial data
 # Import non-standard packages
 import geopandas as gpd
 import pandas as pd
-import chardet
+import charset_normalizer
 from shapely.geometry import Point
 
 # Import custom modules
@@ -136,7 +136,7 @@ def deduplicate_columns(columns):
 def detect_encoding(filepath):
     with open(filepath, 'rb') as f:
         raw = f.read()
-        result = chardet.detect(raw)
+        result = charset_normalizer.detect(raw)
         encoding = result['encoding']
         return encoding
 

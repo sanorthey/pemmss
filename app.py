@@ -29,7 +29,7 @@ import shutil
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-import chardet
+import charset_normalizer
 from shiny import App, render, ui, reactive
 from pathlib import Path
 from threading import Thread
@@ -192,7 +192,7 @@ def safe_read_csv(path):
     """Ensures csv files are read by pandas even when non-standard CSV encodings used"""
     with open(path, 'rb') as f:
         raw = f.read(32768)
-        detected = chardet.detect(raw)
+        detected = charset_normalizer.detect(raw)
         encodings = [detected["encoding"], "utf-8-sig", "latin1", "cp1252"]
 
     for enc in encodings:
