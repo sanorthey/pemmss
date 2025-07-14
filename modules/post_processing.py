@@ -31,6 +31,7 @@ from numpy import nan
 import numpy as np
 import imageio
 import pandas as pd
+import polars as pl
 
 # Import custom modules
 
@@ -101,89 +102,103 @@ def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filen
 
 def project_iteration_statistics(directories):
     """
-    Generates and outputs project iteration statistics for each demand scenario directory
+    Generates and outputs project iteration statistics for each demand scenario directory.
 
     returns {demand scenario directory: {'status': filepath}}
     """
     filepath_nested_dict = {}
 
+    int_labels = {
+        -3: 'Development Probability Test Failed',
+        -2: 'Not Valuable Enough to Mine',
+        -1: 'Depleted',
+        0: 'Undeveloped',
+        1: 'Care and Maintenance',
+        2: 'Producing',
+        3: 'Produced and Depleted'
+    }
+    nan_label = 'Undiscovered'
+
     for d in directories:
-        status_filepath = count_iteration_frequencies(d,
-                                                      int_labels={-3: 'Development Probability Test Failed',
-                                                                       -2: 'Not Valuable Enough to Mine',
-                                                                       -1: 'Depleted',
-                                                                       0: 'Undeveloped',
-                                                                       1: 'Care and Maintenance',
-                                                                       2: 'Producing',
-                                                                       3: 'Produced and Depleted'},
-                                                      nan_label='Undiscovered')
+        status_filepath = count_iteration_frequencies(
+            d,
+            int_labels=int_labels,
+            nan_label=nan_label
+        )
         filepath_nested_dict[d] = {'status': status_filepath}
 
     return filepath_nested_dict
 
 
-def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_file="_status.csv", id_vars='P_ID_NUMBER', label='STATUS', int_labels={}, nan_label='Missing', chunksize=100000):
+def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_file="_status.csv",
+                               id_vars='P_ID_NUMBER', label='STATUS', int_labels={}, nan_label='Missing'):
     """
-    Count the frequency of each integer for each ID at each point in time across all files matching the given pattern in the directory.
-
-    Expected input CSV format
-    [ID,  time0,  time1, ...,  time n]
-    [id,    int,    int, ...,     int]
-    [id,    int,    int, ...,     int]
+    Count the frequency of each integer for each ID at each point in time across all files matching the pattern in the directory.
 
     Args:
-    directory (str or Path): The path to the directory containing the files.
-    file_pattern (str): The pattern to match files (e.g., "*.csv").
-    output_file (str): The name of the output CSV file, which will be written in directory.
-    id_vars (str): The column name of the ID variable.
-    label (str): The column name of the integer variable
-    int_labels (dict): Dictionary mapping integer values to labels {int: 'label'}
-    nan_label (str): Label where the count of missing values in a time period will be assigned
-    chunksize (int): The number of rows per chunk when reading CSV files.
+        directory (str or Path): Directory path containing CSV files.
+        file_pattern (str): Pattern to match input CSV files.
+        output_file (str): Filename for output CSV.
+        id_vars (str): ID column name.
+        label (str): Status/label column name.
+        int_labels (dict): Mapping of int values to descriptive labels.
+        nan_label (str): Label for missing/NaN values.
 
-
-    Returns a path to the output_file
+    Returns:
+        Path: Path to the output CSV file.
     """
-    # Convert the directory to a Path object
     directory = Path(directory)
     output_filepath = directory / output_file
 
-    # Initialize a dictionary to store the frequencies
-    overall_counter = {}
-
-    # Iterate over each file matching the pattern in the directory
+    # Collect melted DataFrames for all matching files
+    dfs = []
     for filepath in directory.glob(file_pattern):
-        # Load the file into a dataframe in chunks
-        for chunk in pd.read_csv(filepath, chunksize=chunksize, na_values=['']):
-            # Melt the dataframe to have a long format
-            melted_chunk = chunk.melt(id_vars=[id_vars], var_name='Time', value_name=label)
+        df = pl.read_csv(filepath)
+        time_cols = [col for col in df.columns if col != id_vars]
+        melted = df.melt(id_vars=id_vars, value_vars=time_cols, variable_name="Time", value_name=label)
+        dfs.append(melted)
 
-            # Count the frequency of each value for each ID at each point in time
-            for id, group in melted_chunk.groupby([id_vars, 'Time']):
-                if id not in overall_counter:
-                    overall_counter[id] = Counter()
-                overall_counter[id][group[label].iloc[0]] += len(group)
+    if not dfs:
+        # No matching files, return path anyway
+        return output_filepath
 
-    # Convert the overall_counter to a DataFrame
-    frequency_count_list = []
-    for (id, time), counter in overall_counter.items():
-        for value, count in counter.items():
-            # Handle np.nan explicitly, which occurs when data is missing for a time-period
-            if pd.isna(value):
-                value_label = nan_label
-            else:
-                value_label = int_labels.get(value, f'{value}')  # Label defaults to integer if not found in mapping
-            frequency_count_list.append({id_vars: id, 'Time': time, label: value_label, 'Count': count})
-    frequency_count_df = pd.DataFrame(frequency_count_list)
+    full_df = pl.concat(dfs)
 
-    # Pivot the DataFrame to have each time period as a separate column header
-    frequency_count_df = frequency_count_df.pivot_table(index=[id_vars, label], columns='Time', values='Count')
+    # Count frequency of each value per ID and Time
+    freq_df = (
+        full_df
+        .group_by([id_vars, "Time", label])
+        .agg(pl.count().alias("Count"))
+    )
 
-    # Reset index to make 'Value' a regular column
-    frequency_count_df = frequency_count_df.reset_index()
+    # Ensure label column is Int64 for mapping
+    freq_df = freq_df.with_columns([
+        pl.col(label).cast(pl.Int64).alias(label)
+    ])
 
-    # Write the frequency count dataframe to a CSV file
-    frequency_count_df.to_csv(output_filepath, index=False)
+    # Map integer labels and handle missing with chained when-then-otherwise
+    freq_df = freq_df.with_columns(
+        pl.when(pl.col(label).is_null()).then(pl.lit(nan_label))
+        .when(pl.col(label) == -3).then(pl.lit(int_labels.get(-3)))
+        .when(pl.col(label) == -2).then(pl.lit(int_labels.get(-2)))
+        .when(pl.col(label) == -1).then(pl.lit(int_labels.get(-1)))
+        .when(pl.col(label) == 0).then(pl.lit(int_labels.get(0)))
+        .when(pl.col(label) == 1).then(pl.lit(int_labels.get(1)))
+        .when(pl.col(label) == 2).then(pl.lit(int_labels.get(2)))
+        .when(pl.col(label) == 3).then(pl.lit(int_labels.get(3)))
+        .otherwise(pl.col(label).cast(pl.Utf8))
+        .alias(label)
+    )
+
+    # Pivot to wide format: each Time is a column
+    pivot_df = freq_df.pivot(
+        values="Count",
+        index=[id_vars, label],
+        columns="Time"
+    )
+
+    # Write to CSV
+    pivot_df.write_csv(output_filepath)
 
     return output_filepath
 
