@@ -2,27 +2,24 @@
 ### Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
 This scenario modeling framework evaluates the rates of mine development, mineral exploration and co-product recovery required to meet primary demand over-time.
 
-Development led by Stephen A. Northey
+PEMMSS codebase contributors:
+- Stephen.A. Northey | PEMMSS Architect and Lead Developer 
+- Jayden Hyman | PEMMSS GUI Developer (app.py) and Expert User 
+- Bernardo Mendonca Severiano | PEMMSS Developer (spatial.py) and Expert User
 
-in collaboration with:
-
-S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano and J. Hyman
+PEMMSS model initial conceptualisation: S.A. Northey, S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco
 
 For further information or enquiries email:
     stephen.northey@uts.edu.au
 
-
 ### How to use:
 1. #### Install python and dependent packages
-This version of the model has been developed and tested using python 3.13.5. Additional required packages and the version used during development and testing are shown in requirements.txt. 
+This version of the model has been developed and tested using python 3.13.5. Additional required packages and the version used during development and testing are shown in requirements.txt. Install using pip:
 
-- Instructions for installing python are available at: https://www.python.org/
-- Instructions for installing matplotlib are available at: https://matplotlib.org/
-- Instructions for installing numpy are available at: https://numpy.org/install/
-- Instructions for installing pandas are available at: https://pandas.pydata.org/pandas-docs/stable/getting_started/install.html
-- Instructions for installing imageio are available at: https://imageio.readthedocs.io/en/stable/user_guide/installation.html
-
-
+```angular2html
+cd <\path_to_pemmss_folder>
+pip install -r requirements.txt
+```
 
 2. #### Scenario Data Input and Calibration
 Adjust scenario parameters and calibrate the model by modifying the CSV files located in the **input_files/** subdirectory.
@@ -57,3 +54,7 @@ We request that any reference to this model in publications or presentations cit
 
 Northey, S.A., Klose, S., Pauliuk, S., Yellishetty, M., Giurco, D. (2023). Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model: Towards a stochastic understanding of the mineral discovery, mine development and co-product recovery requirements to meet demand in a low-carbon future. Resources, Conservation & Recycling Advances 17: 200137. https://doi.org/10.1016/j.rcradv.2023.200137 
 
+### Keep track of updates
+Don't forget about PEMMSS. Smash your GitHub Watch and Star buttons to follow along!
+
+[![Star History Chart](https://api.star-history.com/svg?repos=sanorthey/pemmss&type=Date)](https://www.star-history.com/#sanorthey/pemmss&Date)
