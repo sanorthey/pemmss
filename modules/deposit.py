@@ -751,6 +751,9 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
         a = mu, mean
         b = sigma, standard deviation
         c = max grade
+    grade_model = 'uniform' |
+        a = lower bound
+        b = upper bound
 
     Note | Factors passed from coproduct_grade_generate are likely to be strings and need type conversion.
     """
@@ -771,6 +774,10 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
         grade = abs(random.lognormvariate(float(a), float(b)))
         if grade > float(c):
             grade = float(c)
+    elif grade_model == "uniform":
+        # Uniform grade distribution
+        # Distribution | 'a' = lower bound, 'b' = upper bound
+        grade = random.uniform(float(a), float(b))
     else:
         export_log('Invalid grade model ' + str(grade_model), output_path=log_file, print_on=1)
     return grade
@@ -805,6 +812,9 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
     tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
     tonnage distribution, 4. User-defined tonnage distribution
+    tonnage_model = 'uniform' |
+        a = lower bound
+        b = upper bound
     # TODO: cleanup, grade-dependent distribution currently not implemented
     """
     a = factors['a']
@@ -821,6 +831,10 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
         tonnage = abs(random.lognormvariate(float(a), float(b)))
         if tonnage > float(c):
             tonnage = float(c)
+    elif size_model == "uniform":
+        # Uniform tonnage distribution
+        # Distribution | 'a' = lower bound, 'b' = upper bound
+        tonnage = random.uniform(float(a), float(b))
     else:
         export_log('Invalid tonnage model ' + str(size_model), output_path=log_file, print_on=1)
     return tonnage

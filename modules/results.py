@@ -107,7 +107,7 @@ def generate_statistics(key, project_list, time_range, demand_factors):
         for time_key in time_range:
             status = p.status_timeseries.get(time_key, None)
             if status is not None:
-                if status == 1 and p.start_year is not None and p.start_year <= time_key:
+                if status == 1 and p.start_year is not None and (p.start_year == -9999 or p.start_year <= time_key):
                     return_stats[key + ('mines_care_maintenance_count',)][time_key] += 1
                 elif status == -1:
                     return_stats[key + ('mines_depleted_count',)][time_key] += 1

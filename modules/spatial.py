@@ -7,6 +7,8 @@ Module with functions for handling spatial data
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import Point
+import rasterio
+from rasterio.enums import Resampling
 
 # Import custom modules
 from modules.file_export import export_log
@@ -191,3 +193,30 @@ def save_scenario_geopackage(geodataframe, scenario_folders):
             print(f"Failed to save geopackage for scenario {j}: {e}")
 
     return output_paths
+
+
+def add_overviews_to_raster(raster_path):
+    """
+    Adds overviews (pyramids) to a given raster file.
+
+    Overviews are downsampled versions of the raster data that can significantly
+    improve the performance of rendering the raster at different zoom levels in
+    mapping applications.
+
+    Args:
+        raster_path (str): The file path to the raster file.
+    """
+    try:
+        with rasterio.open(raster_path, 'r+') as ds:
+            if ds.overviews(1):
+                print(f"Overviews already exist for {raster_path}")
+                return
+
+            print(f"Adding overviews to {raster_path}...")
+            # Define the overview levels. This will create overviews at 1/2, 1/4, 1/8, and 1/16 resolution.
+            factors = [2, 4, 8, 16]
+            ds.build_overviews(factors, Resampling.average)
+            print("Overviews added successfully.")
+
+    except Exception as e:
+        print(f"Error adding overviews: {e}")

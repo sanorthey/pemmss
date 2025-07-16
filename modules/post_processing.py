@@ -31,6 +31,8 @@ from numpy import nan
 import numpy as np
 import imageio
 import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
 
 # Import custom modules
 
@@ -51,7 +53,7 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
 
     filter_columns = ["STATISTIC" for s in updated_postprocessing]
     filter_keys = [[s] for s in updated_postprocessing]
-    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder, filter_columns, filter_keys, filenameend="_statistics.csv")
+    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder,filter_columns,filter_keys, filenameend="statistics.csv")
     for s, path in key_output_filepath_dict.items():
         updated_postprocessing[s[0]].update({'path': path})  #s [0] because s is a tuple (s,) with an extra, empty element. Should really fix this up.
 
@@ -107,8 +109,8 @@ def project_iteration_statistics(directories):
     """
     filepath_nested_dict = {}
 
-    for d in directories:
-        status_filepath = count_iteration_frequencies(d,
+    for dir in directories:
+        status_filepath = count_iteration_frequencies(dir,
                                                       int_labels={-3: 'Development Probability Test Failed',
                                                                        -2: 'Not Valuable Enough to Mine',
                                                                        -1: 'Depleted',
@@ -117,7 +119,7 @@ def project_iteration_statistics(directories):
                                                                        2: 'Producing',
                                                                        3: 'Produced and Depleted'},
                                                       nan_label='Undiscovered')
-        filepath_nested_dict[d] = {'status': status_filepath}
+        filepath_nested_dict[dir] = {'status': status_filepath}
 
     return filepath_nested_dict
 
@@ -188,6 +190,86 @@ def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_f
     return output_filepath
 
 
+def process_project_status_data(scenario_folder, input_projects_path):
+    """
+    Process status data for a scenario, merge with project data, and create a geopackage.
+    """
+    status_path = scenario_folder / "_status.csv"
+    if not status_path.exists():
+        return None
+        
+    status_df = pd.read_csv(status_path)
+    year_columns = [col for col in status_df.columns if col.isdigit()]
+    
+    STATUS_LABELS = {
+        -3: 'Development Probability Test Failed',
+        -2: 'Not Valuable Enough to Mine',
+        -1: 'Depleted',
+        0: 'Undeveloped',
+        1: 'Care and Maintenance',
+        2: 'Producing',
+        3: 'Produced and Depleted'
+    }
+    
+    STATUS_CODES = {v: k for k, v in STATUS_LABELS.items()}
+    result_data = []
+    
+    for project_id in status_df['P_ID_NUMBER'].unique():
+        project_data = status_df[status_df['P_ID_NUMBER'] == project_id]
+        row_data = {'P_ID_NUMBER': project_id}
+        
+        for year in year_columns:
+            total_simulations = project_data[year].sum()
+            
+            if total_simulations == 0:
+                row_data[year] = "Unknown"
+                continue
+                
+            status_counts = project_data.groupby('STATUS')[year].sum()
+            if status_counts.empty:
+                row_data[year] = "Unknown"
+                continue
+            
+            status_probs = status_counts / total_simulations
+            sorted_statuses = status_probs.sort_values(ascending=False)
+            status_strings = []
+            for status, prob in sorted_statuses.items():
+                status_code = STATUS_CODES.get(status, "?")
+                status_strings.append(f"{status_code}:{prob:.2f}")
+            
+            row_data[year] = ";".join(status_strings)
+        
+        result_data.append(row_data)
+    
+    result_df = pd.DataFrame(result_data)
+    projects_df = pd.read_csv(input_projects_path)
+    projects_with_status = projects_df.merge(result_df, on='P_ID_NUMBER', how='left')
+    projects_with_status.to_csv(scenario_folder / "projects_with_status.csv", index=False)
+    
+    projects_with_status = projects_with_status.copy()
+    
+    projects_with_status['LATITUDE'] = pd.to_numeric(projects_with_status['LATITUDE'])
+    projects_with_status['LONGITUDE'] = pd.to_numeric(projects_with_status['LONGITUDE'])
+    
+    # Filter to valid coordinate ranges
+    valid_projects = projects_with_status[
+        projects_with_status['LATITUDE'].notna() & 
+        projects_with_status['LONGITUDE'].notna() &
+        projects_with_status['LATITUDE'].between(-90, 90) &
+        projects_with_status['LONGITUDE'].between(-180, 180)
+    ]
+    
+    geometries = []
+    for _, row in valid_projects.iterrows():
+        geometries.append(Point(row['LONGITUDE'], row['LATITUDE']))
+    
+    projects_gdf = gpd.GeoDataFrame(valid_projects, geometry=geometries, crs="EPSG:4326")
+    output_path = scenario_folder / "projects.gpkg"
+    projects_gdf.to_file(output_path, driver='GPKG')
+    
+    return output_path
+
+
 def generate_figure(statistics_files, graph, graph_formatting, output_folder):
     """
     post_processing.generate_figure(statistics_files, graph, output_graphs_folder)
@@ -227,13 +309,54 @@ def filter_statistics(statistics, g):
     i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys, t_keys = \
         (g['i_keys'], g['j_keys'], g['a_keys'], g['r_keys'], g['d_keys'], g['c_keys'], g['s_keys'], g['t_keys'])
 
-    filtered_statistics = {
-        key: statistics[key]
-        for key in statistics
-        if filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys)
-    }
+    average_j = isinstance(j_keys, list) and j_keys == ['ALL']
 
-    return filtered_statistics
+    if average_j:
+        all_j_iterations = set(key[1] for key in statistics if key[1] != 'ALL')
+        total_j_count = len(all_j_iterations)
+        if total_j_count == 0:
+            return {}
+
+        all_group_keys = set()
+        all_time_points_by_group = defaultdict(set)
+
+        for key, time_values in statistics.items():
+            i, j, a, r, d, c, s = key
+            if j in all_j_iterations and filter_key_tuple((i, 'placeholder', a, r, d, c, s), i_keys, True, a_keys, r_keys, d_keys, c_keys, s_keys):
+                group_key = (i, 'ALL', a, r, d, c, s)
+                all_group_keys.add(group_key)
+                all_time_points_by_group[group_key].update(time_values.keys())
+
+
+        averaged_statistics = {}
+        for group_key in all_group_keys:
+            i, _, a, r, d, c, s = group_key
+            averaged_time_values = {}
+            sorted_time_points = sorted(list(all_time_points_by_group[group_key]))
+
+            for t in sorted_time_points:
+                current_sum = 0.0
+                for j_iter in all_j_iterations:
+                    iter_key = (i, j_iter, a, r, d, c, s)
+                    val = statistics.get(iter_key, {}).get(t)
+                    if val is not None:
+                        current_sum += val
+
+                average_val = current_sum / total_j_count
+                averaged_time_values[t] = average_val
+
+            if averaged_time_values:
+                averaged_statistics[group_key] = averaged_time_values
+
+        return averaged_statistics
+
+    else:
+        filtered_statistics = {
+            key: statistics[key]
+            for key in statistics
+            if filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys)
+        }
+        return filtered_statistics
 
 
 def filter_key_tuple(key, i_keys, j_keys, a_keys, r_keys, d_keys, c_keys, s_keys):
@@ -345,7 +468,9 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
     x | for stacked plots x[0] should equal any x[any]
     """
-    matplotlib.use('Agg')  # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
+    matplotlib.use('Agg') # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
+
+
 
     # Plot text formatting
     TEXT_SIZE_DEFAULT = 7
@@ -365,13 +490,13 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     # Generating plot with subplots
     if share_scale == True:
         # Subplots have common scale
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 7/2.54, h_panels * 7/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
     elif share_scale == False:
         # Subplots have independent scales
-        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
+        fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 7/2.54, h_panels * 7/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
 
     # Create an iterator for the subplots (e.g. commodity keys)
-    subplots = iter(sorted(plot))
+    subplots = iter(plot)
 
     # Create a dictionary to store subplot coordinates
     subplot_coords = {(h, v): next(subplots, None) for h, v in
@@ -481,16 +606,20 @@ def generate_fill(axis, x, y, l_format, force_legend_suppress=False):
 def series_modify(data_series, cumulative=False, replace_none=False):
     modified_series = []
     for series_list in data_series:
-        if cumulative:
-            series_list = [0 if v is None else v for v in series_list]
-            filtered_list = np.nan_to_num(series_list, nan=0.0) # Change None values to 0. Change nan values to 0.
-            modified_series.append(np.cumsum(filtered_list).tolist())
-        elif replace_none is not False:
-            modified_series.append(np.where(np.array(series_list) == None, replace_none, series_list).tolist())
-        else:
-            modified_series.append(series_list)
-    return modified_series
+        # Convert to numpy array early to handle None/NaN consistently
+        series_array = np.array(series_list, dtype=float) # Use float for NaN capability
 
+        if replace_none is not False:
+             # Replace both None (which becomes NaN in float array) and existing NaN
+            series_array[np.isnan(series_array)] = float(replace_none)
+
+        if cumulative:
+            # Cumulative sum naturally handles the 0s introduced above
+             modified_series.append(np.cumsum(series_array).tolist())
+        else:
+             modified_series.append(series_array.tolist())
+
+    return modified_series
 
 def series_stack(data_series, data_height):
     # Convert data_series and data_height to NumPy arrays

@@ -10,3 +10,8 @@ ipyleaflet==0.18.2
 ipywidgets==7.6.5
 plotly==4.14.3
 anywidget==0.9.18
+rasterio
+localtileserver
+rioxarray
+xarray
+matplotlib-colors
