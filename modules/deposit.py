@@ -747,6 +747,7 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
     'factors' input must be a dictionary with 'grade_model', 'a', 'b', 'c' and 'd' defined.
     grade_model = 'fixed' | 'a' = grade
     grade_model = 'multiple' | 'a' = grade, 'b' = multiplier
+    grade_model = 'uniform' | 'a' = min grade, 'b' = max grade
     grade_model = 'lognormal' |
         a = mu, mean
         b = sigma, standard deviation
@@ -765,6 +766,9 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
     elif grade_model == "multiple":
         # Multiple of main commodity grade | 'a' = commodity name, 'b' = grade multiplier, grade_dictionary = {commodity: value}
         grade = grade_dictionary[a][tranche] * float(b)
+    elif grade_model == "uniform":
+        # Uniform grade distribution | 'a' = min grade, 'b' = max grade
+        grade = random.uniform(float(a), float(b))
     elif grade_model == "lognormal":
         # Lognormal grade distribution
         # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
@@ -803,8 +807,8 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     """
     Returns a resource tonnage, generated in accordance with defined distributions.
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
-    tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
-    tonnage distribution, 4. User-defined tonnage distribution
+    tonnage_model : 1. Fixed tonnage distribution, 2. Uniform tonnage distribution, 3. Lognormal tonnage distribution, 4. Lognormal-grade dependent
+    tonnage distribution, 5. User-defined tonnage distribution
     # TODO: cleanup, grade-dependent distribution currently not implemented
     """
     a = factors['a']
@@ -815,6 +819,9 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     if size_model == "fixed":
         # Fixed tonnage | 'a' = tonnage
         tonnage = float(a)
+    elif size_model == "uniform":
+        # Uniform tonnage distribution | 'a' = min tonnage, 'b' = max tonnage
+        tonnage = random.uniform(float(a), float(b))
     elif size_model == "lognormal":
         # Lognormal tonnage distribution
         # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
@@ -926,6 +933,8 @@ def value_model(value_factors, ore, ore_grade, recovery, production_capacity, lo
         return ore_grade * production_capacity * recovery * a
     elif model == 'power_of_size':
         return a * ore ** b
+    elif model == 'random_uniform':
+        return random.uniform(a, b)
     else:
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
 
