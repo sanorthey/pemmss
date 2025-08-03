@@ -12,9 +12,9 @@ This app.py file should exist in the same directory as the pemmss.py file.
 To run the app, in the terminal run the command 'shiny run app.py', or 'python app.py'.
 
 Author: Jayden Hyman
-Date: 2025-05-26
-Version: 0.2.0
-Compatability: PEMMSS Version 1.3.1
+Date: 2025-08-03
+Version: 0.3.0
+Compatability: PEMMSS Version 1.4.0
 License: BSD 3-Clause License
 Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets, plotly, anywidget
 """
@@ -46,7 +46,6 @@ output_files_path = current_dir / "output_files"
 input_files_path.mkdir(parents=True, exist_ok=True)
 input_files_cache_path.mkdir(parents=True, exist_ok=True)
 output_files_path.mkdir(parents=True, exist_ok=True)
-plt.rcParams['font.size'] = 8
 
 STATUS_LABELS = {
     -3: 'Development Probability Test Failed',
@@ -70,21 +69,13 @@ STATUS_COLORS = {
 
 # ==================== Shared Functions ====================
 
-def calculate_contained_resource(resource_str, grade_str):
-    """Calculate contained resource from resource and grade strings."""
-    resources = [float(r) for r in str(resource_str).split(';')]
-    grades = [float(g) for g in str(grade_str).split(';')]
-    return sum(r * g for r, g in zip(resources, grades))
-
 def get_project_status_info(project_id, status_df, year):
     """Get status information for a project at a given year."""
     year_str = str(year)
 
-    # Convert the year column to numeric, coercing errors to 0
     if year_str in status_df.columns:
         status_df[year_str] = pd.to_numeric(status_df[year_str], errors='coerce').fillna(0)
     else:
-        # If year column missing, return empty info
         return {}, ""
 
     project_status_data = status_df[status_df['P_ID_NUMBER'] == project_id]
@@ -113,24 +104,24 @@ def get_project_status_info(project_id, status_df, year):
     return status_info, max_status
 
 
-def prepare_project_data(projects_df, status_df, year):
-    """Prepare project data with status information for visualization."""
-
-    # Convert year columns to numeric to avoid comparison issues
-    status_df = status_df.copy()
-    year_columns = [col for col in status_df.columns if col.isdigit()]
-    for col in year_columns:
-        status_df[col] = pd.to_numeric(status_df[col], errors='coerce').fillna(0)
-
+def prepare_all_project_data(projects_df, status_df):
+    """Prepare project data for all years at once for caching."""
     required_columns = ['LATITUDE', 'LONGITUDE', 'NAME', 'P_ID_NUMBER', 'REGION',
-                       'DEPOSIT_TYPE', 'COMMODITY', 'REMAINING_RESOURCE', 'GRADE', 'STATUS']
+                       'DEPOSIT_TYPE', 'COMMODITY', 'REMAINING_RESOURCE', 'GRADE', 'STATUS', 
+                       'RECOVERY', 'DEVELOPMENT_PROBABILITY', 'START_YEAR']
     
     missing_columns = [col for col in required_columns if col not in projects_df.columns]
     if missing_columns:
-        return None
+        return None, None, []
     
-    # Filter valid projects, convert LATITUDE and LONGITUDE to numeric, make errors or missing as NaN
-    valid_projects = projects_df
+    year_columns = [col for col in status_df.columns if col.isdigit()]
+    if not year_columns:
+        return None, None, []
+    
+    for col in year_columns:
+        status_df[col] = pd.to_numeric(status_df[col], errors='coerce').fillna(0)
+    
+    valid_projects = projects_df.copy()
     valid_projects['LATITUDE'] = pd.to_numeric(valid_projects['LATITUDE'], errors='coerce')
     valid_projects['LONGITUDE'] = pd.to_numeric(valid_projects['LONGITUDE'], errors='coerce')
     valid_projects = valid_projects.dropna(subset=['LATITUDE', 'LONGITUDE', 'REMAINING_RESOURCE', 'GRADE'])
@@ -140,53 +131,74 @@ def prepare_project_data(projects_df, status_df, year):
     ]
     
     if valid_projects.empty:
-        return None
+        return None, None, []
     
-    valid_projects['CONTAINED_RESOURCE'] = valid_projects.apply(
-        lambda row: calculate_contained_resource(row['REMAINING_RESOURCE'], row['GRADE']), 
-        axis=1
+    has_semicolons = (
+        valid_projects['REMAINING_RESOURCE'].str.contains(';', na=False).any() or
+        valid_projects['GRADE'].str.contains(';', na=False).any()
     )
     
-    valid_projects['FIRST_RESOURCE'] = valid_projects['REMAINING_RESOURCE'].apply(
-        lambda x: float(str(x).split(';')[0])
-    )
-    valid_projects['FIRST_GRADE'] = valid_projects['GRADE'].apply(
-        lambda x: float(str(x).split(';')[0])
-    )
+    year_data = {}
+    grouped_status = status_df.groupby('P_ID_NUMBER')
     
-    min_resource = valid_projects['CONTAINED_RESOURCE'].min()
-    max_resource = valid_projects['CONTAINED_RESOURCE'].max()
-    valid_projects['NORMALIZED_RESOURCE'] = (valid_projects['CONTAINED_RESOURCE'] - min_resource) / (max_resource - min_resource)
-    
-    status_data = []
-    for _, row in valid_projects.iterrows():
-        status_info, max_status = get_project_status_info(row['P_ID_NUMBER'], status_df, year)
-        status_data.append({
-            'status_info': status_info,
-            'max_status': max_status,
-            'marker_color': STATUS_COLORS.get(max_status, 'gray')
-        })
-    
-    valid_projects['STATUS_INFO'] = [s['status_info'] for s in status_data]
-    valid_projects['MAX_STATUS'] = [s['max_status'] for s in status_data]
-    valid_projects['MARKER_COLOR'] = [s['marker_color'] for s in status_data]
-    
-    return valid_projects
+    for year in year_columns:
+        year_int = int(year)
+        total_sims = grouped_status[year].sum().to_dict()
+        status_percentages = []
+        for project_id in valid_projects['P_ID_NUMBER']:
+            if project_id in total_sims and total_sims[project_id] > 0:
+                project_data = status_df[status_df['P_ID_NUMBER'] == project_id]
+                status_counts = project_data.groupby('STATUS')[year].sum()
+                percentages = (status_counts / total_sims[project_id] * 100).to_dict()
+                max_pct = 0
+                max_status = ""
+                for status, pct in percentages.items():
+                    if pct > max_pct:
+                        max_pct = pct
+                        max_status = status
+                
+                status_percentages.append({
+                    'status_info': percentages,
+                    'max_status': max_status,
+                    'marker_color': STATUS_COLORS.get(max_status, 'gray')
+                })
+            else:
+                status_percentages.append({
+                    'status_info': {},
+                    'max_status': "",
+                    'marker_color': 'gray'
+                })
+        year_data[year_int] = pd.DataFrame(status_percentages)
+    return valid_projects, year_data, [int(y) for y in year_columns], has_semicolons
+
 
 def create_hover_text(row, status_info, year):
     """Create hover text for project information."""
-    status_text = "<br>".join([f"{label}: {percentage:.2f}%" for label, percentage in status_info.items()])
-    return (f"<b>{row['NAME']}</b><br>"
-            f"<b>Project ID:</b> {row['P_ID_NUMBER']}<br>"
-            f"<b>Region:</b> {row['REGION']}<br>"
-            f"<b>Deposit type:</b> {row['DEPOSIT_TYPE']}<br>"
-            f"<b>Commodity:</b> {row['COMMODITY']}<br>"
-            f"<b>Initial resource:</b> {row['REMAINING_RESOURCE']}<br>"
-            f"<b>Grade:</b> {row['GRADE']}<br>"
-            f"<b>Contained commodity:</b> {row['CONTAINED_RESOURCE']:.0f}<br>"
-            f"<b>Initial status:</b> {row['STATUS']}<br>"
+    try:
+        status_text = "<br>".join([
+            f"{label}: {percentage:.2f}%" 
+            for label, percentage in status_info.items() 
+            if isinstance(percentage, (int, float))
+        ])
+        
+        return (
+            f"<b>{row.get('NAME', 'Unknown')}</b><br>"
+            f"<b>Project ID:</b> {row.get('P_ID_NUMBER', 'N/A')}<br>"
+            f"<b>Region:</b> {row.get('REGION', 'N/A')}<br>"
+            f"<b>Deposit type:</b> {row.get('DEPOSIT_TYPE', 'N/A')}<br>"
+            f"<b>Commodity:</b> {row.get('COMMODITY', 'N/A')}<br>"
+            f"<b>Initial resource:</b> {row.get('REMAINING_RESOURCE', 'N/A')}<br>"
+            f"<b>Grade:</b> {row.get('GRADE', 'N/A')}<br>"
+            f"<b>Recovery:</b> {row.get('RECOVERY', 'N/A')}<br>"
+            f"<b>Initial status:</b> {row.get('STATUS', 'N/A')}<br>"
+            f"<b>Development probability:</b> {row.get('DEVELOPMENT_PROBABILITY', 'N/A')}<br>"
+            f"<b>Start year:</b> {row.get('START_YEAR', 'N/A')}<br>"
             f"<b>Status percentages for {year}:</b><br>"
-            f"{status_text}")
+            f"{status_text}"
+        )
+    except Exception as e:
+        print(f"Error creating hover text: {e}")
+        return f"<b>{row.get('NAME', 'Unknown Project')}</b><br>Error loading project details"
 
 def safe_read_csv(path):
     """Ensures csv files are read by pandas even when non-standard CSV encodings used"""
@@ -217,8 +229,11 @@ app_ui = ui.page_fluid(ui.tags.style(
         ui.nav_panel("Inputs",
             ui.layout_sidebar(
                 ui.sidebar(
+                    ui.output_ui("scenario_selector_ui"),
+                    ui.input_action_button("load_scenario_btn", "Load scenario"),
+                    ui.hr(),
                     ui.output_ui("csv_inputs"),
-                    ui.input_action_button("open_csv", "Open file", class_="btn-success"),
+                    ui.input_action_button("open_csv", "Open file"),
                     ui.input_action_button("btn", "Run simulation", class_="btn-primary"),
                 ),
                 ui.output_data_frame("editable_df"),
@@ -230,18 +245,11 @@ app_ui = ui.page_fluid(ui.tags.style(
             ui.layout_sidebar(
                 ui.sidebar(
                     ui.output_ui("folder_ui"),
-                    ui.input_action_button("rename_folder_btn", "Rename folder", class_="btn-primary"),
+                    ui.input_action_button("rename_folder_btn", "Rename folder"),
                     ui.output_ui("png_files_ui"),
-                    ui.output_ui("inp_arc_ui"),
-                    ui.output_ui("stats_files_ui"),
-                    ui.input_action_button("reprocess_btn", "Reprocess outputs", class_="btn-primary"),
+                    ui.input_action_button("reprocess_btn", "Reprocess outputs"),
                 ),
-                ui.navset_tab(
-                    ui.nav_panel("Plots", ui.output_image("image", height="100%", width="100%")),
-                    ui.nav_panel("Inputs", ui.output_data_frame("table_inputs")),
-                    ui.nav_panel("Statistics", ui.output_data_frame("table_stats")),
-                    ui.nav_panel("Log", ui.output_text_verbatim("log_text")),
-                ),
+                ui.output_image("image", height="100%", width="100%"),
             width=2
             )
         ),
@@ -253,16 +261,15 @@ app_ui = ui.page_fluid(ui.tags.style(
                     ui.output_ui("year_slider"),
 
                 ),
-                ui.row(
-                    ui.column(6,
-                        ui.h4("Geographic distribution"),
+                ui.navset_tab(
+                    ui.nav_panel("Geographic distribution",
                         ui.div(
                             output_widget("map"),
                             class_="map-container"
                         )
                     ),
-                    ui.column(6,
-                        ui.h4("Resource and grade"),
+                    ui.nav_panel("Resource and grade",
+                        ui.output_ui("commodity_selector_ui"),
                         ui.div(
                             output_widget("scatter_plot"),
                             class_="plotly-container"
@@ -289,22 +296,22 @@ app_ui = ui.page_fluid(ui.tags.style(
 def server(input, output, session):
     log_content = reactive.Value("")
     current_year = reactive.Value(None)
+    input_source = reactive.Value("default")
+    cached_data = reactive.Value(None)
+    map_state = reactive.Value({})
+    selected_commodity = reactive.Value(None)
 
     current_selections = reactive.Value({
-        "png_file": None,
-        "inp_arc_file": None,
-        "stats_file": None
+        "png_file": None
     })
 
     # ==================== Folder and File Selection Logic ====================
 
     @reactive.Effect
-    @reactive.event(input.png_file, input.inp_arc_file, input.stats_file)
+    @reactive.event(input.png_file)
     def update_current_selections():
         current_selections.set({
-            "png_file": input.png_file(),
-            "inp_arc_file": input.inp_arc_file(),
-            "stats_file": input.stats_file()
+            "png_file": input.png_file()
         })
 
     @reactive.Effect
@@ -313,8 +320,6 @@ def server(input, output, session):
         new_folder = input.folder()
         if new_folder:
             update_file_list("png_file", get_png_files())
-            update_file_list("inp_arc_file", get_inp_arc_files())
-            update_file_list("stats_file", get_stats_files())
 
     def update_file_list(file_type, new_files):
         current_file = current_selections()[file_type]
@@ -340,22 +345,6 @@ def server(input, output, session):
         if folder:
             graphs_folder = output_files_path / folder / "_graphs"
             return [f for f in os.listdir(graphs_folder) if f.endswith(('.png', '.gif'))] if graphs_folder.exists() else []
-        return []
-
-    @reactive.Calc
-    def get_inp_arc_files():
-        folder = input.folder()
-        if folder:
-            input_files_folder = output_files_path / folder / "_input_files"
-            return [f for f in os.listdir(input_files_folder) if f.endswith('.csv')] if input_files_folder.exists() else []
-        return []
-
-    @reactive.Calc
-    def get_stats_files():
-        folder = input.folder()
-        if folder:
-            stats_files_folder = output_files_path / folder / "_statistics"
-            return [f for f in os.listdir(stats_files_folder) if f.endswith('.csv')] if stats_files_folder.exists() else []
         return []
 
     @reactive.Effect
@@ -410,56 +399,80 @@ def server(input, output, session):
             return ui.input_select("png_file", "Output figures:", choices=files, selected=selected)
         return ui.div("No PNG files found in the selected folder.")
 
-    @output
-    @render.ui
-    def stats_files_ui():
-        files = get_stats_files()
-        if files:
-            selected = current_selections()["stats_file"] if current_selections()["stats_file"] in files else files[0]
-            return ui.input_select("stats_file", "Output statistics:", choices=files, selected=selected)
-        return ui.div("No CSV files found in the selected folder.")
 
     @output
     @render.ui
-    def inp_arc_ui():
-        files = get_inp_arc_files()
-        if files:
-            selected = current_selections()["inp_arc_file"] if current_selections()["inp_arc_file"] in files else files[0]
-            return ui.input_select("inp_arc_file", "Inputs archive:", choices=files, selected=selected)
-        return ui.div("No CSV files found in the selected folder.")
+    def scenario_selector_ui():
+        folders = get_folders()
+        if folders:
+            choices = ["Current input files"] + folders
+            return ui.input_select("scenario_selector", "Source:", choices=choices, selected="Current input files")
+        else:
+            return ui.input_select("scenario_selector", "Source:", choices=["Current input files"], selected="Current input files")
 
+    @reactive.Effect
+    @reactive.event(input.scenario_selector)
+    def update_input_source():
+        if input.scenario_selector() == "Current input files":
+            input_source.set("default")
+        else:
+            input_source.set(input.scenario_selector())
+        ui.update_select("csv_input", choices=get_current_csv_files())
 
     # ==================== CSV Input Handling ====================
+
+    @reactive.Calc
+    def get_current_csv_files():
+        if input_source.get() == "default":
+            try:
+                return sorted([f for f in os.listdir(input_files_path) if f.endswith('.csv')])
+            except FileNotFoundError:
+                return []
+        else:
+            scenario_input_path = output_files_path / input_source.get() / "_input_files"
+            if scenario_input_path.exists():
+                try:
+                    return sorted([f for f in os.listdir(scenario_input_path) if f.endswith('.csv')])
+                except FileNotFoundError:
+                    return []
+            return []
 
     @output
     @render.ui
     def csv_inputs():
-        try:
-            csv_inputs = [f for f in os.listdir(input_files_path) if f.endswith('.csv')]
-        except FileNotFoundError:
-            print(f"Input files directory not found: {input_files_path}")
-            csv_inputs = []
-        if csv_inputs:
-            select_input = ui.input_select("csv_input", "Input files:", choices=csv_inputs)
+        csv_files = get_current_csv_files()
+        if csv_files:
+            select_input = ui.input_select("csv_input", "Input files:", choices=csv_files)
+            if input_source.get() != "default":
+                return ui.tags.div(
+                    ui.tags.small(f"Viewing from: {input_source.get()}", class_="text-warning"),
+                    select_input
+                )
             return ui.tags.div(select_input)
         else:
-            return ui.div(f"No CSV files found in {input_files_path}")
+            return ui.div("No CSV files found")
 
     @reactive.Calc
     def load_csv():
-        csv_path = input_files_path / input.csv_input()
-        if csv_path.exists():
-            df = safe_read_csv(csv_path)
-            return df
+        if input_source.get() == "default":
+            csv_path = input_files_path / input.csv_input()
         else:
-            print(f"CSV file not found: {csv_path}")
+            csv_path = output_files_path / input_source.get() / "_input_files" / input.csv_input()
+        
+        if csv_path.exists():
+            return safe_read_csv(csv_path)
+        else:
             return pd.DataFrame()
 
     @reactive.effect
     def open_selected_csv():
         if input.open_csv() > 0:
             with reactive.isolate():
-                selected_file_path = input_files_path / input.csv_input()
+                if input_source.get() == "default":
+                    selected_file_path = input_files_path / input.csv_input()
+                else:
+                    selected_file_path = output_files_path / input_source.get() / "_input_files" / input.csv_input()
+                
                 if selected_file_path.exists():
                     if sys.platform == "win32":
                         subprocess.run(f'start "" "{selected_file_path}"', shell=True)
@@ -471,14 +484,20 @@ def server(input, output, session):
     @output
     @render.data_frame
     def editable_df():
+        df = load_csv()
+        editable = (input_source.get() == "default")
         return render.DataGrid(
-            data=load_csv(),
-            editable=True,
+            data=df,
+            editable=editable,
             height="900px",
         )
 
     @editable_df.set_patch_fn
     def _(*, patch: render.CellPatch) -> render.CellValue:
+        if input_source.get() != "default":
+            ui.notification_show("Cannot edit files from scenario folders. Load them first.", type="warning", duration=3)
+            return patch["value"]
+        
         csv_path = input_files_path / input.csv_input()
         df = safe_read_csv(csv_path)
         df = df.astype('object')
@@ -487,11 +506,72 @@ def server(input, output, session):
         df.to_csv(csv_path, index=False)
         return patch["value"]
 
+    @reactive.Effect
+    @reactive.event(input.load_scenario_btn)
+    def load_scenario_inputs():
+        if input.scenario_selector() == "Current input files":
+            ui.notification_show("Already using current input files.", type="info", duration=3)
+            return
+        
+        scenario_folder = input.scenario_selector()
+        scenario_input_path = output_files_path / scenario_folder / "_input_files"
+        
+        if not scenario_input_path.exists():
+            ui.notification_show(f"No input files found for scenario: {scenario_folder}", type="error", duration=5)
+            return
+        
+        ui.modal_show(ui.modal(
+            ui.p(f"This will overwrite all current input files with files from '{scenario_folder}'. Are you sure?"),
+            ui.input_action_button("confirm_load", "Yes, load files", class_="btn-warning"),
+            ui.input_action_button("cancel_load", "Cancel", class_="btn-secondary"),
+            title="Confirm Load Scenario Files",
+            easy_close=True
+        ))
+
+    @reactive.Effect
+    @reactive.event(input.confirm_load)
+    def confirm_load_scenario():
+        scenario_folder = input.scenario_selector()
+        scenario_input_path = output_files_path / scenario_folder / "_input_files"
+        
+        try:
+            csv_files = sorted([f for f in os.listdir(scenario_input_path) if f.endswith('.csv')])
+            
+            if not csv_files:
+                ui.notification_show("No CSV files found in scenario folder.", type="warning", duration=5)
+                ui.modal_remove()
+                return
+            
+            for csv_file in csv_files:
+                src = scenario_input_path / csv_file
+                dst = input_files_path / csv_file
+                shutil.copy2(src, dst)
+            
+            ui.update_select("scenario_selector", selected="Current input files")
+            input_source.set("default")
+            ui.update_select("csv_input", choices=get_current_csv_files())
+            
+            ui.notification_show(f"Successfully loaded {len(csv_files)} files from '{scenario_folder}'", type="success", duration=5)
+            
+        except Exception as e:
+            ui.notification_show(f"Error loading files: {str(e)}", type="error", duration=5)
+        
+        ui.modal_remove()
+
+    @reactive.Effect
+    @reactive.event(input.cancel_load)
+    def cancel_load():
+        ui.modal_remove()
+
     # ==================== Simulation and Processing ====================
 
     @reactive.Effect
     @reactive.event(input.btn)
     async def run_pemmss():
+        if input_source.get() != "default":
+            ui.notification_show("Please switch to 'Current input files' before running simulation.", type="warning", duration=5)
+            return
+        
         static_files = import_static_files(input_files_path, input_files_cache_path)
         parameters = static_files['parameters']
         total_simulations = sum(param['iterations'] for param in parameters.values())
@@ -539,29 +619,7 @@ def server(input, output, session):
         folder = input.folder()
         update_log_content(folder)
 
-    @output
-    @render.text
-    def log_text():
-        return log_content()
 
-    def reprocess_graphs(folder_input):
-        input_files_directory = Path(input_files_path)
-        custom_graphs = import_graphs(input_files_directory / 'input_graphs.csv')
-        custom_graphs_formatting = import_graphs_formatting(input_files_directory / 'input_graphs_formatting.csv')
-        output_stats_directory = output_files_path / folder_input / "_statistics"
-        output_graphs_directory = output_files_path / folder_input / "_graphs"
-        output_input_files_directory = output_files_path / folder_input / "_input_files"
-        output_input_files_directory.mkdir(exist_ok=True)
-        shutil.copy(input_files_path / "input_graphs.csv", output_input_files_directory)
-        shutil.copy(input_files_path / "input_graphs_formatting.csv", output_input_files_directory)
-        statistics_files = {}
-        for file_name in os.listdir(output_stats_directory):
-            if file_name.endswith(".csv"):
-                scenario_name = file_name.split(".")[0]
-                file_path = output_stats_directory / file_name
-                statistics_files[scenario_name] = {"path": file_path}
-        for graph in custom_graphs:
-            generate_figure(statistics_files, graph, custom_graphs_formatting, output_graphs_directory)
 
     @reactive.Effect
     @reactive.event(input.reprocess_btn)
@@ -570,7 +628,23 @@ def server(input, output, session):
         if folder_input:
             ui.notification_show("Reprocessing output files...", duration=None)
             def run_reprocess():
-                reprocess_graphs(folder_input)
+                input_files_directory = Path(input_files_path)
+                custom_graphs = import_graphs(input_files_directory / 'input_graphs.csv')
+                custom_graphs_formatting = import_graphs_formatting(input_files_directory / 'input_graphs_formatting.csv')
+                output_stats_directory = output_files_path / folder_input / "_statistics"
+                output_graphs_directory = output_files_path / folder_input / "_graphs"
+                output_input_files_directory = output_files_path / folder_input / "_input_files"
+                output_input_files_directory.mkdir(exist_ok=True)
+                shutil.copy(input_files_path / "input_graphs.csv", output_input_files_directory)
+                shutil.copy(input_files_path / "input_graphs_formatting.csv", output_input_files_directory)
+                statistics_files = {}
+                for file_name in os.listdir(output_stats_directory):
+                    if file_name.endswith(".csv"):
+                        scenario_name = file_name.split(".")[0]
+                        file_path = output_stats_directory / file_name
+                        statistics_files[scenario_name] = {"path": file_path}
+                for graph in custom_graphs:
+                    generate_figure(statistics_files, graph, custom_graphs_formatting, output_graphs_directory)
                 ui.update_select("folder", choices=get_folders())
             thread = Thread(target=run_reprocess)
             thread.start()
@@ -588,36 +662,6 @@ def server(input, output, session):
             full_path = output_files_path / folder / "_graphs" / selected_png
             return {"src": str(full_path), "alt": "Selected Plot", "style": "width: 100%; height: auto;"}
         return None
-
-    @output
-    @render.data_frame
-    def table_inputs():
-        selected_csv = input.inp_arc_file()
-        folder = input.folder()
-        if selected_csv and folder:
-            full_path = output_files_path / folder / "_input_files" / selected_csv
-            df = safe_read_csv(full_path)
-            return render.DataGrid(
-                df,
-                height="900px",
-            )
-        else:
-            return None
-
-    @output
-    @render.data_frame
-    def table_stats():
-        selected_csv = input.stats_file()
-        folder = input.folder()
-        if selected_csv and folder:
-            full_path = output_files_path / folder / "_statistics" / selected_csv
-            df = safe_read_csv(full_path)
-            return render.DataGrid(
-                df,
-                height="900px"
-            )
-        else:
-            return None
 
     # ==================== Map and Scatter Plot Rendering ====================
     
@@ -641,7 +685,7 @@ def server(input, output, session):
         if folder:
             subfolders = [f for f in os.listdir(output_files_path / folder) 
                         if (output_files_path / folder / f).is_dir() 
-                        and f not in ["_graphs", "_statistics", "_input_files"]]
+                        and not f.startswith("_")]
             if subfolders:
                 return ui.input_select("subfolder", "Subfolder:", choices=subfolders)
             else:
@@ -654,18 +698,32 @@ def server(input, output, session):
         folder = input.map_folder()
         subfolder = input.subfolder()
         if folder and subfolder:
-            status_file = output_files_path / folder / subfolder / "_status.csv"
-            if status_file.exists():
-                df = safe_read_csv(status_file)
-                years = [col for col in df.columns if col.isdigit()]
-                min_year, max_year = int(min(years)), int(max(years))
+            _, _, years, _ = cached_project_data()
+            if years:
                 selected_year = current_year.get()
-                if selected_year is None or selected_year < min_year or selected_year > max_year:
+                if selected_year is None or selected_year not in years:
+                    selected_year = min(years)
+                    current_year.set(selected_year)
+                min_year, max_year = min(years), max(years)
+                if selected_year is None or selected_year not in years:
                     selected_year = min_year
-                    if current_year.get() != selected_year:
-                        current_year.set(selected_year)
-
                 return ui.input_slider("year", "Select Year:", min=min_year, max=max_year, value=selected_year, sep='')
+        return ui.div()
+
+    @output
+    @render.ui
+    def commodity_selector_ui():
+        projects, _, _, _ = cached_project_data()
+        if projects is not None:
+            current_selection = selected_commodity.get()
+            commodities = sorted(projects['COMMODITY'].unique().tolist())
+            if commodities and current_selection not in commodities:
+                current_selection = commodities[0]
+                selected_commodity.set(commodities[0])
+            if commodities:
+                if current_selection not in commodities:
+                    current_selection = commodities[0]
+                return ui.input_select("commodity", "Select Commodity:", choices=commodities, selected=current_selection)
         return ui.div()
 
     @reactive.Effect
@@ -674,119 +732,223 @@ def server(input, output, session):
         if input.year() is not None:
             current_year.set(input.year())
 
-    @reactive.Calc
-    def load_status_data():
-        folder = input.map_folder()
-        subfolder = input.subfolder()
-        if folder and subfolder:
-            status_file = output_files_path / folder / subfolder / "_status.csv"
-            if status_file.exists():
-                df = safe_read_csv(status_file)
-                return df
-        return None
+    @reactive.Effect
+    @reactive.event(input.commodity)
+    def update_selected_commodity():
+        if input.commodity() is not None:
+            selected_commodity.set(input.commodity())
+
+    @reactive.Effect
+    @reactive.event(input.map_folder, input.subfolder)
+    def reset_cache_on_folder_change():
+        cached_data.set(None)
+        current_year.set(None)
+        map_state.set({})
+        selected_commodity.set(None)
 
     @reactive.Calc
-    def load_and_prepare_data():
-        """Load and prepare project data for both map and scatter plot."""
+    def cached_project_data():
         folder = input.map_folder()
         subfolder = input.subfolder()
-        year = input.year()
-        if year is None:
-            return
-
+        
         if not folder or not subfolder:
-            return None
+            cached_data.set(None)
+            return None, None, [], False
             
+        cache_key = f"{folder}_{subfolder}"
+        cache = cached_data.get()
+        
+        if cache and cache.get('key') == cache_key:
+            return cache['projects'], cache['year_data'], cache['years'], cache.get('has_semicolons', False)
+        
         try:
             projects_file_path = output_files_path / folder / "_input_files" / "input_projects.csv"
-            if not projects_file_path.exists():
-                return None
-
-            projects_df = safe_read_csv(projects_file_path)
-            status_df = load_status_data()
-
-            if status_df is None:
-                return None
-
-            return prepare_project_data(projects_df, status_df, year)
+            status_file = output_files_path / folder / subfolder / "_status.csv"
             
+            if not projects_file_path.exists() or not status_file.exists():
+                cached_data.set(None)
+                return None, None, [], False
+            
+            projects_df = safe_read_csv(projects_file_path)
+            status_df = safe_read_csv(status_file)
+            
+            valid_projects, year_data, years, has_semicolons = prepare_all_project_data(projects_df, status_df)
+            
+            if valid_projects is not None:
+                cached_data.set({
+                    'key': cache_key,
+                    'projects': valid_projects,
+                    'year_data': year_data,
+                    'years': years,
+                    'has_semicolons': has_semicolons
+                })
+                return valid_projects, year_data, years, has_semicolons
+            else:
+                cached_data.set(None)
+                return None, None, [], False
+                
         except Exception as e:
-            print(f"Error loading data: {str(e)}")
-            return None
+            print(f"Error caching data: {str(e)}")
+            cached_data.set(None)
+            return None, None, [], False
 
     @reactive.Calc
-    def valid_projects():
-        return load_and_prepare_data()
+    def projects_for_year():
+        projects, year_data, years, has_semicolons = cached_project_data()
+        year = input.year()
+        
+        if projects is None or year_data is None or year is None or year not in years:
+            return None, None, None, False
+        
+        year_df = year_data[year]
+        result = projects.copy()
+        result['STATUS_INFO'] = year_df['status_info']
+        result['MAX_STATUS'] = year_df['max_status']
+        result['MARKER_COLOR'] = year_df['marker_color']
+        
+        return result, year_data, years, has_semicolons
 
     @render_widget
     def map():
-        projects = valid_projects()
-        year = input.year()
-        if year is None:
-            return
+        try:
+            projects, _, _, _ = projects_for_year()
+            year = input.year()
+            
+            if projects is None or projects.empty or year is None:
+                return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
 
-        if projects is None or projects.empty:
+            folder_key = f"{input.map_folder()}_{input.subfolder()}"
+            current_map_state = map_state.get()
+            
+            if current_map_state.get('folder_key') != folder_key:
+                center_lat = projects["LATITUDE"].mean()
+                center_lon = projects["LONGITUDE"].mean()
+                if pd.isna(center_lat) or pd.isna(center_lon):
+                    center_lat, center_lon = 0, 0
+
+                base_map = Map(
+                    center=(center_lat, center_lon), 
+                    zoom=2, 
+                    scroll_wheel_zoom=True, 
+                    layout={'height': '900px'}
+                )
+
+                tile_layers = [
+                    TileLayer(
+                        url='https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', 
+                        name='Google Satellite', 
+                        base=True
+                    ),
+                ]
+                for tile in tile_layers:
+                    base_map.add(tile)
+
+                base_map.add(LayersControl(position='topright'))
+                
+                markers = {}
+                marker_layer = LayerGroup(name='Projects')
+                
+                for _, row in projects.iterrows():
+                    try:
+                        popup_html = create_hover_text(row, row['STATUS_INFO'], year)
+                        popup = HTML(popup_html)
+
+                        marker = CircleMarker(
+                            location=(row["LATITUDE"], row["LONGITUDE"]),
+                            radius=7,
+                            color=row['MARKER_COLOR'],
+                            fill_color=row['MARKER_COLOR'],
+                            fill_opacity=0.8,
+                            weight=0
+                        )
+                        marker.popup = popup
+                        marker_layer.add(marker)
+                        markers[row['P_ID_NUMBER']] = marker
+                    except Exception as e:
+                        print(f"Error creating marker for project {row.get('P_ID_NUMBER', 'unknown')}: {e}")
+                        continue
+                
+                base_map.add(marker_layer)
+                
+                new_state = {
+                    'folder_key': folder_key,
+                    'base_map': base_map,
+                    'marker_layer': marker_layer,
+                    'markers': markers
+                }
+                map_state.set(new_state)
+                
+                return base_map
+            
+            else:
+                base_map = current_map_state['base_map']
+                markers = current_map_state['markers']
+                
+                for _, row in projects.iterrows():
+                    if row['P_ID_NUMBER'] in markers:
+                        try:
+                            marker = markers[row['P_ID_NUMBER']]
+                            marker.color = row['MARKER_COLOR']
+                            marker.fill_color = row['MARKER_COLOR']
+                            popup_html = create_hover_text(row, row['STATUS_INFO'], year)
+                            marker.popup = HTML(popup_html)
+                        except Exception as e:
+                            print(f"Error updating marker for project {row['P_ID_NUMBER']}: {e}")
+                            continue
+                
+                return base_map
+                
+        except Exception as e:
+            print(f"Error rendering map: {e}")
             return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
-
-        # Calculate center
-        center_lat = projects["LATITUDE"].mean()
-        center_lon = projects["LONGITUDE"].mean()
-
-        # --- Create a new map object each time ---
-        base_map = Map(center=(center_lat, center_lon), zoom=2, scroll_wheel_zoom=True, layout={'height': '900px'})
-
-        # Add base tile layers
-        tile_layers = [
-            TileLayer(url='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', name='Google Hybrid', base=True),
-            TileLayer(url='https://mt1.google.com/vt/lyrs=s,h&x={x}&y={y}&z={z}', name='Google Satellite', base=True),
-            TileLayer(url='https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', name='Google Roads', base=True),
-        ]
-        for tile in tile_layers:
-            base_map.add(tile)
-
-        base_map.add(LayersControl(position='topright'))
-
-        # --- Add project markers ---
-        marker_layer = LayerGroup(name='Projects')
-
-        for _, row in projects.iterrows():
-            size = int(5 + (row['NORMALIZED_RESOURCE'] * 15))
-            popup_html = create_hover_text(row, row['STATUS_INFO'], year)
-            popup = HTML(popup_html)
-
-            marker = CircleMarker(
-                location=(row["LATITUDE"], row["LONGITUDE"]),
-                radius=size,
-                color=row['MARKER_COLOR'],
-                fill_color=row['MARKER_COLOR'],
-                fill_opacity=0.9,
-                weight=0
-            )
-            marker.popup = popup
-            marker_layer.add(marker)
-
-        base_map.add(marker_layer)
-
-        return base_map
 
     @render_widget
     def scatter_plot():
-        projects = valid_projects()
+        projects, _, _, has_semicolons = projects_for_year()
         year = input.year()
-        if year is None:
-            return
-
-        # Handle no data
-        if projects is None or projects.empty:
+        commodity = selected_commodity.get()
+        
+        if has_semicolons:
+            fig = go.Figure()
+            fig.update_layout(
+                title="Warning: Resource grade plot does not support ore tranche functionality",
+                height=900,
+                width=1200,
+                template="simple_white",
+                annotations=[
+                    dict(
+                        text="Data contains semicolons (;) indicating ore tranches.<br>This plot cannot display tranche data properly.",
+                        xref="paper", yref="paper",
+                        x=0.5, y=0.5, xanchor='center', yanchor='middle',
+                        showarrow=False,
+                        font=dict(size=16, color="orange")
+                    )
+                ]
+            )
+            return fig
+        
+        if projects is None or projects.empty or year is None or commodity is None:
             fig = go.Figure()
             fig.update_layout(
                 title="No data available",
                 height=900,
-                template="plotly_white",
+                width=1200,
+                template="simple_white",
             )
             return fig
 
-        # --- Create new figure ---
+        projects = projects[projects['COMMODITY'] == commodity]
+
+        if projects.empty:
+            fig = go.Figure()
+            fig.update_layout(
+                title=f"No data available for {commodity}",
+                height=900,
+                width=1200,
+                template="simple_white",
+            )
+            return fig
+
         fig = go.Figure()
 
         for status in STATUS_LABELS.values():
@@ -795,17 +957,15 @@ def server(input, output, session):
             if status_projects.empty:
                 continue
 
-            # Generate hover text and marker sizes
             hover_texts = [
                 create_hover_text(row, row['STATUS_INFO'], year)
                 for _, row in status_projects.iterrows()
             ]
-            sizes = 5 + (status_projects['NORMALIZED_RESOURCE'] * 34)
+            sizes = 10
 
-            # Add one trace per status
             fig.add_trace(go.Scatter(
-                x=status_projects['FIRST_RESOURCE'],
-                y=status_projects['FIRST_GRADE'],
+                x=status_projects['REMAINING_RESOURCE'].astype(float),
+                y=status_projects['GRADE'].astype(float),
                 mode='markers',
                 name=status,
                 marker=dict(
@@ -824,30 +984,17 @@ def server(input, output, session):
                 showlegend=True
             ))
 
-        # --- Layout configuration ---
         fig.update_layout(
-            title="Contained Resource vs. Grade",
             xaxis=dict(
-                title="Remaining Resource (log scale)",
+                title="Remaining resource (metric tons)",
                 type="log",
-                gridcolor='rgba(128,128,128,0.2)',
-                showgrid=True,
-                showline=True,
-                linewidth=1,
-                linecolor='rgba(128,128,128,0.2)',
-                mirror=True
             ),
             yaxis=dict(
-                title="Grade",
-                gridcolor='rgba(128,128,128,0.2)',
-                showgrid=True,
-                showline=True,
-                linewidth=1,
-                linecolor='rgba(128,128,128,0.2)',
-                mirror=True
+                title="Grade (mass ratio)",
             ),
             height=900,
-            template="plotly_white",
+            width=1200,
+            template="simple_white",
             hovermode='closest',
             legend=dict(
                 yanchor="top",
