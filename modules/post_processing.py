@@ -414,6 +414,9 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                     data['y'] = series_modify(data['y'], cumulative)
                     generate_fill(ax[h, v], data['x'], data['y'], l_format)
                     generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
+                elif plot_type == 'fan':
+                    data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
+                    generate_fan(ax[h, v], data['x'], data['y'], l_format)
                 elif plot_type == 'stacked':
                     data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
                     stacked_y, data_height = series_stack(data['y'], data_height)
@@ -429,7 +432,6 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
             ax[h, v].set_title(title_text, pad=None) if not legend_suppress else None
             ax[h, v].set_ylabel(y_axis_label)
             ax[h, v].tick_params(labelbottom=1, labelleft=1)
-
         else:
             fig.delaxes(ax[h, v])
 
@@ -494,6 +496,23 @@ def generate_fill(axis, x, y, l_format, force_legend_suppress=False):
     if l_format['legend_suppress'] is False and force_legend_suppress is False:
         axis.fill([], [], label=l_format['legend_text'], color=l_format['color'], alpha=l_format['fill_alpha'])
 
+
+def generate_fan(axis, x, y, l_format, force_legend_suppress=False):
+    y_array = np.array(y)
+    x_values = x[0]
+    p0 = np.percentile(y_array, 0, axis=0)
+    p5 = np.percentile(y_array, 5, axis=0)
+    p50 = np.percentile(y_array, 50, axis=0)
+    p95 = np.percentile(y_array, 95, axis=0)
+    p100 = np.percentile(y_array, 100, axis=0)
+    
+    axis.fill_between(x_values, p0, p100, color=l_format['color'], alpha=0.1, linewidth=0)
+    axis.fill_between(x_values, p5, p95, color=l_format['color'], alpha=0.3, linewidth=0)
+    axis.plot(x_values, p50, color=l_format['color'], linewidth=l_format['linewidth'], alpha=1.0)
+    
+    if l_format['legend_suppress'] is False and force_legend_suppress is False:
+        axis.plot([], [], label=l_format['legend_text'], color=l_format['color'], 
+                 linewidth=l_format['linewidth'])
 
 def series_modify(data_series, cumulative=False, replace_none=False):
     modified_series = []
