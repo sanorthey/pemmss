@@ -2,13 +2,13 @@ chardet==5.2.0
 charset_normalizer==3.4.2
 geopandas==1.1.1
 imageio==2.37.0
-ipyleaflet==0.20.0
-ipywidgets==8.1.7
 matplotlib==3.10.3
 numpy==2.3.1
 pandas==2.3.1
-plotly==6.2.0
 polars==1.31.0
-Shapely==2.1.1
-shiny==1.4.0
-shinywidgets==0.6.2
+plotly==4.14.3 # pinned version
+Shapely==2.0.6 # pinned version
+shiny==0.10.2 # pinned version
+shinywidgets==0.2.4 # pinned version
+ipyleaflet==0.18.2 # pinned version
+ipywidgets==7.6.5 # pinned version
