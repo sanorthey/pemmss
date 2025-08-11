@@ -26,8 +26,6 @@ Adjust scenario parameters and calibrate the model by modifying the CSV files lo
 
 The expected structure and data formats for each CSV file are documented in the associated import function defined in modules/file_import.py.
 
-Example input files are available in the **input_files_examples/** subdirectory and can be copied into the **input_files/** directory to get started.
-
 3. #### Execute pemmss.py
 Run the model by executing pemmss.py using python.
 

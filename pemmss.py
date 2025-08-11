@@ -1,8 +1,12 @@
 """
 Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
 
-Development led by Stephen A. Northey
-in collaboration with S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano, J. Hyman
+PEMMSS codebase contributors:
+- Stephen.A. Northey | PEMMSS Architect and Lead Developer
+- Jayden Hyman | PEMMSS GUI Developer (app.py) and Expert User
+- Bernardo Mendonca Severiano | PEMMSS Developer (spatial.py) and Expert User
+
+PEMMSS model initial conceptualisation: S.A. Northey, S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco
 
 For further information email:
     stephen.northey@uts.edu.au
@@ -146,7 +150,7 @@ def initialise():
 
     # Model version details for log and file writing
     constants['version_number'] = '1.4.0'
-    constants['version_date'] = '2025-07-14'
+    constants['version_date'] = '2025-08-11'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                            "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
