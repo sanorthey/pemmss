@@ -1,8 +1,13 @@
 """
 Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model
 
-Developed by Stephen A. Northey
-in collaboration with S. Pauliuk, S. Klose, M. Yellishetty and D. Giurco
+PEMMSS codebase contributors:
+- Stephen.A. Northey | PEMMSS Architect and Lead Developer
+- Jayden Hyman | PEMMSS GUI Developer (app.py) and Expert User
+- Bernardo Mendonca Severiano | PEMMSS Developer (spatial.py) and Expert User
+
+PEMMSS model initial conceptualisation: S.A. Northey, S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco
+
 For further information email:
     stephen.northey@uts.edu.au
 
@@ -47,6 +52,7 @@ input_files/
     input_demand.csv
     input_input_exploration_production_factors.csv
     input_input_exploration_production_factors_timeseries.csv
+    input_geopackage.gpkg
     input_graphs.csv
     input_graphs_formatting.csv
     input_historic.csv
@@ -71,6 +77,7 @@ Attribution and citation information available in CITATION.cff
 import datetime
 import random
 import cProfile
+import argparse
 from time import time
 from copy import deepcopy
 from multiprocessing import Pool, cpu_count
@@ -83,6 +90,7 @@ import modules.file_export as file_export
 import modules.deposit as deposit
 import modules.results as results
 import modules.post_processing as post_processing
+import modules.spatial as spatial
 
 
 def initialise():
@@ -98,6 +106,7 @@ def initialise():
     input_files/input_historic.csv
     input_files/input_parameters.csv
     input_files/input_postprocessing.csv
+    input_files/geopackage.gpkg
 
     Files & directories written:
     output_files/[RUN_TIME]/
@@ -125,6 +134,7 @@ def initialise():
     # Set-up file management constants
     constants['cwd'] = Path.cwd()
     constants['input_folder'] = constants['cwd'] / 'input_files'
+    constants['input_folder_cache'] = constants['input_folder'] / '_cached_input_files'
     constants['output_folder'] = constants['cwd'] / 'output_files' / constants['run_time']
     constants['output_folder_input_copy'] = constants['output_folder'] / '_input_files'
     constants['output_folder_statistics'] = constants['output_folder'] / '_statistics'
@@ -132,25 +142,27 @@ def initialise():
     constants['log'] = constants['output_folder'] / 'log.txt'
 
     # Make directories to store model outputs
+    constants['input_folder_cache'].mkdir(parents=True, exist_ok=True)
     constants['output_folder'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_input_copy'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_statistics'].mkdir(parents=True, exist_ok=True)
     constants['output_folder_graphs'].mkdir(parents=True, exist_ok=True)
 
     # Model version details for log and file writing
-    constants['version_number'] = '1.3.1'
-    constants['version_date'] = '2024-07-10'
+    constants['version_number'] = '1.4.0'
+    constants['version_date'] = '2025-08-11'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                            "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
-                           "Developed led by Stephen A. Northey " +
+                           "Development led by Stephen A. Northey " +
                            'in collaboration with S. Pauliuk, S. Klose, M. Yellishetty, D. Giurco, B. Mendonca Severiano and J. Hyman. \n \n' +
                            "For further information contact stephen.northey@uts.edu.au.\n" +
                            "- - - - - - - - - - - - - - - \n", output_path=constants['log'], print_on=1)
     file_export.export_log('Model executed at ' + constants['run_time'] + '\n', output_path=constants['log'], print_on=1)
 
     # Import user input files and assign variables
-    constants.update(file_import.import_static_files(constants['input_folder'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
+    constants.update(file_import.import_static_files(constants['input_folder'], constants['input_folder_cache'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
+
     return constants
 
 
@@ -194,13 +206,12 @@ def scenario(i, constants):
     log = constants['log']
 
     # --- Scenario Specific Data
-
     year_start = parameters['year_start']
     year_end = parameters['year_end']
 
     # As import_projects can have stochastic elements, need to use the scenario specific seed.
     random.seed(parameters['random_seed'])
-    output_folder_scenario = output_folder / i
+    output_folder_scenario = output_folder / str(i)
     output_path_stats = output_folder_scenario / '_statistics.csv'
     output_folder_scenario.mkdir(parents=True, exist_ok=True)
 
@@ -271,7 +282,7 @@ def scenario(i, constants):
                         if supplied == 1:
                             for p_commodity in project.commodity:
                                 if p_commodity not in demand:
-                                    log_message.append('Project '+str(project.name)+' attempted to supply commodity '+str(p_commodity)+ ' that has no corresponding demand list. Supply of this commodity has not been recorded. To address this ensure in input_demand.csv all commodities have a corresponding demand entry for scenario '+parameters['scenario_name']+' (this can be blank).')
+                                    log_message.append('Project ' + str(project.name) + ' attempted to supply commodity ' + str(p_commodity) + ' that has no corresponding demand list. Supply of this commodity has not been recorded. To address this ensure in input_demand.csv all commodities have a corresponding demand entry for scenario '+parameters['scenario_name']+' (this can be blank).')
                                 else:
                                     demand[p_commodity][year_current] -= project.production_intermediate[p_commodity][year_current] * demand[p_commodity]['intermediate_recovery']
 
@@ -361,6 +372,7 @@ def scenario(i, constants):
         # Export projects data
         projects.sort(key=lambda x: int(x.id_number))
         file_export.export_projects(output_path_projects, projects)
+
         file_export.export_project_dictionary(output_path_production_ore, projects, 'production_ore', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_expansion, projects, 'expansion', header='None', id_key='id_number', commodity='None', log_path=log)
         file_export.export_project_dictionary(output_path_status, projects, 'status_timeseries', header='None', id_key='id_number', commodity='None', log_path=log)
@@ -372,7 +384,7 @@ def scenario(i, constants):
             output_path_grade_timeseries = output_folder_scenario / f'{j}-Grade_Timeseries_{c}.csv'
 
             # Export commodity specific project data
-            file_export.export_project_dictionary(output_path_production_intermediate, projects,'production_intermediate', header='None', id_key='id_number', commodity=c, log_path=log)
+            file_export.export_project_dictionary(output_path_production_intermediate, projects, 'production_intermediate', header='None', id_key='id_number', commodity=c, log_path=log)
             file_export.export_project_dictionary(output_path_expansion_contained, projects, 'expansion_contained', header='None', id_key='id_number', commodity=c, log_path=log)
             file_export.export_project_dictionary(output_path_grade_timeseries, projects, 'grade_timeseries', header='None', id_key='id_number', commodity=c, log_path=log)
 
@@ -392,7 +404,41 @@ def scenario(i, constants):
     return output_folder_scenario
 
 
-def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path):
+def scenario_execute(CONSTANTS, sequential=False):
+    """
+    scenario_execute():
+    """
+    scenario_folder_objects = []
+    scenario_folders = []
+
+    if sequential:
+        for scenario_name in CONSTANTS['parameters']:
+            i = scenario_name
+            scenario_folders.append(scenario(i, constants=CONSTANTS))  # R2, W1 and P3 to P14
+            print('Scenario ' + scenario_name + ' initialised.')
+    else:
+        # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
+        with Pool(cpu_count() - 1) as pool:
+            for scenario_name in CONSTANTS['parameters']:
+                i = scenario_name
+                scenario_folder_objects.append(
+                    pool.apply_async(scenario, (i,), dict(constants=CONSTANTS)))  # R2, W1 and P3 to P14
+                print('Scenario ' + scenario_name + ' initialised.')
+            print('\nScenarios being modelled.')
+            pool.close()
+            pool.join()
+
+            # Check for pooled process errors and exceptions
+            for o in scenario_folder_objects:
+                # Get returned values from AsyncResult objects.
+                # .get() will also raise any pooled process errors and exceptions.
+                scenario_folders.append(o.get())
+
+    return scenario_folders
+
+
+def post_process(scenario_folders, output_stats_folder, output_graphs_folder, imported_postprocessing, imported_graphs, imported_graphs_formatting, log_path, imported_geodataframe=None):
+    
     """
     Merges and filters scenario data, generate and export graphs and final results files.
 
@@ -415,6 +461,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     # P16, R3, W2 - Filter and merge scenario and iteration statistics
     file_export.export_log('Merging scenario data', output_path=log_path, print_on=1)
     statistics_files = post_processing.merge_scenarios(imported_postprocessing, scenario_folders, output_stats_folder)
+    file_export.export_log('Merging project iteration data', output_path=log_path, print_on=1)
     project_statistics_files = post_processing.project_iteration_statistics(scenario_folders)
     pt1 = (time())
     file_export.export_log('Merge duration ' + str((pt1 - pt0)) + ' seconds.', output_path=log_path, print_on=1)
@@ -439,10 +486,25 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
     file_export.export_log('Figure generation duration '+str((pt2-pt1))+' seconds.', output_path=log_path, print_on=1)
     file_export.export_log('Exported to '+str(output_graphs_folder), output_path=log_path, print_on=1)
 
+    # [BM] Moved the geopackage saving function here.
+    file_export.export_log('\nGenerating Geopackages:', output_path=log_path, print_on=1)
+    # geopackage is non mandatory:
+    if imported_geodataframe is not None:
+        # Save the final geopackage with scenario layers if input_geopackage.gpkg was provided
+        # A better description of this process can be found in the save_scenario_geopackage function declaration
+        spatial.save_scenario_geopackage(imported_geodataframe, scenario_folders, max_workers=cpu_count()-1)
+        pt3 = (time())
+        file_export.export_log('Exported geopackage with scenario layers in '+str((pt3-pt2))+' seconds.', output_path=log_path, print_on=1)
 
-def main():
+    else:
+        file_export.export_log('No geopackage provided; skipping geopackage export.', output_path=log_path, print_on=1)
+
+
+def main(sequential=False):
     """
-    Execute scenario modelling across parallel processes
+    Execute scenario modelling.
+    sequential = False, scenarios will be modelled across parallel processes
+    sequential = True, scenarios will be modelled consecutively (avoids python multiprocessing which can assist with debugging)
 
     --- Journal article cross-references ---
     P1 - Import input files
@@ -454,27 +516,16 @@ def main():
 
     # P1 - Import input files
     CONSTANTS = initialise()
-    scenario_folder_objects = []
-    scenario_folders = []
-
-    # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
-    with Pool(cpu_count() - 1) as pool:
-        for scenario_name in CONSTANTS['parameters']:
-            i = scenario_name
-            scenario_folder_objects.append(pool.apply_async(scenario, (i,), dict(constants=CONSTANTS)))  # R2, W1 and P3 to P14
-            print('Scenario ' + scenario_name + ' initialised.')
-        print('\nScenarios being modelled.')
-        pool.close()
-        pool.join()
-
-    # Check for pooled process errors and exceptions
-    for o in scenario_folder_objects:
-        # Get returned values from AsyncResult objects.
-        # .get() will also raise any pooled process errors and exceptions.
-        scenario_folders.append(o.get())
 
     t1 = (time())
-    file_export.export_log('\nScenario modelling duration ' + str(t1 - t0) + ' seconds.\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.\n',
+    file_export.export_log('Static file import duration ' + str(t1-t0) + ' seconds.\n',
+                           output_path=CONSTANTS['log'], print_on=1)
+
+    # P2 - Execute scenario modelling concurrently amongst pooled cpu processes
+    scenario_folders = scenario_execute(CONSTANTS, sequential=sequential)
+
+    t2 = (time())
+    file_export.export_log('\nScenario modelling duration ' + str(t2 - t1) + ' seconds.\n--- Scenario Modelling Complete ---\n\nPost-processing of scenario outputs.\n',
                            output_path=CONSTANTS['log'], print_on=1)
 
     # P16 - Filter and Merge Results
@@ -485,12 +536,13 @@ def main():
                  imported_postprocessing=CONSTANTS['imported_postprocessing'],
                  imported_graphs=CONSTANTS['imported_graphs'],
                  imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
-                 log_path=CONSTANTS['log'])
+                 log_path=CONSTANTS['log'],
+                 imported_geodataframe=CONSTANTS['imported_geopackage'])
 
-    t2 = (time())
-    log_message = ('\nPost-processing duration ' + str(t2 - t1) +
+    t3 = (time())
+    log_message = ('\nPost-processing duration ' + str(t3 - t2) +
                    '\n--- Post-Processing Complete---\n\nResults available in:\n' + str(CONSTANTS['output_folder']) +
-                   '\nExecution time (s): ' + str(t2 - t0))
+                   '\nExecution time (s): ' + str(t3 - t0))
     file_export.export_log(log_message, output_path=CONSTANTS['log'], print_on=1)
 
     # Scenario generation complete. Congratulations !!
@@ -508,11 +560,18 @@ def post_process_only():
                      imported_postprocessing=CONSTANTS['imported_postprocessing'],
                      imported_graphs=CONSTANTS['imported_graphs'],
                      imported_graphs_formatting=CONSTANTS['imported_graphs_formatting'],
-                     log_path=CONSTANTS['log'])
+                     imported_geodataframe=CONSTANTS['imported_geopackage_gdf'],
+                     log_path=CONSTANTS['log']
+                     )
 
         pr.print_stats()
     # TODO: test
 
 
 if __name__ == '__main__':
-    main()
+    # Capture command line arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--sequential', action='store_true', help='Executes scenario modelling sequentially. Useful for profiling execution processes and debugging multi-processing error messages.')
+    args = parser.parse_args()
+    # Execute PEMMSS
+    main(sequential=args.sequential)

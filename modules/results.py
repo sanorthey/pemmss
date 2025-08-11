@@ -58,7 +58,6 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                              key+('unmet_demand',): defaultdict(float),
                              })
 
-
     for p in project_list:
         # Not commodity dependent
         # Note with background greenfield exploration, start years can occur after model end. Consider adding a check for this.
@@ -115,7 +114,6 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                 elif p.status_timeseries[time_key] == 0:
                     return_stats[key + ('mines_undeveloped_count',)][time_key] += 1
 
-
     if commodity != 'ALL':
         # Median grade processing
         for time_key, grade_list in grade_dict_list.items():
@@ -135,4 +133,3 @@ def generate_statistics(key, project_list, time_range, demand_factors):
                 return_stats[key+('unmet_demand',)][time_key] = demand_factors[commodity][time_key]
 
     return return_stats
-

@@ -22,11 +22,12 @@ def export_log(entry, output_path='log.txt', print_on=0):
     If the file exists than the entry will be appended, otherwise a new file will be created.
     If 'print_on' == 1 then the entry will also be printed in the console.
     """
-    with open(output_path, mode='a') as output_file:
-        e = str(entry)+'\n'
-        output_file.write(e)
-        if print_on == 1:
-            print(str(entry))
+    if output_path is not None:
+        with open(output_path, mode='a') as output_file:
+            e = str(entry)+'\n'
+            output_file.write(e)
+            if print_on == 1:
+                print(str(entry))
 
 
 def export_projects(output_path, project_list):
@@ -41,14 +42,14 @@ def export_projects(output_path, project_list):
     """
     with open(output_path, 'w+', newline='') as output_file:
         w = csv.writer(output_file, delimiter=',')
-        w.writerow(("P_ID_NUMBER", "PROJECT_NAME", 'REGION', 'DEPOSIT_TYPE',
+        w.writerow(("P_ID_NUMBER", "PROJECT_NAME", 'REGION', 'LATITUDE', 'LONGITUDE','DEPOSIT_TYPE',
                     'COMMODITY', 'RESOURCE_INITIAL', 'REMAINING_RESOURCE',
                     "GRADE", 'INITIAL_GRADE', 'RECOVERY', 'PRODUCTION_CAPACITY', 'STATUS',
                     'INITIAL_STATUS', 'DISCOVERY_YEAR',
                     'START_YEAR', 'END_YEAR', 'DEVELOPMENT_PROBABILITY', 'BROWNFIELD_TONNAGE_FACTOR',
                     'BROWNFIELD_GRADE_FACTOR', 'AGGREGATION', 'VALUE', 'VALUE_FACTORS'))
         for p in project_list:
-            w.writerow([p.id_number, p.name, p.region, p.deposit_type,
+            w.writerow([p.id_number, p.name, p.region, p.latitude, p.longitude, p.deposit_type,
                         p.commodity, p.initial_resource, p.remaining_resource,
                         p.grade, p.initial_grade, p.recovery, p.production_capacity, p.status,
                         p.initial_status, p.discovery_year,
@@ -95,7 +96,7 @@ def export_list_of_dictionary(path, list_of_dictionary, header='None', id_key='N
     output_file.close()
 
 
-def export_project_dictionary(path, project_list, variable, header='None', id_key='id_number', commodity='None', log_path='None'):
+def export_project_dictionary(path, project_list, variable, header='None', id_key='id_number', commodity='None', log_path=None):
     """
     Generates a list of project dictionaries
     path                 | file path of export .csv
@@ -121,7 +122,7 @@ def export_project_dictionary(path, project_list, variable, header='None', id_ke
         p_dictionary = p.get(variable, commodity)
         if type(p_dictionary) == dict:
             list_of_dictionary[-1].update(p_dictionary)
-        elif log_path is not None:
+        else:
             export_log('Unable to export Mine.'+str(variable)+' as the type is not dict.', output_path=log_path, print_on=1)
     export_list_of_dictionary(path, list_of_dictionary, header, key)
 
@@ -166,7 +167,7 @@ def export_statistics(path, stats_flat_dict, time_range):
     header = ['SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
     header.extend(time_range)
 
-    with open(path, 'a', newline='') as output_file:
+    with open(path, 'a', newline='', encoding='UTF-8') as output_file:
         w = csv.DictWriter(output_file, header)
         if existing == 0:
             w.writeheader()
@@ -202,4 +203,3 @@ def export_plot_subplot_data(path, plot_data):
                     w.writerow(x_row)
                     w.writerow(y_row)
     output_file.close()
-

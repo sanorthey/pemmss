@@ -1,4 +1,14 @@
-imageio==2.34.2
-matplotlib==3.9.1
-numpy==1.26.2
-pandas==2.1.4
+chardet==5.2.0
+charset_normalizer==3.4.2
+geopandas==1.1.1
+imageio==2.37.0
+matplotlib==3.10.3
+numpy==2.3.1
+pandas==2.3.1
+polars==1.31.0
+plotly==4.14.3 # pinned version
+Shapely==2.0.6 # pinned version
+shiny==0.10.2 # pinned version
+shinywidgets==0.2.4 # pinned version
+ipyleaflet==0.18.2 # pinned version
+ipywidgets==7.6.5 # pinned version

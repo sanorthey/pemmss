@@ -19,24 +19,31 @@ Module with routines for importing PEMMSS model parameters and data files.
 
 # Import standard packages
 import csv
+import pickle
 from shutil import copyfile
 from collections import defaultdict
 from random import choices
 
+# Import non-standard packages
+import pandas as pd
+
 # Import custom modules
 import modules.deposit as deposit
 from modules.file_export import export_log
+import modules.spatial as spatial
+
 
 # Recreate deprecated functions
-def strtobool(value: str) -> bool: # distutils was deprecated in Python 3.12, recreating strtobool()
+def strtobool(value: str) -> bool:  # distutils was deprecated in Python 3.12, recreating strtobool()
     value = value.lower()
     if value in ("y", "yes", "on", "1", "true", "t"):
         return True
     return False
 
-#Import Data Functions
+# Import Data Functions
 
-def import_static_files(path, copy_path_folder=None, log_file=None):
+
+def import_static_files(path, cache_path, copy_path_folder=None, log_file=None):
     """
     import_static_files()
     Imports the input files that don't need to be reimported through the model run.
@@ -46,20 +53,43 @@ def import_static_files(path, copy_path_folder=None, log_file=None):
         input_exploration_production_factors_timeseries.csv
         input_demand.csv
         input_graphs.csv
+        input_graphs_formatting.csv
         input_postprocessing.csv
         input_historic.csv
+        input_geopackage.pkg or input_geopackage.pkl or input_geopackage.pre.pkl
     Files will be copied to copy_path_folder if specified.
     Returns file structures within a tuple
     """
     static_files = {}
-    static_files['parameters'] = import_parameters(path / 'input_parameters.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_factors'] = import_exploration_production_factors(path / 'input_exploration_production_factors.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path / 'input_exploration_production_factors_timeseries.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_demand'] = import_demand(path / 'input_demand.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs'] = import_graphs(path / 'input_graphs.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs_formatting'] = import_graphs_formatting(path / 'input_graphs_formatting.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_postprocessing'] = import_postprocessing(path / 'input_postprocessing.csv', copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_historic'] = import_historic(path / 'input_historic.csv', copy_path=copy_path_folder, log_path=log_file)
+
+    # Define paths for expected static files
+    path_demand = path / 'input_demand.csv'
+    path_geopackage = path / 'input_geopackage.gpkg'
+    path_factors = path / 'input_exploration_production_factors.csv'
+    path_factors_timeseries = path / 'input_exploration_production_factors_timeseries.csv'
+    path_graphs = path / 'input_graphs.csv'
+    path_graphs_formatting = path / 'input_graphs_formatting.csv'
+    path_historic = path / 'input_historic.csv'
+    path_parameters = path / 'input_parameters.csv'
+    path_postprocessing = path / 'input_postprocessing.csv'
+
+    # Define cache file paths
+    cache_path_geopackage = cache_path / 'input_geopackage.pkl'
+    cache_path_gdf_dict_list = cache_path / 'gdf_dict_list.pkl'
+
+    # Import static files
+    static_files['imported_demand'] = import_demand(path_demand, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_factors'] = import_exploration_production_factors(path_factors, copy_path=copy_path_folder, log_path=log_file)
+    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path_factors_timeseries, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_geopackage'] = import_geopackage(path_geopackage, cache_path=cache_path_geopackage, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs'] = import_graphs(path_graphs, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs_formatting'] = import_graphs_formatting(path_graphs_formatting, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_historic'] = import_historic(path_historic, copy_path=copy_path_folder, log_path=log_file)
+    static_files['parameters'] = import_parameters(path_parameters, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_postprocessing'] = import_postprocessing(path_postprocessing, copy_path=copy_path_folder, log_path=log_file)
+
+    # Import preprocessed geodataframe_dict_list cache if exists otherwise generate
+    static_files['imported_factors'].update({'gdf': import_cache_geodataframe_dict_list(cache_path_gdf_dict_list, static_files['imported_factors'], static_files['imported_geopackage'], path_factors, path_geopackage, log_path=log_file)})
 
     return static_files
 
@@ -68,7 +98,7 @@ def import_parameters(path, copy_path=None, log_path=None):
     """
     import_parameters()
     Imports parameters from input_parameters.csv located at 'path'.
-    Typical path is WORKING DIRECTORY\input_files\input_parameters.csv
+    Typical path is WORKING DIRECTORY / input_files / input_parameters.csv
 
     Returns a nested dictionary [i]['key'], where i is each scenario run.
 
@@ -101,7 +131,7 @@ def import_parameters(path, copy_path=None, log_path=None):
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
-        #Import scenarios
+        # Import scenarios
         for row in csv_reader:
             imported_parameters.update({row['SCENARIO_NAME']: {'scenario_name': str(row['SCENARIO_NAME']),
                                                                'year_start': int(row['YEAR_START']),
@@ -118,12 +148,12 @@ def import_parameters(path, copy_path=None, log_path=None):
                                                                'update_values': int(row['UPDATE_VALUES'])}})
     if copy_path is not None:
         copyfile(path, copy_path / 'input_parameters.csv')
-    if log_path is not None:
-        export_log('Imported input_parameters.csv', output_path=log_path, print_on=1)
+    export_log('Imported input_parameters.csv', output_path=log_path, print_on=1)
     return imported_parameters
 
 
 def import_projects(f, path, copy_path=None, log_path=None):
+
     """
     import_projects()
     Imports projects from input_projects.csv in the working directory.
@@ -140,6 +170,8 @@ def import_projects(f, path, copy_path=None, log_path=None):
         NAME                 | string, optional
         REGION               | string, optional
         DEPOSIT_TYPE         | string, optional
+        LATITUDE             | float, optional
+        LONGITUDE            | float, optional
         COMMODITY            | string, optional
         REMAINING_RESOURCE   | float, tranches separated by ";", optional
         PRODUCTION_CAPACITY  | float, optional
@@ -171,11 +203,13 @@ def import_projects(f, path, copy_path=None, log_path=None):
 
     Any optional missing values will be autogenerated from input_exploration_production_factors.csv
     """
-    # Tracking of missing values in input_projects.csv debugging purposes
+    # Tracking of missing values in input_projects.csv for debugging purposes
     # and to track automated input generation processes.
     no_id_number = 0
     no_name = 0
     no_region = 0
+    no_latitude = 0
+    no_longitude = 0
     no_deposit_type = 0
     no_commodity = 0
     no_remaining_resource = 0
@@ -192,9 +226,9 @@ def import_projects(f, path, copy_path=None, log_path=None):
     no_development_probability = 0
     no_brownfield_grade_factor = 0
     no_brownfield_tonnage_factor = 0
+    geodataframe_error_flag = False
     # Open and generate projects from input_projects.csv
     imported_projects = []
-
 
     with open(path, mode='r') as input_file:
 
@@ -239,6 +273,17 @@ def import_projects(f, path, copy_path=None, log_path=None):
                 index = choices(possible_indices, weights=weightings)[0]
                 deposit_type = str(f['deposit_type'][index])
 
+            if row['LATITUDE'] == "" or row['LONGITUDE'] == "":  # Generate a new coordinate from scratch.
+                no_latitude += (row['LATITUDE'] == "")
+                no_longitude += (row['LONGITUDE'] == "")
+                latitude, longitude = spatial.generate_region_coordinate(f['gdf'][index])
+                if latitude is None and longitude is None:
+                    if f['gdf'][index]['empty']:
+                        geodataframe_error_flag = True
+            else:
+                latitude = float(row['LATITUDE'])
+                longitude = float(row['LONGITUDE'])
+
             if row['COMMODITY'] == "":
                 no_commodity += 1
                 commodity = f['commodity_primary'][index]
@@ -247,19 +292,19 @@ def import_projects(f, path, copy_path=None, log_path=None):
             if row['GRADE'] == "":
                 no_grade += 1
                 grade = [deposit.grade_generate(f['grade_model'][index], {'a': f['grade_a'][index],
-                                                                   'b': f['grade_b'][index],
-                                                                   'c': f['grade_c'][index],
-                                                                   'd': f['grade_d'][index]},
+                                                                          'b': f['grade_b'][index],
+                                                                          'c': f['grade_c'][index],
+                                                                          'd': f['grade_d'][index]},
                                                 log_file=log_path)]
             else:
                 grade = [float(x) for x in row['GRADE'].split(';')]
             if row['REMAINING_RESOURCE'] == "":
                 no_remaining_resource += 1
                 remaining_resource = [deposit.tonnage_generate(f['tonnage_model'][index],
-                                                              {'a': f['tonnage_a'][index],
-                                                               'b': f['tonnage_b'][index],
-                                                               'c': f['tonnage_c'][index],
-                                                               'd': f['tonnage_d'][index]},
+                                                               {'a': f['tonnage_a'][index],
+                                                                'b': f['tonnage_b'][index],
+                                                                'c': f['tonnage_c'][index],
+                                                                'd': f['tonnage_d'][index]},
                                                                grade, log_file=log_path)]
             else:
                 remaining_resource = [float(x) for x in row['REMAINING_RESOURCE'].split(';')]
@@ -275,7 +320,8 @@ def import_projects(f, path, copy_path=None, log_path=None):
                                                                 f['capacity_b'][index],
                                                                 f['capacity_sigma'][index],
                                                                 f['life_min'][index],
-                                                                f['life_max'][index])
+                                                                f['life_max'][index],
+                                                                sigma_log10=f['capacity_sigma_log10'][index])
             else:
                 production_capacity = float(row['PRODUCTION_CAPACITY'])
             if row['STATUS'] == "":
@@ -370,42 +416,41 @@ def import_projects(f, path, copy_path=None, log_path=None):
 
             # Project aggregation descriptor
             if int(row['STATUS']) == 1:
-                if row['START_YEAR'] == "":
-                    aggregation = 'Existing Mines'
-                else:
-                    aggregation = 'Existing Mines with defined start year'
+                aggregation = 'Existing Mines'
             else:
-                if row['START_YEAR'] == "":
-                    aggregation = 'Identified Resources'
-                else:
-                    aggregation = 'Identified Resources with defined start year'
+                aggregation = 'Identified Resources'
             imported_projects.append(
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
-                             start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, value_update=v_update))
+                             start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, value_update=v_update, latitude=latitude, longitude=longitude))
 
     if copy_path is not None:
         copyfile(path, copy_path / 'input_projects.csv')
 
-    if log_path is not None:
-        export_log('Imported input_projects.csv', output_path=log_path, print_on=0)
-        export_log('Imported ' + str(len(imported_projects)) + ' projects. \n\nCount of project blank entries:', output_path=log_path)
-        export_log(str(no_id_number) + ' : id_number. Missing values generated by system.', output_path=log_path)
-        export_log(str(no_name) + ' : name. Missing names set as UNSPECIFIED.', output_path=log_path)
-        export_log(str(no_region) + ' : region. Missing regions selected randomly from weighted options.', output_path=log_path)
-        export_log(str(no_deposit_type) + ' : deposit_type. Missing deposit types selected randomly from weighted options.', output_path=log_path)
-        export_log(str(no_commodity) + ' : commodity. Missing commodity lists assigned corresponding to deposit type.', output_path=log_path)
-        export_log(str(no_remaining_resource) + ' : remaining_resource. Remaining resource generated using region-deposit type specific size models.', output_path=log_path)
-        export_log(str(no_grade) + ' : grade. Missing grades generated using region-deposit type specific grade models.', output_path=log_path)
-        export_log(str(no_recovery) + ' : recovery. Missing recovery factors assigned to default value.', output_path=log_path)
-        export_log(str(no_production_capacity) + " : production capacity. Missing production capacity generated using taylor's law functions.", output_path=log_path)
-        export_log(str(no_status) + ' : status. Missing status assigned to 0', output_path=log_path)
-        export_log(str(no_value) + ' : value. Missing values assigned using the value, revenue and cost models for the specific region and deposit type.', output_path=log_path)
-        export_log(str(no_discovery_year) + ' : discovery_year. Missing discovery year set to -9999', output_path=log_path)
-        export_log(str(no_start_year) + ' : start_year. Missing start year left blank for inactive mines or set to -9999 for active mines', output_path=log_path)
-        export_log(str(no_development_probability) + ' : development_probability. Missing values from input_exploration_production_factors.csv', output_path=log_path)
-        export_log(str(no_brownfield_grade_factor) + ' : brownfield_grade_factor. Missing values assigned from input_exploration_production_factors.csv', output_path=log_path)
-        export_log(str(no_brownfield_tonnage_factor) + ' : brownfield_grade_factor. Missing values assigned from input_exploration_production_factors.csv', output_path=log_path)
+
+    export_log('Imported input_projects.csv', output_path=log_path, print_on=0)
+    export_log('Imported ' + str(len(imported_projects)) + ' projects. \n\nCount of project blank entries:\n'+
+               str(no_id_number) + ' : id_number. Missing values generated by system.\n'+
+               str(no_name) + ' : name. Missing names set as UNSPECIFIED.\n'+
+               str(no_region) + ' : region. Missing regions selected randomly from weighted options.\n'+
+               str(no_latitude) + ' : latitude. Missing coordinate randomly generated in generated region if it is in the geopackage.\n'+
+               str(no_longitude) + ' : longitude. Missing coordinate randomly generated in generated region if it is in the geopackage.\n'+
+               str(no_deposit_type) + ' : deposit_type. Missing deposit types selected randomly from weighted options.\n'+
+               str(no_commodity) + ' : commodity. Missing commodity lists assigned corresponding to deposit type.\n'+
+               str(no_remaining_resource) + ' : remaining_resource. Remaining resource generated using region-deposit type specific size models.\n'+
+               str(no_grade) + ' : grade. Missing grades generated using region-deposit type specific grade models.\n'+
+               str(no_recovery) + ' : recovery. Missing recovery factors assigned to default value.\n'+
+               str(no_production_capacity) + " : production capacity. Missing production capacity generated using taylor's law functions.\n"+
+               str(no_status) + ' : status. Missing status assigned to 0\n'+
+               str(no_value) + ' : value. Missing values assigned using the value, revenue and cost models for the specific region and deposit type.\n'+
+               str(no_discovery_year) + ' : discovery_year. Missing discovery year set to -9999\n'+
+               str(no_start_year) + ' : start_year. Missing start year left blank for inactive mines or set to -9999 for active mines\n'+
+               str(no_development_probability) + ' : development_probability. Missing values from input_exploration_production_factors.csv\n'+
+               str(no_brownfield_grade_factor) + ' : brownfield_grade_factor. Missing values assigned from input_exploration_production_factors.csv\n'+
+               str(no_brownfield_tonnage_factor) + ' : brownfield_tonnage_factor. Missing values assigned from input_exploration_production_factors.csv',
+               output_path=log_path)
+    if geodataframe_error_flag:
+        export_log('Failed to generate some coordinates due to region specified in input_projects.csv not being mapped to input_geopackage.gpkg\n', output_path=log_path)
 
     return imported_projects
 
@@ -527,9 +572,8 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
     if copy_path is not None:
         copyfile(path, copy_path / 'input_project_coproducts.csv')
 
-    if log_path is not None:
-        export_log('Imported input_project_coproducts.csv', output_path=log_path, print_on=0)
-        export_log('Added ' + str(entries)+' new coproduct entries. '+str(skipped)+' skipped (check log file for details). '+str(generated_grades)+' grade, '+str(generated_recovery)+' recovery, '+str(generated_supply_trigger)+' supply trigger, and '+str(generated_brownfield_grade_factor)+' brownfield grade factors generated from factors in input_exploration_production.csv.', output_path=log_path, print_on=0)
+    export_log('Imported input_project_coproducts.csv', output_path=log_path, print_on=0)
+    export_log('Added ' + str(entries)+' new coproduct entries. '+str(skipped)+' skipped (check log file for details). '+str(generated_grades)+' grade, '+str(generated_recovery)+' recovery, '+str(generated_supply_trigger)+' supply trigger, and '+str(generated_brownfield_grade_factor)+' brownfield grade factors generated from factors in input_exploration_production.csv.', output_path=log_path, print_on=0)
     return projects
 
 
@@ -537,19 +581,19 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
     """
     import_exploration_production_factors()
     Imports parameters from input_exploration_production_factors.csv located in the working directory.
-    Returns a dictionary, imported_factors[variable][index]
+    Returns a dictionary imported_factors[variable][index]
 
     Files will be copied to copy_path_folder if specified.
 
     Expected csv format: header is imported_factors.keys.upper(), excluding 'lookup_table' key.
     For column description see in-line comments.
     """
-    imported_factors = {'index': [], 'weighting': [], 'region': [], 'deposit_type': [], 'commodity_primary': [],
+    imported_factors = {'index': [], 'weighting': [], 'geopackage_region_column': [], 'region': [], 'deposit_type': [], 'commodity_primary': [],
                         'grade_model': [], 'grade_a': [], 'grade_b': [], 'grade_c': [], 'grade_d': [],
                         'tonnage_model': [], 'tonnage_a': [], 'tonnage_b': [], 'tonnage_c': [], 'tonnage_d': [],
                         'brownfield_tonnage_factor': [], 'brownfield_grade_factor': [],
                         'capacity_basis': [],
-                        'capacity_a': [], 'capacity_b': [], 'capacity_sigma': [], 'life_min': [], 'life_max': [],
+                        'capacity_a': [], 'capacity_b': [], 'capacity_sigma': [], 'capacity_sigma_log10': [], 'life_min': [], 'life_max': [],
                         'recovery': [],
                         'revenue_model': [], 'revenue_a': [], 'revenue_b': [], 'revenue_c': [], 'revenue_d': [],
                         'cost_model': [], 'cost_a': [], 'cost_b': [], 'cost_c': [], 'cost_d': [],
@@ -559,14 +603,16 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'coproduct_recovery': [], 'coproduct_supply_trigger': [], 'coproduct_brownfield_grade_factor': [],
                         'coproduct_revenue_model': [], 'coproduct_revenue_a': [], 'coproduct_revenue_b': [], 'coproduct_revenue_c': [], 'coproduct_revenue_d': [],
                         'coproduct_cost_model': [], 'coproduct_cost_a': [], 'coproduct_cost_b': [], 'coproduct_cost_c': [], 'coproduct_cost_d': [],
+                        'geopackage_region_gdf_dict': [],
                         'lookup_table': {}}
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
-        #Import scenarios
+        # Import scenarios
         for row in csv_reader:
             imported_factors['index'].append(int(row['INDEX']))  # Sequential integers starting at 0
             imported_factors['weighting'].append(float(row['WEIGHTING']))  # Probability of greenfield discovery, float
+            imported_factors['geopackage_region_column'].append(row['GEOPACKAGE_REGION_COLUMN'])  # string, corresponding to column header in input_geopackage.gpkg that the REGION value maps to
             imported_factors['region'].append(row['REGION'])  # string
             imported_factors['deposit_type'].append(row['DEPOSIT_TYPE'])  # string
             imported_factors['commodity_primary'].append(row['COMMODITY_PRIMARY'])  # string, corresponding commodities in input_demand.csv
@@ -586,6 +632,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['capacity_a'].append(float(row['CAPACITY_A']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
             imported_factors['capacity_b'].append(float(row['CAPACITY_B']))  # float, y = a*tonnage^b, see deposit.capacity_generate()
             imported_factors['capacity_sigma'].append(float(row['CAPACITY_SIGMA']))  # float, standard deviation, see deposit.capacity_generate()
+            imported_factors['capacity_sigma_log10'].append(strtobool(row['CAPACITY_SIGMA_LOG10']))  # boolean, indicates whether capacity_sigma has been log10 transformed, see deposit.capacity_generate
             imported_factors['life_min'].append(float(row['LIFE_MIN']))  # float, minimum mine life, see deposit.capacity_generate()
             imported_factors['life_max'].append(float(row['LIFE_MAX']))  # float, maximum mine life, see deposit.capacity_generate()
             imported_factors['recovery'].append(float(row['RECOVERY']))  # Ratio, mine recovery for commodity_primary
@@ -605,7 +652,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['mine_cost_c'].append(float(row['MINE_COST_C']))  # value, see model parameter in deposit.value_model()
             imported_factors['mine_cost_d'].append(float(row['MINE_COST_D']))  # value, see model parameter in deposit.value_model()
             imported_factors['development_period'].append(int(row['DEVELOPMENT_PERIOD']))  # integer, minimum time period between discovery and production
-            imported_factors['development_probability'].append(float(row['DEVELOPMENT_PROBABILITY'])) # value (ratio), probability of deposit development when supply triggered in a given time period
+            imported_factors['development_probability'].append(float(row['DEVELOPMENT_PROBABILITY']))  # value (ratio), probability of deposit development when supply triggered in a given time period
             imported_factors['coproduct_commodity'].extend([row['COPRODUCT_COMMODITY'].split(';')])  # string separated by semicolons for each commodity, don't include whitespace
             imported_factors['coproduct_grade_model'].extend([row['COPRODUCT_GRADE_MODEL'].split(';')])  # strings separated by semicolons for each commodity, don't include whitespace, corresponding to models in deposit.grade_generate()
             imported_factors['coproduct_a'].extend([row['COPRODUCT_A'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.grade_generate()
@@ -625,6 +672,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
             imported_factors['coproduct_cost_b'].extend([row['COPRODUCT_COST_B'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
             imported_factors['coproduct_cost_c'].extend([row['COPRODUCT_COST_C'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
             imported_factors['coproduct_cost_d'].extend([row['COPRODUCT_COST_D'].split(';')])  # values separated by semicolons for each commodity, don't include whitespace, see model parameter in deposit.value_model()
+
             region_key = imported_factors['region'][-1]
             deposit_type_key = imported_factors['deposit_type'][-1]
             if region_key in imported_factors['lookup_table']:
@@ -633,11 +681,11 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                 imported_factors['lookup_table'].update({region_key: {deposit_type_key: imported_factors['index'][-1]}})
     if copy_path is not None:
         copyfile(path, copy_path / 'input_exploration_production_factors.csv')
-        
-    if log_path is not None:
-        export_log('Imported input_exploration_production_factors.csv', output_path=log_path, print_on=1)
+
+    export_log('Imported input_exploration_production_factors.csv', output_path=log_path, print_on=1)
 
     return imported_factors
+
 
 def import_exploration_production_factors_timeseries(path, copy_path=None, log_path=None):
     """
@@ -664,18 +712,18 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
         csv_reader = csv.DictReader(input_file)
         # Iterate through each row to populate time series of variable overrides.
         for row in csv_reader:
-            #index = factors['lookup_table'][row['REGION']][row['DEPOSIT_TYPE']]
+            # index = factors['lookup_table'][row['REGION']][row['DEPOSIT_TYPE']]
             if int(row['UPDATE_PROJECTS']) == 1:
                 project_updates = timeseries_dictionary_merge_row(project_updates, row)
             if int(row['UPDATE_EXPLORATION_PRODUCTION_FACTORS']) == 1:
                 exploration_production_factors_updates = timeseries_dictionary_merge_row(exploration_production_factors_updates, row)
     if copy_path is not None:
         copyfile(path, copy_path / 'input_exploration_production_factors_timeseries.csv')
-    
-    if log_path is not None:
-        export_log('Imported input_exploration_production_factors_timeseries.csv', output_path=log_path, print_on=1)
+
+    export_log('Imported input_exploration_production_factors_timeseries.csv', output_path=log_path, print_on=1)
 
     return (project_updates, exploration_production_factors_updates)
+
 
 def timeseries_dictionary_merge_row(dictionary, row):
     """
@@ -700,11 +748,12 @@ def timeseries_dictionary_merge_row(dictionary, row):
                 dictionary.update({int(key): {row['REGION']: {row['DEPOSIT_TYPE']: {row['VARIABLE']: {row['COMMODITY']: row[key]}}}}})
     return dictionary
 
+
 def import_demand(path, copy_path=None, log_path=None):
     """
     import_demand()
     Imports parameters from input_demand.csv located at 'path'.
-    Typical path is WORKING_DIRECTORY\input_files\input_demand.csv
+    Typical path is WORKING_DIRECTORY / input_files / input_demand.csv
 
     Returns a dictionary, imported_demand{scenario_name: {commodity: {'balance_supply': 1 or 0,'intermediate_recovery': 0 to 1, 'demand_threshold': 0 to 1, 'demand_carry': float(), year: commodity demand}}}
 
@@ -744,19 +793,19 @@ def import_demand(path, copy_path=None, log_path=None):
                     imported_demand[row['SCENARIO_NAME']][row['COMMODITY']].update({int(key): float(row[key])})
     if copy_path is not None:
         copyfile(path, copy_path / 'input_demand.csv')
-        
-    if log_path is not None:
-        export_log('Imported input_demand.csv', output_path=log_path, print_on=1)
+
+    export_log('Imported input_demand.csv', output_path=log_path, print_on=1)
         
     return imported_demand
 
+
 def import_graphs(path, copy_path=None, log_path=None):
     """
-    import_graphs(()
+    import_graphs()
     Imports graph generation parameters from input_graphs.csv located at 'path'.
-    Typical path is WORKING DIRECTORY\input_files\input_graphs.csv
+    Typical path is WORKING DIRECTORY / input_files / input_graphs.csv
 
-    Returns a list of dictionaries [{row0_keys: row0_values}, {row1_keys: row1_values}, etc.
+    Returns a list of dictionaries [{row0_keys: row0_values}, {row1_keys: row1_values}, etc.]
 
     Files will be copied to copy_path_folder if specified.
 
@@ -848,12 +897,10 @@ def import_graphs(path, copy_path=None, log_path=None):
             elif imported_graphs[-1]['gif_delete_frames'].lower() == "true":
                 imported_graphs[-1]['gif_delete_frames'] = True
 
-
     if copy_path is not None:
         copyfile(path, copy_path / 'input_graphs.csv')
-        
-    if log_path is not None:
-        export_log('Imported input_graphs.csv', output_path=log_path, print_on=1)
+
+    export_log('Imported input_graphs.csv', output_path=log_path, print_on=1)
 
     return imported_graphs
 
@@ -862,7 +909,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
     """
     import_graphs_formatting()
     Imports postprocessing parameters from a csv located at 'path'.
-    Typical path is WORKING_DIRECTORY\input_files\input_graphs_formatting.csv
+    Typical path is WORKING_DIRECTORY / input_files / input_graphs_formatting.csv
     Output is a dictionary {label: {color: value, line: value, linestyle: value, etc.}}
 
     Copies file if copy_path directory specified.
@@ -906,16 +953,16 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
 
     if copy_path is not None:
         copyfile(path, copy_path / 'input_graphs_formatting.csv')
-    if log_path is not None:
-        export_log('Imported input_graphs_formatting.csv', log_path, 1)
+    export_log('Imported input_graphs_formatting.csv', log_path, 1)
     return imported_graphs_formatting
+
 
 def import_postprocessing(path, copy_path=None, log_path=None):
     """
     import_postprocessing()
     Imports postprocessing parameters from a csv located at 'path'.
-    Typical path is WORKING_DIRECTORY\input_files\input_postprocessing.csv
-    Output is a dictionaries {statistic: {'postprocess': True}] for statistics where 'POSTPROCESS' csv column == True
+    Typical path is WORKING_DIRECTORY / input_files / input_postprocessing.csv
+    Output is a dictionaries {statistic: {'postprocess': True}} for statistics where 'POSTPROCESS' csv column == True
                               
     Copies input_parameters if copy_path directory specified.
                               
@@ -931,16 +978,16 @@ def import_postprocessing(path, copy_path=None, log_path=None):
 
     with open(path, mode='r') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
-        #Import scenarios
+        # Import scenarios
         for row in csv_reader:
             if row['POSTPROCESS'].lower() == 'true':
                 imported_postprocessing.update({row["STATISTIC"]: {'postprocess': True}})
 
     if copy_path is not None:
         copyfile(path, copy_path / 'input_postprocessing.csv')
-    if log_path is not None:
-        export_log('Imported input_postprocessing.csv', log_path, 1)
+    export_log('Imported input_postprocessing.csv', log_path, 1)
     return imported_postprocessing  
+
 
 def import_historic(path, copy_path=None, log_path=None):
     """
@@ -962,12 +1009,10 @@ def import_historic(path, copy_path=None, log_path=None):
     
     if copy_path is not None:
         copyfile(path, copy_path / 'input_historic.csv')
-    if log_path is not None:
-        export_log('Imported input_historic.csv', log_path, 1)
+    export_log('Imported input_historic.csv', log_path, 1)
     
     return imported_historic
-    
-    
+
 
 def import_statistics(path, log_path=None, custom_keys=False, convert_values=False):
     """
@@ -1019,10 +1064,10 @@ def import_statistics(path, log_path=None, custom_keys=False, convert_values=Fal
                     time_values = row['TIME']
                 imported_statistics.update({tuple_key: dict(zip(time_keys, time_values))})
 
-    if log_path is not None:
-        export_log('Imported a flat statistics csv.', output_path=log_path, print_on=1)
+    export_log('Imported a flat statistics csv.', output_path=log_path, print_on=1)
 
     return imported_statistics
+
 
 def import_statistics_keyed(path, base_key='STATISTIC', base_key_values=None, log_path=None):
     """
@@ -1064,14 +1109,77 @@ def import_statistics_keyed(path, base_key='STATISTIC', base_key_values=None, lo
             # Add row to nested stats
             else:
                 if base_key_values is None or row[base_key] in base_key_values:
-                    time_dict = dict(zip(time_keys,row['TIME']))
+                    time_dict = dict(zip(time_keys, row['TIME']))
                     imported_statistics[row[base_key]].update({(row['SCENARIO_INDEX'],
-                                                                  row['ITERATION'],
-                                                                  row['AGGREGATION'],
-                                                                  row['REGION'],
-                                                                  row['DEPOSIT_TYPE'],
-                                                                  row['COMMODITY'],
-                                                                  row['STATISTIC']): time_dict})
-    if log_path is not None:
-        export_log('Imported_statistics.csv', output_path=log_path, print_on=1)
+                                                                row['ITERATION'],
+                                                                row['AGGREGATION'],
+                                                                row['REGION'],
+                                                                row['DEPOSIT_TYPE'],
+                                                                row['COMMODITY'],
+                                                                row['STATISTIC']): time_dict})
+    export_log('Imported statistics.csv', output_path=log_path, print_on=1)
     return imported_statistics, time_keys
+
+
+def import_geopackage(path, copy_path=None, log_path=None, cache_path=None):
+    """
+        import_geopackage()
+        Imports a geopackage (.gpkg) as a geopandas dataframe.
+        Copies geopackage if copy_path directory specified.
+
+        Files will be copied to copy_path if specified.
+
+        Returns a geopandas dataframe
+        """
+    geopackage_gdf = None
+
+    if cache_path is None:
+        cache_path = path.with_suffix('.pkl')
+
+    if path.exists():
+        if cache_path.exists():
+            # Check if the geopackage has been modified since cache was created
+            file_mod_time = path.stat().st_mtime
+            cache_mod_time = cache_path.stat().st_mtime
+            if file_mod_time <= cache_mod_time:
+                geopackage_gdf = pd.read_pickle(cache_path)
+                export_log('Imported input_geopackage.pkl, cached file.', output_path=log_path, print_on=1)
+
+        if geopackage_gdf is None:
+            geopackage_gdf = spatial.import_geopackage(path)
+            geopackage_gdf.to_pickle(cache_path)
+            export_log('Imported input_geopackage.gpkg\nCreated cache file input_geopackage.pkl', output_path=log_path, print_on=1)
+
+        if copy_path is not None:
+            copyfile(path, copy_path / 'input_geopackage.gpkg')
+    else:
+        geopackage_gdf = None
+        export_log("Warning: Geopackage not found. Missing coordinates or coordinates for greenfield deposits will not be generated.", output_path=log_path, print_on=1)
+
+    return geopackage_gdf
+
+
+def import_cache_geodataframe_dict_list(cache_path, factors, geodataframe, factors_path, geopackage_path, simplify=True, log_path=None):
+    if cache_path.exists():
+        # Check files haven't been modified since cache generated
+        cache_path_time = cache_path.stat().st_mtime
+        factors_path_time = factors_path.stat().st_mtime
+        geopackage_path_time = geopackage_path.stat().st_mtime
+        if factors_path_time <= cache_path_time and geopackage_path_time <= cache_path_time:
+            with open(cache_path, 'rb') as f:
+                gdf_dict_list = pickle.load(f)
+            export_log('Imported pre-processed spatial data cache\n', output_path=log_path, print_on=1)
+        else:
+            export_log('Preprocessed spatial data cache out of date.\nProcessing spatial data (this may take some time for large datasets)\n', output_path=log_path, print_on=1)
+            gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
+            with open(cache_path, 'wb') as f:
+                pickle.dump(gdf_dict_list, f)
+            export_log('Reprocessed spatial data and created new cache\n', output_path=log_path, print_on=1)
+    else:
+        export_log('No preprocessed spatial data cache exists.\nProcessing spatial data (this may take some time for large datasets)\n', output_path=log_path, print_on=1)
+        gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
+        with open(cache_path, 'wb') as f:
+            pickle.dump(gdf_dict_list, f)
+        export_log('Processed spatial data and created new cache.\n', output_path=log_path, print_on=1)
+
+    return gdf_dict_list

@@ -30,7 +30,8 @@ import matplotlib.pyplot as plt
 from numpy import nan
 import numpy as np
 import imageio
-import pandas as pd
+import polars as pl
+from functools import reduce
 
 # Import custom modules
 
@@ -51,139 +52,155 @@ def merge_scenarios(imported_postprocessing, scenario_folders, output_stats_fold
 
     filter_columns = ["STATISTIC" for s in updated_postprocessing]
     filter_keys = [[s] for s in updated_postprocessing]
-    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder,filter_columns,filter_keys, filenameend="statistics.csv")
+    key_output_filepath_dict = combine_csv_files(scenario_folders, output_stats_folder, filter_columns, filter_keys, filenameend="_statistics.csv")
     for s, path in key_output_filepath_dict.items():
         updated_postprocessing[s[0]].update({'path': path})  #s [0] because s is a tuple (s,) with an extra, empty element. Should really fix this up.
 
     return updated_postprocessing
 
 
-def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv", chunksize=100000):
-    """
-    Combines CSV files from multiple directories based on filter keys and saves the filtered data into separate CSV files.
+def combine_csv_files(input_dirs, output_dir, filter_columns, filter_keys, filenameend="statistics.csv"):
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    Args:
-        input_dirs (list): List of input directories containing CSV files.
-        output_dir (str): Output directory to save the generated CSV files.
-        filter_columns (list): List of column names to filter on.
-        filter_keys (list): List of filter key combinations.
-        filenameend (str, optional): Ending of the input CSV filenames. Defaults to "statistics.csv".
-        chunksize (int, optional): Number of csv lines read and processed at once. Defaults to 100,000.
-
-    Returns:
-        dict: {key, filepath} Dictionary containing the filter keys and corresponding paths of the generated CSV files.
-    """
     key_path_dict = {}
+    written_files = set()
+
+    for keys in filter_keys:
+        output_file = "_".join(keys) + ".csv"
+        output_path = output_dir / output_file
+        key_path_dict[tuple(keys)] = output_path
+        if output_path.exists():
+            output_path.unlink()
 
     for input_dir in input_dirs:
         for entry in Path(input_dir).iterdir():
             if entry.name.endswith(filenameend) and entry.is_file():
-                file_path = entry
+                df_lazy = pl.read_csv(entry).lazy()
 
-                df_chunks = pd.read_csv(file_path, chunksize=chunksize)
-                for chunk in df_chunks:
-                    for keys in filter_keys:
-                        filters = [chunk[column] == key for column, key in zip(filter_columns, keys)]
-                        filtered_chunk = chunk[np.logical_and.reduce(filters)]
+                for keys in filter_keys:
+                    filters = [(pl.col(col) == val) for col, val in zip(filter_columns, keys)]
+                    combined_filter = reduce(lambda a, b: a & b, filters)
+                    filtered_lazy = df_lazy.filter(combined_filter)
 
-                        if tuple(keys) not in key_path_dict:
-                            output_file = "_".join(keys) + ".csv"
-                            output_path = Path(output_dir) / output_file
+                    result = filtered_lazy.collect()
+                    if result.is_empty():
+                        continue
 
-                            filtered_chunk.to_csv(output_path, index=False)
-                            key_path_dict[tuple(keys)] = output_path
-                        else:
-                            output_path = key_path_dict[tuple(keys)]
-                            filtered_chunk.to_csv(output_path, mode='a', header=False, index=False)
+                    output_path = key_path_dict[tuple(keys)]
+
+                    if output_path not in written_files:
+                        result.write_csv(output_path)
+                        written_files.add(output_path)
+                    else:
+                        csv_str = result.write_csv()
+                        lines = csv_str.splitlines(True)
+                        with open(output_path, "a", encoding="utf8") as f:
+                            f.writelines(lines[1:])  # skip header line
 
     return key_path_dict
 
 
+
 def project_iteration_statistics(directories):
     """
-    Generates and outputs project iteration statistics for each demand scenario directory
+    Generates and outputs project iteration statistics for each demand scenario directory.
 
     returns {demand scenario directory: {'status': filepath}}
     """
     filepath_nested_dict = {}
 
-    for dir in directories:
-        status_filepath = count_iteration_frequencies(dir,
-                                                      int_labels={-3: 'Development Probability Test Failed',
-                                                                       -2: 'Not Valuable Enough to Mine',
-                                                                       -1: 'Depleted',
-                                                                       0: 'Undeveloped',
-                                                                       1: 'Care and Maintenance',
-                                                                       2: 'Producing',
-                                                                       3: 'Produced and Depleted'},
-                                                      nan_label='Undiscovered')
-        filepath_nested_dict[dir] = {'status': status_filepath}
+    int_labels = {
+        -3: 'Development Probability Test Failed',
+        -2: 'Not Valuable Enough to Mine',
+        -1: 'Depleted',
+        0: 'Undeveloped',
+        1: 'Care and Maintenance',
+        2: 'Producing',
+        3: 'Produced and Depleted'
+    }
+    nan_label = 'Undiscovered'
+
+    for d in directories:
+        status_filepath = count_iteration_frequencies(
+            d,
+            int_labels=int_labels,
+            nan_label=nan_label
+        )
+        filepath_nested_dict[d] = {'status': status_filepath}
 
     return filepath_nested_dict
 
 
-def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_file="_status.csv", id_vars='P_ID_NUMBER', label='STATUS', int_labels={}, nan_label='Missing', chunksize=100000):
+def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_file="_status.csv",
+                               id_vars='P_ID_NUMBER', label='STATUS', int_labels={}, nan_label='Missing'):
     """
-    Count the frequency of each integer for each ID at each point in time across all files matching the given pattern in the directory.
-
-    Expected input CSV format
-    [ID,  time0,  time1, ...,  time n]
-    [id,    int,    int, ...,     int]
-    [id,    int,    int, ...,     int]
+    Count the frequency of each integer for each ID at each point in time across all files matching the pattern in the directory.
 
     Args:
-    directory (str or Path): The path to the directory containing the files.
-    file_pattern (str): The pattern to match files (e.g., "*.csv").
-    output_file (str): The name of the output CSV file, which will be written in directory.
-    id_vars (str): The column name of the ID variable.
-    label (str): The column name of the integer variable
-    int_labels (dict): Dictionary mapping integer values to labels {int: 'label'}
-    nan_label (str): Label where the count of missing values in a time period will be assigned
-    chunksize (int): The number of rows per chunk when reading CSV files.
+        directory (str or Path): Directory path containing CSV files.
+        file_pattern (str): Pattern to match input CSV files.
+        output_file (str): Filename for output CSV.
+        id_vars (str): ID column name.
+        label (str): Status/label column name.
+        int_labels (dict): Mapping of int values to descriptive labels.
+        nan_label (str): Label for missing/NaN values.
 
-
-    Returns a path to the output_file
+    Returns:
+        Path: Path to the output CSV file.
     """
-    # Convert the directory to a Path object
     directory = Path(directory)
     output_filepath = directory / output_file
 
-    # Initialize a dictionary to store the frequencies
-    overall_counter = {}
-
-    # Iterate over each file matching the pattern in the directory
+    # Collect melted DataFrames for all matching files
+    dfs = []
     for filepath in directory.glob(file_pattern):
-        # Load the file into a dataframe in chunks
-        for chunk in pd.read_csv(filepath, chunksize=chunksize, na_values=['']):
-            # Melt the dataframe to have a long format
-            melted_chunk = chunk.melt(id_vars=[id_vars], var_name='Time', value_name=label)
+        df = pl.read_csv(filepath)
+        time_cols = [col for col in df.columns if col != id_vars]
+        melted = df.melt(id_vars=id_vars, value_vars=time_cols, variable_name="Time", value_name=label)
+        dfs.append(melted)
 
-            # Count the frequency of each value for each ID at each point in time
-            for id, group in melted_chunk.groupby([id_vars, 'Time']):
-                if id not in overall_counter:
-                    overall_counter[id] = Counter()
-                overall_counter[id][group[label].iloc[0]] += len(group)
+    if not dfs:
+        # No matching files, return path anyway
+        return output_filepath
 
-    # Convert the overall_counter to a DataFrame
-    frequency_count_list = []
-    for (id, time), counter in overall_counter.items():
-        for value, count in counter.items():
-            # Handle np.nan explicitly, which occurs when data is missing for a time-period
-            if pd.isna(value):
-                value_label = nan_label
-            else:
-                value_label = int_labels.get(value, f'{value}')  # Label defaults to integer if not found in mapping
-            frequency_count_list.append({id_vars: id, 'Time': time, label: value_label, 'Count': count})
-    frequency_count_df = pd.DataFrame(frequency_count_list)
+    full_df = pl.concat(dfs)
 
-    # Pivot the DataFrame to have each time period as a separate column header
-    frequency_count_df = frequency_count_df.pivot_table(index=[id_vars, label], columns='Time', values='Count')
+    # Count frequency of each value per ID and Time
+    freq_df = (
+        full_df
+        .group_by([id_vars, "Time", label])
+        .agg(pl.count().alias("Count"))
+    )
 
-    # Reset index to make 'Value' a regular column
-    frequency_count_df = frequency_count_df.reset_index()
+    # Ensure label column is Int64 for mapping
+    freq_df = freq_df.with_columns([
+        pl.col(label).cast(pl.Int64).alias(label)
+    ])
 
-    # Write the frequency count dataframe to a CSV file
-    frequency_count_df.to_csv(output_filepath, index=False)
+    # Map integer labels and handle missing with chained when-then-otherwise
+    freq_df = freq_df.with_columns(
+        pl.when(pl.col(label).is_null()).then(pl.lit(nan_label))
+        .when(pl.col(label) == -3).then(pl.lit(int_labels.get(-3)))
+        .when(pl.col(label) == -2).then(pl.lit(int_labels.get(-2)))
+        .when(pl.col(label) == -1).then(pl.lit(int_labels.get(-1)))
+        .when(pl.col(label) == 0).then(pl.lit(int_labels.get(0)))
+        .when(pl.col(label) == 1).then(pl.lit(int_labels.get(1)))
+        .when(pl.col(label) == 2).then(pl.lit(int_labels.get(2)))
+        .when(pl.col(label) == 3).then(pl.lit(int_labels.get(3)))
+        .otherwise(pl.col(label).cast(pl.Utf8))
+        .alias(label)
+    )
+
+    # Pivot to wide format: each Time is a column
+    pivot_df = freq_df.pivot(
+        values="Count",
+        index=[id_vars, label],
+        columns="Time"
+    )
+
+    # Write to CSV
+    pivot_df.write_csv(output_filepath)
 
     return output_filepath
 
@@ -345,9 +362,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
 
     x | for stacked plots x[0] should equal any x[any]
     """
-    matplotlib.use('Agg') # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
-
-
+    matplotlib.use('Agg')  # Using this backend to avoid a memory leak when using fig.savefig for subplots without a show()
 
     # Plot text formatting
     TEXT_SIZE_DEFAULT = 7
@@ -368,7 +383,7 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
     if share_scale == True:
         # Subplots have common scale
         fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=True, sharex=True, squeeze=False)
-    elif share_scale == False:
+    else:  # share_scale == False
         # Subplots have independent scales
         fig, ax = plt.subplots(h_panels, v_panels, figsize=(v_panels * 9/2.54, h_panels * 9/2.54), subplot_kw={'xmargin': 0, 'ymargin': 0}, sharey=False, sharex=False)
 
@@ -399,6 +414,9 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
                     data['y'] = series_modify(data['y'], cumulative)
                     generate_fill(ax[h, v], data['x'], data['y'], l_format)
                     generate_line(ax[h, v], data['x'], data['y'], l_format, force_legend_suppress=True)
+                elif plot_type == 'fan':
+                    data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
+                    generate_fan(ax[h, v], data['x'], data['y'], l_format)
                 elif plot_type == 'stacked':
                     data['y'] = series_modify(data['y'], cumulative, replace_none=float(0))
                     stacked_y, data_height = series_stack(data['y'], data_height)
@@ -414,7 +432,6 @@ def plot_subplot_generator(output_filename, title, plot, h_panels, v_panels, plo
             ax[h, v].set_title(title_text, pad=None) if not legend_suppress else None
             ax[h, v].set_ylabel(y_axis_label)
             ax[h, v].tick_params(labelbottom=1, labelleft=1)
-
         else:
             fig.delaxes(ax[h, v])
 
@@ -480,6 +497,23 @@ def generate_fill(axis, x, y, l_format, force_legend_suppress=False):
         axis.fill([], [], label=l_format['legend_text'], color=l_format['color'], alpha=l_format['fill_alpha'])
 
 
+def generate_fan(axis, x, y, l_format, force_legend_suppress=False):
+    y_array = np.array(y)
+    x_values = x[0]
+    p0 = np.percentile(y_array, 0, axis=0)
+    p5 = np.percentile(y_array, 5, axis=0)
+    p50 = np.percentile(y_array, 50, axis=0)
+    p95 = np.percentile(y_array, 95, axis=0)
+    p100 = np.percentile(y_array, 100, axis=0)
+    
+    axis.fill_between(x_values, p0, p100, color=l_format['color'], alpha=0.1, linewidth=0)
+    axis.fill_between(x_values, p5, p95, color=l_format['color'], alpha=0.3, linewidth=0)
+    axis.plot(x_values, p50, color=l_format['color'], linewidth=l_format['linewidth'], alpha=1.0)
+    
+    if l_format['legend_suppress'] is False and force_legend_suppress is False:
+        axis.plot([], [], label=l_format['legend_text'], color=l_format['color'], 
+                 linewidth=l_format['linewidth'])
+
 def series_modify(data_series, cumulative=False, replace_none=False):
     modified_series = []
     for series_list in data_series:
@@ -492,6 +526,7 @@ def series_modify(data_series, cumulative=False, replace_none=False):
         else:
             modified_series.append(series_list)
     return modified_series
+
 
 def series_stack(data_series, data_height):
     # Convert data_series and data_height to NumPy arrays

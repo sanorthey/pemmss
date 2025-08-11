@@ -28,11 +28,12 @@ Module with data structures and functions for handling deposit data
 import random
 import copy
 from collections import defaultdict
-from math import log
+from math import log, log10
 from statistics import mean, stdev
 
 # Import from custom packages
 from modules.file_export import export_log
+from modules.spatial import generate_region_coordinate
 
 
 class Mine:
@@ -46,6 +47,8 @@ class Mine:
     Mine.id_number | Unique deposit identifying number
     Mine.name | Name of the deposit
     Mine.region | Region containing the deposit
+    Mine.latitude | Latitude of the deposit in decimal degrees
+    Mine.longitude | Longitude of the deposit in decimial degrees
     Mine.deposit_type | Primary deposit type
     Mine.commodity | Dictionary of commodities in the project {commodity: balanced}
                    | Where balanced = 1 indicates demand for this commodity can trigger mine supply
@@ -99,22 +102,24 @@ class Mine:
     Mine.supply(ext_demand,year,ext_demand_commodity)
     Mine.resource_expansion(year)
     """
-    __slots__ = ('id_number', 'name', 'region', 'deposit_type', 'commodity',
+
+    __slots__ = ('id_number', 'name', 'region', 'latitude', 'longitude', 'deposit_type', 'commodity',
                  'remaining_resource', 'initial_resource', 'grade', 'initial_grade', 'grade_timeseries',
-                 'current_tranche',
-                 'recovery', 'production_capacity', 'production_intermediate', 'production_ore', 'expansion',
-                 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value', 'discovery_year',
-                 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
+                 'current_tranche', 'recovery', 'production_capacity', 'production_intermediate', 'production_ore',
+                 'expansion', 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value',
+                 'discovery_year', 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
                  'end_year', 'value_factors', 'aggregation', 'key_set')
 
     # Initialise mine variables
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
                  status, value, discovery_year, start_year, development_probability, brownfield_tonnage, brownfield_grade,
-                 value_factors, aggregation, value_update=False):
+                 value_factors, aggregation, value_update=False, latitude=None, longitude=None):
         self.id_number = id_number
         self.name = name
         self.region = region
+        self.latitude = latitude
+        self.longitude = longitude
         self.deposit_type = deposit_type
         self.commodity = {commodity: 1}  # All Mine objects should have at least one balanced commodity.
         self.remaining_resource = remaining_resource  # List of ore tranches {c: [tranche 0, tranche 1, etc.]}
@@ -141,13 +146,13 @@ class Mine:
         self.value_factors = value_factors
         self.aggregation = aggregation
         self.key_set = {('ALL', 'ALL', 'ALL', 'ALL'),
-                       ('ALL', 'ALL', deposit_type, 'ALL'),
-                       ('ALL', region, 'ALL', 'ALL'),
-                       ('ALL', region, deposit_type, 'ALL'),
-                       (aggregation, 'ALL', 'ALL', 'ALL'),
-                       (aggregation, 'ALL', deposit_type, 'ALL'),
-                       (aggregation, region, 'ALL', 'ALL'),
-                       (aggregation, region, deposit_type, 'ALL'),
+                        ('ALL', 'ALL', deposit_type, 'ALL'),
+                        ('ALL', region, 'ALL', 'ALL'),
+                        ('ALL', region, deposit_type, 'ALL'),
+                        (aggregation, 'ALL', 'ALL', 'ALL'),
+                        (aggregation, 'ALL', deposit_type, 'ALL'),
+                        (aggregation, region, 'ALL', 'ALL'),
+                        (aggregation, region, deposit_type, 'ALL'),
                         ('ALL', 'ALL', 'ALL', commodity),
                         ('ALL', 'ALL', deposit_type, commodity),
                         ('ALL', region, 'ALL', commodity),
@@ -174,7 +179,7 @@ class Mine:
 
         update_value == True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
         add_grade | should be list of tranche ore grades [tranche 0, tranche 1, etc.]
-        tranche   | optional, can be used to modify tranche used to assign current grade
+        tranche   | optional, can be used to modify tranche used to assign current grade. TODO: add this functionality
         # Note assumes all commodities would initially be added in the first year
         """
         self.commodity.update({add_commodity: int(is_balanced)})
@@ -184,19 +189,18 @@ class Mine:
         self.recovery.update({add_commodity: float(add_recovery)})
         self.brownfield_grade.update({add_commodity: float(add_brownfield_grade)})
         self.value_factors.update({add_commodity: add_value_factors})
-        if update_value == True:
+        if update_value:
             self.value_update(log_file=log_file)
         self.production_intermediate.update({add_commodity: {}})
         self.expansion_contained.update({add_commodity: {}})
         self.key_set.update({('ALL', 'ALL', 'ALL', add_commodity),
-                        ('ALL', 'ALL', self.deposit_type, add_commodity),
-                        ('ALL', self.region, 'ALL', add_commodity),
-                        ('ALL', self.region, self.deposit_type, add_commodity),
-                        (self.aggregation, 'ALL', 'ALL', add_commodity),
-                        (self.aggregation, 'ALL', self.deposit_type, add_commodity),
-                        (self.aggregation, self.region, 'ALL', add_commodity),
-                        (self.aggregation, self.region, self.deposit_type, add_commodity)})
-
+                             ('ALL', 'ALL', self.deposit_type, add_commodity),
+                             ('ALL', self.region, 'ALL', add_commodity),
+                             ('ALL', self.region, self.deposit_type, add_commodity),
+                             (self.aggregation, 'ALL', 'ALL', add_commodity),
+                             (self.aggregation, 'ALL', self.deposit_type, add_commodity),
+                             (self.aggregation, self.region, 'ALL', add_commodity),
+                             (self.aggregation, self.region, self.deposit_type, add_commodity)})
 
     def get(self, variable, get_commodity=None):
         """
@@ -211,6 +215,10 @@ class Mine:
             return self.name
         elif variable == 'region':
             return self.region
+        elif variable == 'latitude':
+            return self.latitude
+        elif variable == 'longitude':
+            return self.longitude
         elif variable == 'deposit_type':
             return self.deposit_type
         elif variable == 'commodity':
@@ -300,8 +308,6 @@ class Mine:
             print('Attempted to get variable ' + str(variable) +
                   'that does not exist from Mine class object.')
 
-
-
     def update_key_dict(self, key_dict, i, j):
         """
         Mine.update_key_dict(key_dict, i, j)
@@ -319,7 +325,6 @@ class Mine:
                 key_dict.update({key: [self]})
 
         return key_dict
-
 
     def update_by_region_deposit_type(self, update_factors, log_file=None):
         """
@@ -366,7 +371,6 @@ class Mine:
                 variables.update(update_factors[self.region][self.deposit_type])
 
         self.update_variables(variables, log_file=log_file)
-
 
     def update_variables(self, variables, log_file=None):
         """
@@ -423,7 +427,6 @@ class Mine:
             self.end_year = int(variables['end_year'][''])
         if 'development_probability' in variables:
             self.development_probability = float(variables['development_probability'][''])
-
 
     def supply(self, ext_demand, year, ext_demand_commodity, marginal_recovery=False):
         """
@@ -510,7 +513,7 @@ class Mine:
 
             for tranche, _ in enumerate(self.remaining_resource):
 
-                if production_capacity_residual > 0 and demand_residual > 0 and self.grade[ext_demand_commodity][tranche] != 0: # Checking for grade == 0 is to avoid divide by zero bugs in supply requirement calculation.
+                if production_capacity_residual > 0 and demand_residual > 0 and self.grade[ext_demand_commodity][tranche] != 0:  # Checking for grade == 0 is to avoid divide by zero bugs in supply requirement calculation.
                     self.current_tranche = tranche
                     # Convert residual external demand into tranche ore demand by accounting for recovery and tranche specific ore grade
                     supply_requirement = demand_residual / self.grade[ext_demand_commodity][tranche] / self.recovery[ext_demand_commodity]
@@ -583,7 +586,6 @@ class Mine:
                 # Return Mine as having not supplied
                 return 0
 
-
     def resource_expansion(self, year):
         """
         Mine.resource_expansion(year)
@@ -643,6 +645,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     is_background == True | Background greenfield discovery, start year forward dated
     is_background == False | Demand triggered greenfield discovery, discovery year backdated
     id_number | Unique ID for the generated Mine class instance, must be an integer
+    region_label | The attribute used to identify the region (e.g., a column name)
 
     Returns a new Mine object
     """
@@ -689,7 +692,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     recovery = f['recovery'][index]
 
     # Estimate supply capacity, check that within mine life constraints
-    capacity = capacity_generate(tonnage[0], f['capacity_a'][index], f['capacity_b'][index], f['capacity_sigma'][index], f['life_min'][index], f['life_max'][index])
+    capacity = capacity_generate(tonnage[0], f['capacity_a'][index], f['capacity_b'][index], f['capacity_sigma'][index], f['life_min'][index], f['life_max'][index], sigma_log10=f['capacity_sigma_log10'][index])
 
     # Generate Value
     value = value_generate(value_factors, tonnage, {commodity: grade}, {commodity: recovery}, capacity, tranche=0, log_file=log_file)
@@ -706,10 +709,13 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
         start_time = current_year
         aggregation = 'Greenfield - Demanded'
 
+    # Coordinate generation
+    latitude, longitude = generate_region_coordinate(f['gdf'][index])
+
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
-                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation)
-
+                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, latitude=latitude, longitude=longitude)
+    
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
         if len(f['coproduct_commodity'][index]) != 0:
@@ -741,6 +747,7 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
     'factors' input must be a dictionary with 'grade_model', 'a', 'b', 'c' and 'd' defined.
     grade_model = 'fixed' | 'a' = grade
     grade_model = 'multiple' | 'a' = grade, 'b' = multiplier
+    grade_model = 'uniform' | 'a' = min grade, 'b' = max grade
     grade_model = 'lognormal' |
         a = mu, mean
         b = sigma, standard deviation
@@ -759,6 +766,9 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
     elif grade_model == "multiple":
         # Multiple of main commodity grade | 'a' = commodity name, 'b' = grade multiplier, grade_dictionary = {commodity: value}
         grade = grade_dictionary[a][tranche] * float(b)
+    elif grade_model == "uniform":
+        # Uniform grade distribution | 'a' = min grade, 'b' = max grade
+        grade = random.uniform(float(a), float(b))
     elif grade_model == "lognormal":
         # Lognormal grade distribution
         # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
@@ -797,8 +807,9 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     """
     Returns a resource tonnage, generated in accordance with defined distributions.
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
-    tonnage_model : 1. Fixed tonnage distribution, 2. Lognormal tonnage distribution, 3. Lognormal-grade dependent
-    tonnage distribution, 4. User-defined tonnage distribution
+    tonnage_model : 1. Fixed tonnage distribution, 2. Uniform tonnage distribution, 3. Lognormal tonnage distribution, 4. Lognormal-grade dependent
+    tonnage distribution, 5. User-defined tonnage distribution
+    # TODO: cleanup, grade-dependent distribution currently not implemented
     """
     a = factors['a']
     b = factors['b']
@@ -808,6 +819,9 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     if size_model == "fixed":
         # Fixed tonnage | 'a' = tonnage
         tonnage = float(a)
+    elif size_model == "uniform":
+        # Uniform tonnage distribution | 'a' = min tonnage, 'b' = max tonnage
+        tonnage = random.uniform(float(a), float(b))
     elif size_model == "lognormal":
         # Lognormal tonnage distribution
         # Distribution | 'a' = mean mu, 'b' = standard deviation sigma, 'c' = max value
@@ -817,6 +831,7 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     else:
         export_log('Invalid tonnage model ' + str(size_model), output_path=log_file, print_on=1)
     return tonnage
+
 
 def lognormal_factors(value_list):
     """
@@ -867,6 +882,7 @@ def value_generate(value_factors, resource, ore_grade, recovery, production_capa
                 return_value['ALL'] -= value
     return return_value
 
+
 def value_model(value_factors, ore, ore_grade, recovery, production_capacity, log_file=None):
     """
     value_generate(value_factors, ore, ore_grade, recovery)
@@ -907,19 +923,37 @@ def value_model(value_factors, ore, ore_grade, recovery, production_capacity, lo
         return ore * ore_grade * recovery * a
     elif model == 'power_of_production_capacity':
         return a * production_capacity ** b
+    elif model == 'production_capacity':
+        return production_capacity
+    elif model == 'production_capacity_commodity':
+        return ore_grade * production_capacity
+    elif model == 'production_capacity_commodity_recoverable':
+        return ore_grade * production_capacity * recovery
+    elif model == 'production_capacity_commodity_recoverable_value':
+        return ore_grade * production_capacity * recovery * a
+    elif model == 'power_of_size':
+        return a * ore ** b
+    elif model == 'random_uniform':
+        return random.uniform(a, b)
     else:
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
 
 
-def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life):
+def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life, sigma_log10=False):
     """
     Returns a production capacity based upon the taylor rule factors and uncertainty given input_exploration_production_factors.csv
     production_capacity = random gaussian distribution (a * resource_tonnage ** b, sigma), constrained to between the min and max mine life
 
     sigma = standard deviation
+    sigma_log10 | boolean indicating whether the sigma value has been log10 transformed. If it is then
     """
-    capacity_mean = a * resource_tonnage ** b
-    production_capacity = random.gauss(capacity_mean, sigma)
+    if sigma_log10:
+        log10_capacity_mean = log10(a * resource_tonnage ** b)
+        production_capacity = 10 ** random.gauss(log10_capacity_mean, sigma)
+    else:
+        capacity_mean = a * resource_tonnage ** b
+        production_capacity = random.gauss(capacity_mean, sigma)
+
 
     mine_life = resource_tonnage / production_capacity
     if mine_life < minimum_life:
