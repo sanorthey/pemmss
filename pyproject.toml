@@ -1,0 +1,22 @@
+[project]
+name = "pemmss"
+version = "1.4.1-dev"
+authors = [
+    {name = "Stephen Northey", email = "stephen.northey@uts.edu.au"},
+]
+maintainers = [
+    {name = "Stephen Northey", email = "stephen.northey@uts.edu.au"}
+]
+description = "Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model"
+requires-python = ">=3.12"
+readme = "README.md"
+license = "BSD 3-Clause"
+license-files = ["LICENSE.md"]
+keywords = ["pemmss"]
+
+[project.urls]
+Homepage = "https://zenodo.org/records/16792366"
+Repository = "https://github.com/sanorthey/pemmss"
+Issues = "https://github.com/sanorthey/pemmss/issues"
+Changelog = "https://zenodo.org/records/16792366"
+
