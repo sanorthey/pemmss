@@ -1,6 +1,6 @@
 [project]
 name = "pemmss"
-version = "1.4.1-dev"
+version = "1.4.1"
 authors = [
     {name = "Stephen Northey", email = "stephen.northey@uts.edu.au"},
 ]

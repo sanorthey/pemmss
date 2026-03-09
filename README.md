@@ -20,7 +20,8 @@ This version of the model has been developed and tested using python 3.13.5. Add
 cd <\path_to_pemmss_folder>
 pip install -r requirements.txt
 ```
-An alternative package installation path is to use the uv python environment manager. pylock.toml and pyproject.toml files have been created to assist with this. # TODO: improve description of uv installation method
+An alternative package installation path is to use the uv python environment manager. A pyproject.toml files have been created to assist with this.
+Please note that uv will be the preferred installation method for the next major release (PEMMSS v.1.5.0) onwards. 
 
 2. #### Scenario Data Input and Calibration
 Adjust scenario parameters and calibrate the model by modifying the CSV files located in the **input_files/** subdirectory.
