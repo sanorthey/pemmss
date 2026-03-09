@@ -14,7 +14,7 @@ To run the app, in the terminal run the command 'shiny run app.py', or 'python a
 Author: Jayden Hyman
 Date: 2025-08-03
 Version: 0.3.0
-Compatability: PEMMSS Version 1.4.0
+Compatability: PEMMSS Version 1.4.1
 License: BSD 3-Clause License
 Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets, plotly, anywidget
 """
