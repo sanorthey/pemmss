@@ -1,0 +1,39 @@
+[project]
+name = "pemmss"
+version = "1.4.1-dev"
+authors = [
+    {name = "Stephen Northey", email = "stephen.northey@uts.edu.au"},
+]
+maintainers = [
+    {name = "Stephen Northey", email = "stephen.northey@uts.edu.au"}
+]
+description = "Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model"
+requires-python = ">=3.12"
+readme = "README.md"
+license = "BSD 3-Clause"
+license-files = ["LICENSE.md"]
+keywords = ["pemmss"]
+dependencies = [
+    "chardet==5.2.0",
+    "charset-normalizer==3.4.2",
+    "geopandas==1.1.1",
+    "imageio==2.37.0",
+    "ipyleaflet==0.18.2",
+    "ipywidgets==7.6.5",
+    "matplotlib==3.10.8",
+    "numpy==2.4.0",
+    "pandas==2.3.3",
+    "pandas-stubs~=2.3.3",
+    "plotly==4.14.3",
+    "polars==1.31.0",
+    "shapely==2.1.2",
+    "shiny==0.10.2",
+    "shinywidgets==0.2.4",
+]
+
+[project.urls]
+Homepage = "https://zenodo.org/records/16792366"
+Repository = "https://github.com/sanorthey/pemmss"
+Issues = "https://github.com/sanorthey/pemmss/issues"
+Changelog = "https://zenodo.org/records/16792366"
+
