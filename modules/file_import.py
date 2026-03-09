@@ -422,7 +422,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
             imported_projects.append(
                 deposit.Mine(id_number, name, region, deposit_type, commodity, remaining_resource,
                              grade, recovery, production_capacity, status, value, discovery_year,
-                             start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, value_update=v_update, latitude=latitude, longitude=longitude))
+                             start_year, development_probability, brownfield_tonnage, brownfield_grade, value_factors, aggregation, index, value_update=v_update, latitude=latitude, longitude=longitude))
 
     if copy_path is not None:
         copyfile(path, copy_path / 'input_projects.csv')
@@ -460,7 +460,9 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
     import_project_coproducts(path):
     Imports and adds coproduct parameters to projects from input_project_coproducts.csv located in the working directory.
     f = exploration_production_factors
-    generate_all | If 1, update projects only listed in input_project_coproducts.csv. If 0, also update all other projects with data from exploration_production_factors.csv.
+    generate_all | If 1, update all other projects (not listed in input_project_coproducts.csv)
+                   using data from exploration_production_factors.csv.
+                   If 0, only apply rows explicitly listed in input_project_coproducts.csv.
 
     File will be copied to copy_path if specified.
 
@@ -473,109 +475,208 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
         COPRODUCT_COMMODITY |   string, must specify
         COPRODUCT_GRADE     |   float, tranches separated by ";", or will autogenerate if blank.
         COPRODUCT_RECOVERY  |   float, or will autogenerate if blank.
-        SUPPLY_TRIGGER      |   1 or 0, or will autogenerate if blank.
-        COPRODUCT_BROWNFIELD_GRADE_FACTOR       |   float, or will autogenerate if blank.
+        SUPPLY_TRIGGER      |   float (1 or 0 typical), or will autogenerate if blank.
+        COPRODUCT_BROWNFIELD_GRADE_FACTOR | float, or will autogenerate if blank.
 
-    Currently autogenerates value models from data in input_exploration_production_factors.csv
-    Todo: add ability to specify project specific co-product value models
+    Autogenerates value models from data in input_exploration_production_factors.csv.
     """
 
-    with open(path, mode='r') as input_file:
+    # Create project index dictionary for fast lookups
+    projects_by_id = {str(p.id_number): p for p in projects}
 
+    # Pre-index coproduct commodity factor definitions for each region/deposit type combination
+    coproduct_defs = {}
+    for region, dep_map in f['lookup_table'].items():
+        for deposit_type, index in dep_map.items():
+            commodities = f['coproduct_commodity'][index]
+            if not commodities:
+                coproduct_defs[(region, deposit_type)] = []
+                continue
+
+            entries = []
+            for i, commodity in enumerate(commodities):
+                if commodity == "":
+                    continue  # skip blanks
+                entries.append({
+                    "commodity": commodity,
+                    "grade_model_idx": i,
+                    "recovery": float(f['coproduct_recovery'][index][i]),
+                    "supply_trigger": float(f['coproduct_supply_trigger'][index][i]),
+                    "brownfield_grade_factor": float(f['coproduct_brownfield_grade_factor'][index][i]),
+                    "vf": {
+                        "revenue": {
+                            'model': f['coproduct_revenue_model'][index][i],
+                            'a': float(f['coproduct_revenue_a'][index][i]),
+                            'b': float(f['coproduct_revenue_b'][index][i]),
+                            'c': float(f['coproduct_revenue_c'][index][i]),
+                            'd': float(f['coproduct_revenue_d'][index][i]),
+                        },
+                        "cost": {
+                            'model': f['coproduct_cost_model'][index][i],
+                            'a': float(f['coproduct_cost_a'][index][i]),
+                            'b': float(f['coproduct_cost_b'][index][i]),
+                            'c': float(f['coproduct_cost_c'][index][i]),
+                            'd': float(f['coproduct_cost_d'][index][i]),
+                        }
+                    }
+                })
+            coproduct_defs[(region, deposit_type)] = entries
+
+    # Log counters
+    entries = 0
+    skipped = 0
+    generated_grades = 0
+    generated_recovery = 0
+    generated_supply_trigger = 0
+    generated_brownfield_grade_factor = 0
+
+    # Read CSV and build dictionary for projects to be updated
+    manual_rows_by_pid = {}
+    with open(path, mode='r', encoding='utf-8-sig') as input_file:
         csv_reader = csv.DictReader(input_file)
-
-        entries = 0
-        skipped = 0
-        generated_grades = 0
-        generated_recovery = 0
-        generated_supply_trigger = 0
-        generated_brownfield_grade_factor = 0
         for row in csv_reader:
-            for p in projects:
-                index = f['lookup_table'][p.region][p.deposit_type]
-                if p.id_number == row['P_ID_NUMBER']:
-                    # Manual inputs for the project are listed in input_project_coproducts.csv
-                    if row['COPRODUCT_COMMODITY'] == '':
-                        skipped += 1
-                        export_log('Error: Must specify COPRODUCT_COMMODITY for all projects in inputs_projects_coproducts.csv. Rows with missing coproduct commodity names skipped.', output_path=log_path)
-                    else:
-                        entries += 1
-                        c = row['COPRODUCT_COMMODITY']
-                        for x in range(0, len(f['coproduct_commodity'][index])):
-                            if len(f['coproduct_commodity'][index]) != 0:
-                                if f['coproduct_commodity'][index][x] == row['COPRODUCT_COMMODITY']:
-                                    if row['COPRODUCT_GRADE'] == '':
-                                        # Generate grade from the region and deposit type grade model
-                                        g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)
-                                        generated_grades += 1
-                                    else:
-                                        # Use inputted coproduct grade
-                                        g = [float(x) for x in row['COPRODUCT_GRADE'].split(";")]
-                                    if row['COPRODUCT_RECOVERY'] == '':
-                                        # Use default coproduct recovery for the region and deposit type
-                                        r = float(f['coproduct_recovery'][index][x])
-                                        generated_recovery += 1
-                                    else:
-                                        # Use inputted coproduct recovery
-                                        r = float(row['COPRODUCT_RECOVERY'])
-                                    if row['SUPPLY_TRIGGER']:
-                                        # Use default coproduct supply trigger for the region and deposit type
-                                        st = float(f['coproduct_supply_trigger'][index][x])
-                                        generated_supply_trigger += 1
-                                    else:
-                                        # Use inputted supply trigger
-                                        st = float(row['SUPPLY_TRIGGER'])
-                                    if row['COPRODUCT_BROWNFIELD_GRADE_FACTOR']:
-                                        # Use default coproduct brownfield grade factor for the region and deposit type
-                                        bgf = float(f['coproduct_brownfield_grade_factor'][index][x])
-                                        generated_brownfield_grade_factor += 1
-                                    else:
-                                        # Use inputted brownfield grade factor
-                                        bgf = float(row['COPRODUCT_BROWNFIELD_GRADE_FACTOR'])
-                                    vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
-                                                      'a': float(f['coproduct_revenue_a'][index][x]),
-                                                      'b': float(f['coproduct_revenue_b'][index][x]),
-                                                      'c': float(f['coproduct_revenue_c'][index][x]),
-                                                      'd': float(f['coproduct_revenue_d'][index][x])},
-                                          'cost': {'model': f['coproduct_cost_model'][index][x],
-                                                   'a': float(f['coproduct_cost_a'][index][x]),
-                                                   'b': float(f['coproduct_cost_b'][index][x]),
-                                                   'c': float(f['coproduct_cost_c'][index][x]),
-                                                   'd': float(f['coproduct_cost_d'][index][x])}}
-                                    p.add_commodity(c, g, r, st, bgf, vf, log_file=log_path)
-                elif generate_all == 1:
-                    # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
-                    for x in range(0, len(f['coproduct_commodity'][index])):
-                        if len(f['coproduct_commodity'][index]) != 0:
-                            c = f['coproduct_commodity'][index][x]
-                            if c != '':
-                                g = deposit.coproduct_grade_generate(p, f, index, x, log_file=log_path)
-                                r = float(f['coproduct_recovery'][index][x])
-                                st = float(f['coproduct_supply_trigger'][index][x])
-                                bgf = float(f['coproduct_brownfield_grade_factor'][index][x])
-                                vf = {'revenue': {'model': f['coproduct_revenue_model'][index][x],
-                                                  'a': float(f['coproduct_revenue_a'][index][x]),
-                                                  'b': float(f['coproduct_revenue_b'][index][x]),
-                                                  'c': float(f['coproduct_revenue_c'][index][x]),
-                                                  'd': float(f['coproduct_revenue_d'][index][x])},
-                                      'cost': {'model': f['coproduct_cost_model'][index][x],
-                                               'a': float(f['coproduct_cost_a'][index][x]),
-                                               'b': float(f['coproduct_cost_b'][index][x]),
-                                               'c': float(f['coproduct_cost_c'][index][x]),
-                                               'd': float(f['coproduct_cost_d'][index][x])}}
+            p_id_number = (row.get('P_ID_NUMBER') or "").strip()
+            c = (row.get('COPRODUCT_COMMODITY') or "").strip()
+            if p_id_number:
+                if not c:
+                    skipped += 1
+                    export_log(
+                        'Error: Must specify COPRODUCT_COMMODITY for all projects in inputs_projects_coproducts.csv. '
+                        'Rows with missing coproduct commodity names skipped.',
+                        output_path=log_path
+                    )
+                    continue
+                manual_rows_by_pid.setdefault(p_id_number, []).append(row)
+            else:
+                # generate_all handled later
+                pass
 
-                                p.add_commodity(c, g, r, st, bgf, vf, log_file=log_path)
-                                generated_grades += 1
-                                generated_recovery += 1
-                                generated_supply_trigger += 1
-                                generated_brownfield_grade_factor += 1
+
+    # Apply manual rows / per-project overrides
+    for pid, rows in manual_rows_by_pid.items():
+        p = projects_by_id.get(pid)
+        if p is None:
+            export_log(
+                f'Warning: P_ID_NUMBER {pid} in inputs_projects_coproducts.csv not found in available projects. Rows ignored.',
+                output_path=log_path
+            )
+            continue
+
+        region_dep = (p.region, p.deposit_type)
+        defs = coproduct_defs.get(region_dep, [])
+        if not defs:
+            export_log(
+                f'Warning: No coproduct definitions for (region={p.region}, deposit_type={p.deposit_type}).',
+                output_path=log_path
+            )
+
+        def_by_commodity = {d["commodity"]: d for d in defs}
+        idx = f['lookup_table'][p.region][p.deposit_type]
+
+        added_any = False
+        for row in rows:
+            c = (row.get('COPRODUCT_COMMODITY') or "").strip()
+            if not c:
+                continue  # already counted as skipped earlier
+
+            entry = def_by_commodity.get(c)
+            if entry is None:
+                skipped += 1
+                export_log(
+                    f'Warning: COPRODUCT_COMMODITY "{c}" not found in factors for '
+                    f'(region={p.region}, deposit_type={p.deposit_type}). Row skipped.',
+                    output_path=log_path
+                )
+                continue
+
+            grade_str = (row.get('COPRODUCT_GRADE') or "").strip()
+            if grade_str == "":
+                g = deposit.coproduct_grade_generate(p, f, idx, entry["grade_model_idx"], log_file=log_path)
+                generated_grades += 1
+            else:
+                g = [float(x) for x in grade_str.split(";") if x != ""]
+
+            rec_str = (row.get('COPRODUCT_RECOVERY') or "").strip()
+            if rec_str == "":
+                r = entry["recovery"]
+                generated_recovery += 1
+            else:
+                r = float(rec_str)
+
+            st_str = (row.get('SUPPLY_TRIGGER') or "").strip()
+            if st_str == "":
+                st = entry["supply_trigger"]
+                generated_supply_trigger += 1
+            else:
+                st = float(st_str)
+
+            bgf_str = (row.get('COPRODUCT_BROWNFIELD_GRADE_FACTOR') or "").strip()
+            if bgf_str == "":
+                bgf = entry["brownfield_grade_factor"]
+                generated_brownfield_grade_factor += 1
+            else:
+                bgf = float(bgf_str)
+
+            # Defer value_update for batch efficiency
+            p.add_commodity(c, g, r, st, bgf, entry["vf"], update_value=False, log_file=log_path)
+            entries += 1
+            added_any = True
+
+        # Single recompute of value after all adds for this project
+        if added_any:
+            p.value_update(log_file=log_path)
+
+
+    if int(generate_all) == 1:    # Autogenerate for remaining projects
+        manual_pids = set(manual_rows_by_pid.keys())
+
+        for p in projects:
+            if str(p.id_number) in manual_pids:
+                continue
+
+            region_dep = (p.region, p.deposit_type)
+            defs = coproduct_defs.get(region_dep, [])
+            if not defs:
+                continue
+
+            idx = f['lookup_table'][p.region][p.deposit_type]
+
+            added_any = False
+            for entry in defs:
+                c = entry["commodity"]
+                g = deposit.coproduct_grade_generate(p, f, idx, entry["grade_model_idx"], log_file=log_path)
+                r = entry["recovery"]
+                st = entry["supply_trigger"]
+                bgf = entry["brownfield_grade_factor"]
+
+                # Defer value_update for batch efficiency
+                p.add_commodity(c, g, r, st, bgf, entry["vf"], update_value=False, log_file=log_path)
+                added_any = True
+
+                generated_grades += 1
+                generated_recovery += 1
+                generated_supply_trigger += 1
+                generated_brownfield_grade_factor += 1
+
+            # Single recompute of value after all adds for this project
+            if added_any:
+                p.value_update(log_file=log_path)
+
     if copy_path is not None:
         copyfile(path, copy_path / 'input_project_coproducts.csv')
 
     export_log('Imported input_project_coproducts.csv', output_path=log_path, print_on=0)
-    export_log('Added ' + str(entries)+' new coproduct entries. '+str(skipped)+' skipped (check log file for details). '+str(generated_grades)+' grade, '+str(generated_recovery)+' recovery, '+str(generated_supply_trigger)+' supply trigger, and '+str(generated_brownfield_grade_factor)+' brownfield grade factors generated from factors in input_exploration_production.csv.', output_path=log_path, print_on=0)
-    return projects
+    export_log(
+        'Added ' + str(entries) + ' new coproduct entries. ' + str(skipped) +
+        ' skipped (check log file for details). ' + str(generated_grades) +
+        ' grade, ' + str(generated_recovery) + ' recovery, ' +
+        str(generated_supply_trigger) + ' supply trigger, and ' +
+        str(generated_brownfield_grade_factor) +
+        ' brownfield grade factors generated from factors in input_exploration_production.csv.',
+        output_path=log_path, print_on=0
+    )
 
+    return projects
 
 def import_exploration_production_factors(path, copy_path=None, log_path=None):
     """

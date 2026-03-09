@@ -93,6 +93,7 @@ class Mine:
                          'generated_demanded'
     Mine.key_set | Set of tuple key combinations with 'ALL' wildcard for fast filtering
                  | {(aggregation, region, deposit_type, commodity)}
+    Mine.factor_index | input_exploration_production_factors index for the corresponding region/deposit type.
 
     **** Functions ****
     Mine.add_commodity(add_commodity,add_grade,add_recovery,is_balanced)
@@ -108,13 +109,13 @@ class Mine:
                  'current_tranche', 'recovery', 'production_capacity', 'production_intermediate', 'production_ore',
                  'expansion', 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value',
                  'discovery_year', 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
-                 'end_year', 'value_factors', 'aggregation', 'key_set')
+                 'end_year', 'value_factors', 'aggregation', 'key_set', 'factor_index') # TODO: Add lookup
 
     # Initialise mine variables
     def __init__(self, id_number, name, region, deposit_type, commodity,
                  remaining_resource, grade, recovery, production_capacity,
                  status, value, discovery_year, start_year, development_probability, brownfield_tonnage, brownfield_grade,
-                 value_factors, aggregation, value_update=False, latitude=None, longitude=None):
+                 value_factors, aggregation, factor_index, value_update=False, latitude=None, longitude=None):
         self.id_number = id_number
         self.name = name
         self.region = region
@@ -162,6 +163,7 @@ class Mine:
                         (aggregation, region, 'ALL', commodity),
                         (aggregation, region, deposit_type, commodity)
                         }
+        self.factor_index = factor_index  # Exploration
         self.value = {}
         if value_update is False:
             self.value = value  # {'ALL': {'ALL': net value, c: net_recovery_value}, tranche: {'ALL': net value, c: net_recovery_value}}
@@ -180,7 +182,7 @@ class Mine:
         update_value == True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
         add_grade | should be list of tranche ore grades [tranche 0, tranche 1, etc.]
         tranche   | optional, can be used to modify tranche used to assign current grade. TODO: add this functionality
-        # Note assumes all commodities would initially be added in the first year
+        # Note assumes all commodities would initially be added in the first year # TODO: Add ability for batch commodity, either in this function or a separate Mine.add_commodities() function
         """
         self.commodity.update({add_commodity: int(is_balanced)})
         self.grade.update({add_commodity: add_grade})
@@ -714,7 +716,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
 
     # Generate project
     new_project = Mine(id_number, "GENERATED_"+str(id_number), generated_region, generated_type, commodity, tonnage, grade, recovery, capacity, 0,
-                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, latitude=latitude, longitude=longitude)
+                       generated_value, discovery_time, start_time, development_probability, brownfield_tonnage_factor, brownfield_grade_factor, value_factors, aggregation, index, latitude=latitude, longitude=longitude)
     
     # Generate project coproduct parameters using the region and production factors given in input_exploration_production_factors.csv
     for x in range(0, len(f['coproduct_commodity'][index])):
