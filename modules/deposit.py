@@ -109,7 +109,7 @@ class Mine:
                  'current_tranche', 'recovery', 'production_capacity', 'production_intermediate', 'production_ore',
                  'expansion', 'expansion_contained', 'status', 'status_timeseries', 'initial_status', 'value',
                  'discovery_year', 'start_year', 'development_probability', 'brownfield_tonnage', 'brownfield_grade',
-                 'end_year', 'value_factors', 'aggregation', 'key_set', 'factor_index') # TODO: Add lookup
+                 'end_year', 'value_factors', 'aggregation', 'key_set', 'factor_index')
 
     # Initialise mine variables
     def __init__(self, id_number, name, region, deposit_type, commodity,
@@ -182,7 +182,7 @@ class Mine:
         update_value == True then Mine.value['ALL'] and Mine.value[c for c in Mine.commodity] will be updated.
         add_grade | should be list of tranche ore grades [tranche 0, tranche 1, etc.]
         tranche   | optional, can be used to modify tranche used to assign current grade. TODO: add this functionality
-        # Note assumes all commodities would initially be added in the first year # TODO: Add ability for batch commodity, either in this function or a separate Mine.add_commodities() function
+        # Note assumes all commodities would initially be added in the first year
         """
         self.commodity.update({add_commodity: int(is_balanced)})
         self.grade.update({add_commodity: add_grade})
