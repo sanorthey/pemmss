@@ -149,8 +149,8 @@ def initialise():
     constants['output_folder_graphs'].mkdir(parents=True, exist_ok=True)
 
     # Model version details for log and file writing
-    constants['version_number'] = '1.4.0'
-    constants['version_date'] = '2025-08-11'
+    constants['version_number'] = '1.4.1'
+    constants['version_date'] = '2026-03-09'
 
     file_export.export_log("Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model\n" +
                            "Version " + constants['version_number'] + ", " + constants['version_date'] + " \n" +
