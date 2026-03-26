@@ -800,8 +800,8 @@ def coproduct_grade_generate(project, factors, factor_index, commodity_index, lo
          'c': factors['coproduct_c'][factor_index][commodity_index],
          'd': factors['coproduct_d'][factor_index][commodity_index]}
     grade = []
-    for tranche in project.remaining_resource:
-        grade.append(grade_generate(grade_model, f, project.grade, tranche=tranche, log_file=log_file))
+    for tranche_i, tranche in enumerate(project.remaining_resource):
+        grade.append(grade_generate(grade_model, f, project.grade, tranche=tranche_i, log_file=log_file))
     return grade
 
 
