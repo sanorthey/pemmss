@@ -734,9 +734,9 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
                                   'd': f['coproduct_revenue_d'][index][x]},
                       'cost': {'model': f['coproduct_cost_model'][index][x],
                                'a': f['coproduct_cost_a'][index][x],
-                               'b': f['coproduct_cost_a'][index][x],
-                               'c': f['coproduct_cost_a'][index][x],
-                               'd': f['coproduct_cost_a'][index][x]}}
+                               'b': f['coproduct_cost_b'][index][x],
+                               'c': f['coproduct_cost_c'][index][x],
+                               'd': f['coproduct_cost_d'][index][x]}}
                 new_project.add_commodity(c, g, r, st, bgf, vf, tranche=0)
     return new_project
 
