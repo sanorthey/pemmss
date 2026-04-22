@@ -601,6 +601,10 @@ class Mine:
         """
 
         # Determine the size of the new ore tranche
+        total_resource = sum(self.remaining_resource)
+        if total_resource == 0:
+            return  # Nothing to expand from
+
         self.expansion[year] = sum(self.remaining_resource) * self.brownfield_tonnage
 
         for c in self.commodity:
