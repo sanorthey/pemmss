@@ -741,7 +741,7 @@ def resource_discovery(f, current_year, is_background, id_number, log_file=None)
     return new_project
 
 
-def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_file=None):
+def grade_generate(grade_model, factors, grade_dictionary=None, tranche=0, log_file=None):
     """
     grade_generate()
     Returns a mass ratio of commodity mass to total mass of the ore deposit, generated in accordance with defined grade
@@ -757,6 +757,8 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
 
     Note | Factors passed from coproduct_grade_generate are likely to be strings and need type conversion.
     """
+    if grade_dictionary is None:
+        grade_dictionary = {}
     a = factors['a']
     b = factors['b']
     c = factors['c']
