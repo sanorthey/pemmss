@@ -779,6 +779,7 @@ def grade_generate(grade_model, factors, grade_dictionary={}, tranche=0, log_fil
             grade = float(c)
     else:
         export_log('Invalid grade model ' + str(grade_model), output_path=log_file, print_on=1)
+        raise ValueError(f"Unknown grade model: '{grade_model}'. Check input_exploration_production_factors.csv. Available grade models are listed in the grade_generate() function in modules/deposit.py.")
     return grade
 
 
@@ -811,7 +812,6 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
     'factors' input must be a dictionary with 'a', 'b', 'c' and 'd' defined.
     tonnage_model : 1. Fixed tonnage distribution, 2. Uniform tonnage distribution, 3. Lognormal tonnage distribution, 4. Lognormal-grade dependent
     tonnage distribution, 5. User-defined tonnage distribution
-    # TODO: cleanup, grade-dependent distribution currently not implemented
     """
     a = factors['a']
     b = factors['b']
@@ -832,6 +832,7 @@ def tonnage_generate(size_model, factors, grade, log_file=None):
             tonnage = float(c)
     else:
         export_log('Invalid tonnage model ' + str(size_model), output_path=log_file, print_on=1)
+        raise ValueError(f"Unknown tonnage model: '{size_model}'. Check input_exploration_production_factors.csv. Available tonnage models are listed in the tonnage_generate() function in modules/deposit.py.")
     return tonnage
 
 
@@ -939,6 +940,7 @@ def value_model(value_factors, ore, ore_grade, recovery, production_capacity, lo
         return random.uniform(a, b)
     else:
         export_log('Invalid value model ' + str(model), output_path=log_file, print_on=1)
+        raise ValueError(f"Unknown value model: '{model}'. Check input_exploration_production_factors.csv. Available value models are listed in the value_model() function in modules/deposit.py.")
 
 
 def capacity_generate(resource_tonnage, a, b, sigma, minimum_life, maximum_life, sigma_log10=False):
