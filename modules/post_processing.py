@@ -189,8 +189,7 @@ def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_f
         .when(pl.col(label) == 2).then(pl.lit(int_labels.get(2)))
         .when(pl.col(label) == 3).then(pl.lit(int_labels.get(3)))
         .otherwise(pl.col(label).cast(pl.String)
-        .alias(label)
-    )
+        .alias(label)))
 
     # Pivot to wide format: each Time is a column
     pivot_df = freq_df.pivot(values="Count", index=[id_vars, label], on="Time")
