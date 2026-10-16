@@ -589,6 +589,7 @@ def server(input, output, session):
         except (OSError, ValueError, KeyError) as e:
             ui.notification_show(f"Could not read input_parameters.csv: {e}", type="error", duration=None)
             return
+        run_progress["before"] = set(_folder_names())
         run_model(sum(p["iterations"] for p in parameters.values()))
 
     @render.ui
@@ -604,6 +605,23 @@ def server(input, output, session):
                    class_="progress mt-2 mb-1"),
             ui.tags.small(f"{p['stage']} · {p['done']}/{p['total']} iterations · {secs // 60}:{secs % 60:02d}"),
         )
+
+    def _mark_new_runs(before, suffix):
+        """Append `suffix` to output folders created since `before`. Returns the new names."""
+        marked = []
+        for name in sorted(set(_folder_names()) - before):
+            target = output_files_path / f"{name}{suffix}"
+            n = 2
+            while target.exists():                       # don't overwrite an existing folder
+                target = output_files_path / f"{name}{suffix}{n}"
+                n += 1
+            try:
+                (output_files_path / name).rename(target)
+            except OSError:                              # e.g. a file still open (Windows); leave as is
+                continue
+            renamed[name] = target.name                  # dropdowns follow the rename
+            marked.append(target.name)
+        return marked
 
     @render.ui
     def run_controls_ui():
@@ -624,14 +642,19 @@ def server(input, output, session):
             if code == 0:
                 ui.notification_show("Simulation completed.", type="message", duration=8)
             else:
+                marked = _mark_new_runs(run_progress.get("before", set()), "_failed")
                 ui.modal_show(ui.modal(
                     ui.tags.pre(output, style="max-height: 60vh; overflow: auto; white-space: pre-wrap;"),
                     title=f"Simulation failed (exit code {code})", easy_close=True, size="xl"))
         elif status == "error":
             ui.notification_show(f"Simulation could not run: {run_model.error.get()}", type="error", duration=None)
         elif status == "cancelled":
-            ui.notification_show("Simulation cancelled. Its partial output folder can be deleted.",
-                                 type="warning", duration=10)
+            marked = _mark_new_runs(run_progress.get("before", set()), "_cancelled")
+            if marked:
+                ui.notification_show(f"Simulation cancelled. Partial output kept as: {', '.join(marked)}",
+                                     type="warning", duration=10)
+            else:
+                ui.notification_show("Simulation cancelled.", type="warning", duration=10)
 
     # ==================== Run log ====================
 
