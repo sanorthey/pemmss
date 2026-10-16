@@ -447,7 +447,7 @@ def server(input, output, session):
         return render.DataGrid(
             data=df,
             editable=editable,
-            height="900px",
+            height="75vh",
         )
 
     @editable_df.set_patch_fn
