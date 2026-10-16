@@ -284,7 +284,12 @@ def load_iteration_tables(projects_csv_df, status_csv_df):
         'DISCOVERY_YEAR': p['DISCOVERY_YEAR'].where(p['DISCOVERY_YEAR'] != '-9999'),
         'AGGREGATION': p['AGGREGATION'],
     })
-
+    # Every commodity's grade per project (primary and coproducts), in the tranche string format
+    commodity_grades = pd.DataFrame(
+        [(pid, c, _joined(v), c == prim)
+         for pid, g, prim in zip(p['P_ID_NUMBER'], grades, primary) if isinstance(g, dict)
+         for c, v in g.items()],
+        columns=['P_ID_NUMBER', 'COMMODITY', 'GRADE', 'PRIMARY'])
     # Status codes -> _status.csv layout (one row per project and status, count 1 in each year it applies)
     years = [c for c in s.columns if str(c).isdigit()]
     long = s.melt(id_vars='P_ID_NUMBER', value_vars=years, var_name='YEAR', value_name='CODE')
@@ -294,7 +299,48 @@ def load_iteration_tables(projects_csv_df, status_csv_df):
     status = (long.pivot_table(index=['P_ID_NUMBER', 'STATUS'], columns='YEAR', values='N', aggfunc='sum')
                   .reindex(columns=years).reset_index())
     status.columns.name = None
-    return projects, status
+    return projects, status, commodity_grades
+
+def has_positive_grade(value):
+    t = parse_tranches(value)
+    return bool(t) and any(x > 0 for x in t)
+
+
+def commodity_choices(grades):
+    """Commodities with a positive grade in at least one project: primaries first, then coproducts."""
+    ok = grades[grades['GRADE'].map(has_positive_grade)]
+    primary = sorted(ok.loc[ok['PRIMARY'], 'COMMODITY'].dropna().unique())
+    others = sorted(set(ok['COMMODITY'].dropna()) - set(primary))
+    return primary + others
+
+
+def commodity_xy(projects, grades, commodity):
+    """Per project containing `commodity`: total ore tonnage (_X) and tonnage-weighted grade of
+    that commodity (_Y). Projects whose values can't be parsed are kept with NaN."""
+    g = grades.loc[grades['COMMODITY'] == commodity, ['P_ID_NUMBER', 'GRADE']]
+    rows = projects[['P_ID_NUMBER', 'REMAINING_RESOURCE']].merge(g, on='P_ID_NUMBER')
+    tranches, _ = tranche_table(rows)
+    totals = deposit_totals(tranches).rename(columns={'TONNAGE': '_X', 'GRADE': '_Y'})
+    return g[['P_ID_NUMBER']].merge(totals[['P_ID_NUMBER', '_X', '_Y', 'N_TRANCHES']],
+                                    on='P_ID_NUMBER', how='left')
+
+def input_commodity_grades(projects, coproducts_df=None):
+    """All-iterations mode: commodity grades as given in the input files, which are the same in
+    every iteration. Blank grades stay NaN; they are generated per iteration, so they're not plotted."""
+    frames = [projects[['P_ID_NUMBER', 'COMMODITY', 'GRADE']]]
+    needed = {'P_ID_NUMBER', 'COPRODUCT_COMMODITY', 'COPRODUCT_GRADE'}
+    if coproducts_df is not None and needed <= set(coproducts_df.columns):
+        # Rows with a blank P_ID_NUMBER are 'generate for all projects' rules, never fixed values
+        c = coproducts_df[coproducts_df['P_ID_NUMBER'].str.strip().fillna('') != '']
+        frames.append(pd.DataFrame({'P_ID_NUMBER': c['P_ID_NUMBER'].str.strip(),
+                                    'COMMODITY': c['COPRODUCT_COMMODITY'].str.strip(),
+                                    'GRADE': c['COPRODUCT_GRADE']}))
+    grades = pd.concat(frames, ignore_index=True)
+    # Later coproduct rows override earlier ones (and the primary grade), as in the model
+    grades = grades.drop_duplicates(['P_ID_NUMBER', 'COMMODITY'], keep='last')
+    primary = projects.drop_duplicates('P_ID_NUMBER').set_index('P_ID_NUMBER')['COMMODITY']
+    grades['PRIMARY'] = grades['COMMODITY'].values == grades['P_ID_NUMBER'].map(primary).values
+    return grades.reset_index(drop=True)
 
 def build_project_geojson(df):
     """One GeoJSON point per project; colour carried in each feature's style."""
@@ -889,17 +935,26 @@ def server(input, output, session):
 
     @render.ui
     def commodity_selector_ui():
-        projects, _, _, _ = cached_project_data()
-        if projects is None:
+        grades = commodity_grades()
+        if grades is None:
             return ui.div()
-        commodities = sorted(projects['COMMODITY'].dropna().unique().tolist())
+        commodities = commodity_choices(grades)
         if not commodities:
             return ui.div()
         with reactive.isolate():
             prev = input.commodity() if "commodity" in input else None
-        return ui.input_select("commodity", "Commodity:", choices=commodities,
-                               selected=prev if prev in commodities else commodities[0])
-
+        if _single_mode():
+            it = input.iteration() if "iteration" in input else ""
+            note = (f"Values from iteration {it}, including any generated for blank inputs "
+                    "(these differ between iterations).")
+        else:
+            note = ("Input values only. Projects with a blank resource or grade are generated "
+                    "differently in each iteration and are not shown; use 'Single iteration' to see them.")
+        return ui.div(
+            ui.input_select("commodity", "Commodity:", choices=commodities,
+                            selected=prev if prev in commodities else commodities[0]),
+            ui.tags.small(note, class_="text-muted d-block mb-2"),
+        )
     def _scenario_dir():
         folder = input.map_folder() if "map_folder" in input else None
         subfolder = input.subfolder() if "subfolder" in input else None
@@ -928,17 +983,31 @@ def server(input, output, session):
                                selected=keep_selection("iteration", its))
 
     @reactive.calc
+    def iteration_tables():
+        """(projects, status, commodity_grades) for the selected iteration, or None."""
+        scen = _scenario_dir()
+        it = input.iteration() if "iteration" in input else None
+        if scen is None or not _single_mode() or it not in available_iterations():
+            return None
+        try:
+            return load_iteration_tables(safe_read_csv(scen / f"{it}-Projects.csv"),
+                                         safe_read_csv(scen / f"{it}-Status.csv"))
+        except (ValueError, KeyError) as e:
+            ui.notification_show(f"Cannot load iteration {it} of {scen.parent.name}/{scen.name}: {e}",
+                                 type="error", duration=8)
+            return None
+
+    @reactive.calc
     def cached_project_data():
         scen = _scenario_dir()
         if scen is None:
             return None, None, [], False
         try:
             if _single_mode():
-                it = input.iteration() if "iteration" in input else None
-                if it not in available_iterations():
+                tables = iteration_tables()
+                if tables is None:
                     return None, None, [], False
-                projects_df, status_df = load_iteration_tables(
-                    safe_read_csv(scen / f"{it}-Projects.csv"), safe_read_csv(scen / f"{it}-Status.csv"))
+                projects_df, status_df, _ = tables
             else:
                 projects_path = scen.parent / "_input_files" / "input_projects.csv"
                 status_path = scen / "_status.csv"
@@ -950,6 +1019,23 @@ def server(input, output, session):
             ui.notification_show(f"Cannot load projects for {scen.parent.name}/{scen.name}: {e}",
                                  type="error", duration=8)
             return None, None, [], False
+
+    @reactive.calc
+    def commodity_grades():
+        """Single iteration: every commodity’s grade in that iteration. All iterations: only grades given in the input files."""
+        if _single_mode():
+            tables = iteration_tables()
+            return None if tables is None else tables[2]
+        projects = cached_project_data()[0]
+        scen = _scenario_dir()
+        if projects is None or scen is None:
+            return None
+        cop_path = scen.parent / "_input_files" / "input_project_coproducts.csv"
+        try:
+            coproducts = safe_read_csv(cop_path) if cop_path.exists() else None
+        except ValueError:
+            coproducts = None
+        return input_commodity_grades(projects, coproducts)
 
     @reactive.calc
     def projects_for_year():
@@ -1031,12 +1117,11 @@ def server(input, output, session):
 
     @reactive.calc
     def deposit_xy():
-        projects = cached_project_data()[0]
-        if projects is None:
+        projects, grades = cached_project_data()[0], commodity_grades()
+        commodity = input.commodity() if "commodity" in input else None
+        if projects is None or grades is None or commodity is None:
             return None
-        tranches, _ = tranche_table(projects)
-        totals = deposit_totals(tranches).rename(columns={'TONNAGE': '_X', 'GRADE': '_Y'})
-        return totals[['P_ID_NUMBER', '_X', '_Y', 'N_TRANCHES']]
+        return commodity_xy(projects, grades, commodity)
 
     @render_widget
     def scatter_plot():
@@ -1066,9 +1151,8 @@ def server(input, output, session):
 
         groups, title = {}, "No data available"
         if projects is not None and xy is not None and year is not None and commodity is not None:
-            projects = projects[(projects['COMMODITY'] == commodity) & (projects['MAX_STATUS'] != UNDISCOVERED)]
+            projects = projects[projects['MAX_STATUS'] != UNDISCOVERED].merge(xy, on='P_ID_NUMBER')
             n_total = len(projects)
-            projects = projects.merge(xy, on='P_ID_NUMBER')
             keep = projects['_X'] > 0
             if log_grade:
                 keep &= projects['_Y'] > 0
@@ -1080,7 +1164,9 @@ def server(input, output, session):
                 groups = dict(tuple(projects.groupby('MAX_STATUS')))
                 it = input.iteration() if single and "iteration" in input else None
                 title = (f"{commodity}, {year}" + (f", iteration {it}" if it else "")
-                         + (f" ({n_dropped} projects without numeric resource/grade not shown)" if n_dropped else ""))
+                         + (f" ({n_dropped} not shown: "
+                            + ("resource or grade blank in inputs" if not single else "no positive resource/grade")
+                            + ")" if n_dropped else ""))
 
         with fig.batch_update():  # one redraw for all changes
             for trace in fig.data:
@@ -1090,6 +1176,7 @@ def server(input, output, session):
                 else:
                     trace.update(x=g['_X'].tolist(), y=g['_Y'].tolist(), showlegend=True,
                                  hovertext=[create_hover_text(r, r['STATUS_INFO'], year, single=single)
+                                            + f"<br><b>Plotted:</b> {r['_X']:.3g} t ore at {r['_Y']:.3g} {escape(commodity)}"
                                             for _, r in g.iterrows()])
             fig.layout.title.text = title
             fig.layout.yaxis.type = "log" if log_grade else "linear"
