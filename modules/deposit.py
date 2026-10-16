@@ -642,6 +642,10 @@ class Mine:
 # Functions for discovering and defining resources 
 # ------------------------------------------------ #
 
+def next_project_id(projects):
+    ids = [int(p.id_number) for p in projects if str(p.id_number).isdigit()]
+    return max(ids, default=0) + 1
+
 def resource_discovery(f, current_year, is_background, id_number, log_file=None):
     """
     resource_discovery()

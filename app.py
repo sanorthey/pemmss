@@ -24,6 +24,8 @@ Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets, p
 
 import io
 import sys
+import ast
+import re
 import os
 import subprocess
 import asyncio
@@ -62,6 +64,13 @@ STATUS_COLORS = {
     'Produced and Depleted': 'purple',
     'Undiscovered': 'lightgray'
 }
+
+STATUS_CODES = {-3: 'Development Probability Test Failed', -2: 'Not Valuable Enough to Mine',
+                -1: 'Depleted', 0: 'Undeveloped', 1: 'Care and Maintenance',
+                2: 'Producing', 3: 'Produced and Depleted'}
+UNDISCOVERED = 'Undiscovered'
+
+
 
 # ==================== Shared Functions ====================
 
@@ -125,17 +134,28 @@ def projects_for_year_frame(projects, shares, year):
     return df
 
 
-def create_hover_text(row, status_info, year):
-    """Create hover text for project information (values HTML-escaped)."""
+def create_hover_text(row, status_info, year, single=False):
+    """Hover/popup text for one project (all values HTML-escaped).
+    single=True shows the project's status in that iteration instead of percentages across iterations."""
     def v(key):
         val = row.get(key)
         return 'N/A' if val is None or pd.isna(val) else escape(str(val))
 
-    status_text = "<br>".join(
-        f"{escape(str(label))}: {pct:.2f}%"
-        for label, pct in (status_info or {}).items()
-        if isinstance(pct, (int, float))
-    )
+    if single:
+        current = next(iter(status_info or {}), None)
+        status_block = f"<b>Status in {year}:</b> {escape(str(current)) if current else 'N/A'}"
+    else:
+        status_text = "<br>".join(
+            f"{escape(str(label))}: {pct:.2f}%"
+            for label, pct in (status_info or {}).items()
+            if isinstance(pct, (int, float))
+        )
+        status_block = f"<b>Status percentages for {year}:</b><br>{status_text}"
+
+    discovered = row.get('DISCOVERY_YEAR')
+    discovery_line = (f"<b>Discovery year:</b> {escape(str(discovered))}<br>"
+                      if discovered is not None and not pd.isna(discovered) and str(discovered).strip() else "")
+
     return (
         f"<b>{v('NAME')}</b><br>"
         f"<b>Project ID:</b> {v('P_ID_NUMBER')}<br>"
@@ -148,8 +168,10 @@ def create_hover_text(row, status_info, year):
         f"<b>Initial status:</b> {v('STATUS')}<br>"
         f"<b>Development probability:</b> {v('DEVELOPMENT_PROBABILITY')}<br>"
         f"<b>Start year:</b> {v('START_YEAR')}<br>"
-        f"<b>Status percentages for {year}:</b><br>{status_text}"
+        f"{discovery_line}"
+        f"{status_block}"
     )
+
 
 def parse_tranches(value):
     """'1e6;2.5e6' -> [1000000.0, 2500000.0]; empty or non-numeric -> None."""
@@ -176,12 +198,102 @@ def tranche_table(projects):
 
 
 def deposit_totals(tranches):
-    """Per project: total tonnage and tonnage-weighted mean grade across tranches."""
-    t = tranches.assign(CONTAINED=tranches['TONNAGE'] * tranches['GRADE'])
+    """Per project: total tonnage, and tonnage-weighted grade over the tranches whose grade is known."""
+    t = tranches.copy()
+    known = t['GRADE'].notna()
+    t['CONTAINED'] = (t['TONNAGE'] * t['GRADE']).where(known, 0.0)
+    t['GRADED_T'] = t['TONNAGE'].where(known, 0.0)
     agg = t.groupby('P_ID_NUMBER').agg(TONNAGE=('TONNAGE', 'sum'), CONTAINED=('CONTAINED', 'sum'),
-                                       N_TRANCHES=('TRANCHE', 'size'))
-    agg['GRADE'] = agg['CONTAINED'] / agg['TONNAGE']
-    return agg.reset_index()
+                                       GRADED_T=('GRADED_T', 'sum'), N_TRANCHES=('TRANCHE', 'size'))
+    agg['GRADE'] = (agg['CONTAINED'] / agg['GRADED_T']).where(agg['GRADED_T'] > 0)
+    return agg.drop(columns='GRADED_T').reset_index()
+
+
+def parse_literal(text):
+    """Parse a Python literal written by export_projects, e.g. "[1.0, nan]" or "{'Cu': [0.01]}".
+    Handles nan and numpy-2 reprs such as np.float64(0.1). Returns None if unparseable."""
+    if not isinstance(text, str) or not text.strip():
+        return None
+    text = re.sub(r"np\.\w+\(([^()]*)\)", r"\1", text)
+    text = re.sub(r"\bnan\b", "None", text)
+    try:
+        return ast.literal_eval(text)
+    except (ValueError, SyntaxError):
+        return None
+
+
+def _primary_commodity(value):
+    """COMMODITY is "{'Cu': 1, 'Ag': 0, ...}" (1 = primary) in iteration files; a plain name in inputs."""
+    parsed = parse_literal(value)
+    if isinstance(parsed, dict):
+        primary = [k for k, v in parsed.items() if v == 1]
+        return primary[0] if primary else next(iter(parsed), None)
+    return value if isinstance(value, str) and value else None
+
+
+def _joined(values):
+    """[0.0, 0.0185, None] -> '0.0;0.0185;nan' (the input_projects.csv tranche format)."""
+    if not isinstance(values, (list, tuple)):
+        return ''
+    return ';'.join('nan' if v is None else repr(float(v)) for v in values)
+
+
+def _status_label(code):
+    try:
+        return STATUS_CODES.get(int(float(code)), str(code))
+    except (TypeError, ValueError):
+        return ''
+
+
+def unique_ids(ids):
+    """Make repeated IDs unique by position: ['5', '7', '5'] -> ['5', '7', '5#2']."""
+    seen, out = {}, []
+    for i in ids:
+        seen[i] = seen.get(i, 0) + 1
+        out.append(i if seen[i] == 1 else f"{i}#{seen[i]}")
+    return out
+
+
+def load_iteration_tables(projects_csv_df, status_csv_df):
+    """Convert one iteration's {j}-Projects.csv and {j}-Status.csv into the same layout as
+    input_projects.csv and _status.csv, so the rest of the app can be reused unchanged."""
+    p, s = projects_csv_df.copy(), status_csv_df.copy()
+    # Both files list projects in the same order; use that to separate any duplicated IDs
+    if len(p) == len(s) and (p['P_ID_NUMBER'].values == s['P_ID_NUMBER'].values).all():
+        p['P_ID_NUMBER'] = unique_ids(p['P_ID_NUMBER'])
+        s['P_ID_NUMBER'] = unique_ids(s['P_ID_NUMBER'])
+
+    primary = p['COMMODITY'].map(_primary_commodity)
+    grades = p['INITIAL_GRADE'].map(parse_literal)
+    recovery = p['RECOVERY'].map(parse_literal)
+    projects = pd.DataFrame({
+        'P_ID_NUMBER': p['P_ID_NUMBER'],
+        'NAME': p['PROJECT_NAME'],
+        'REGION': p['REGION'],
+        'LATITUDE': p['LATITUDE'],
+        'LONGITUDE': p['LONGITUDE'],
+        'DEPOSIT_TYPE': p['DEPOSIT_TYPE'],
+        'COMMODITY': primary,
+        'REMAINING_RESOURCE': p['RESOURCE_INITIAL'].map(parse_literal).map(_joined),
+        'GRADE': [_joined(g.get(c)) if isinstance(g, dict) else '' for g, c in zip(grades, primary)],
+        'RECOVERY': [r.get(c) if isinstance(r, dict) else r for r, c in zip(recovery, primary)],
+        'STATUS': p['INITIAL_STATUS'].map(_status_label),
+        'DEVELOPMENT_PROBABILITY': p['DEVELOPMENT_PROBABILITY'],
+        'START_YEAR': p['START_YEAR'],
+        'DISCOVERY_YEAR': p['DISCOVERY_YEAR'].where(p['DISCOVERY_YEAR'] != '-9999'),
+        'AGGREGATION': p['AGGREGATION'],
+    })
+
+    # Status codes -> _status.csv layout (one row per project and status, count 1 in each year it applies)
+    years = [c for c in s.columns if str(c).isdigit()]
+    long = s.melt(id_vars='P_ID_NUMBER', value_vars=years, var_name='YEAR', value_name='CODE')
+    blank = long['CODE'].isna() | (long['CODE'].astype(str).str.strip() == '')
+    long['STATUS'] = long['CODE'].map(_status_label).where(~blank, UNDISCOVERED)
+    long['N'] = 1
+    status = (long.pivot_table(index=['P_ID_NUMBER', 'STATUS'], columns='YEAR', values='N', aggfunc='sum')
+                  .reindex(columns=years).reset_index())
+    status.columns.name = None
+    return projects, status
 
 def build_project_geojson(df):
     """One GeoJSON point per project; colour carried in each feature's style."""
@@ -241,6 +353,10 @@ app_ui = ui.page_fluid(
                 ui.sidebar(
                     ui.output_ui("map_folder_ui"),
                     ui.output_ui("subfolder_ui"),
+                    ui.input_radio_buttons("view_mode", "View:",
+                                           {"all": "All iterations (most frequent status)",
+                                            "single": "Single iteration"}),
+                    ui.output_ui("iteration_ui"),
                     ui.output_ui("year_slider"),
                     width=280
 
@@ -251,6 +367,7 @@ app_ui = ui.page_fluid(
                                  ),
                     ui.nav_panel("Resource and grade",
                                  ui.output_ui("commodity_selector_ui"),
+                                 ui.input_checkbox("log_grade", "Log grade axis", value=True),
                                  output_widget("scatter_plot", height="80vh"),
                                  ),
                 ),
@@ -782,21 +899,55 @@ def server(input, output, session):
         return ui.input_select("commodity", "Commodity:", choices=commodities,
                                selected=prev if prev in commodities else commodities[0])
 
+    def _scenario_dir():
+        folder = input.map_folder() if "map_folder" in input else None
+        subfolder = input.subfolder() if "subfolder" in input else None
+        return output_files_path / folder / subfolder if folder and subfolder else None
+
+    def _single_mode():
+        return "view_mode" in input and input.view_mode() == "single"
+
+    @reactive.calc
+    def available_iterations():
+        d = _scenario_dir()
+        if d is None or not d.is_dir():
+            return []
+        its = sorted(int(j) for j in (p.name.split("-", 1)[0] for p in d.glob("*-Status.csv"))
+                     if j.isdigit() and (d / f"{j}-Projects.csv").exists())
+        return [str(j) for j in its]
+
+    @render.ui
+    def iteration_ui():
+        if not _single_mode():
+            return None
+        its = available_iterations()
+        if not its:
+            return ui.div("No iteration files found for this scenario.")
+        return ui.input_select("iteration", "Iteration:", choices=its,
+                               selected=keep_selection("iteration", its))
 
     @reactive.calc
     def cached_project_data():
-        folder = input.map_folder() if "map_folder" in input else None
-        subfolder = input.subfolder() if "subfolder" in input else None
-        if not folder or not subfolder:
+        scen = _scenario_dir()
+        if scen is None:
             return None, None, [], False
-        projects_path = output_files_path / folder / "_input_files" / "input_projects.csv"
-        status_path = output_files_path / folder / subfolder / "_status.csv"
-        if not projects_path.exists() or not status_path.exists():
-            return None, None, [], False      # e.g. subfolder from the previously selected folder
         try:
-            return load_project_data(safe_read_csv(projects_path), safe_read_csv(status_path))
-        except ValueError as e:
-            ui.notification_show(f"Cannot load projects for {folder}/{subfolder}: {e}", type="error", duration=8)
+            if _single_mode():
+                it = input.iteration() if "iteration" in input else None
+                if it not in available_iterations():
+                    return None, None, [], False
+                projects_df, status_df = load_iteration_tables(
+                    safe_read_csv(scen / f"{it}-Projects.csv"), safe_read_csv(scen / f"{it}-Status.csv"))
+            else:
+                projects_path = scen.parent / "_input_files" / "input_projects.csv"
+                status_path = scen / "_status.csv"
+                if not projects_path.exists() or not status_path.exists():
+                    return None, None, [], False
+                projects_df, status_df = safe_read_csv(projects_path), safe_read_csv(status_path)
+            return load_project_data(projects_df, status_df)
+        except (ValueError, KeyError) as e:
+            ui.notification_show(f"Cannot load projects for {scen.parent.name}/{scen.name}: {e}",
+                                 type="error", duration=8)
             return None, None, [], False
 
     @reactive.calc
@@ -818,7 +969,8 @@ def server(input, output, session):
             return
         row = frame.loc[pid]
         lon, lat = feature["geometry"]["coordinates"]
-        popup.child.value = create_hover_text(row, row["STATUS_INFO"], map_parts.get("year"))
+        popup.child.value = create_hover_text(row, row["STATUS_INFO"], map_parts.get("year"),
+                                              single=map_parts.get("single", False))
         if popup in m.layers:
             popup.open_popup([lat, lon])
         else:
@@ -841,10 +993,11 @@ def server(input, output, session):
         with reactive.isolate():  # initial colours only; year changes are handled below
             frame = projects_for_year()[0]
         if frame is None:
-            frame = projects.assign(MARKER_COLOR="gray", STATUS_INFO=[{}] * len(projects))
+            frame = projects.assign(MARKER_COLOR="gray", MAX_STATUS="",
+                                    STATUS_INFO=[{}] * len(projects))
 
-        layer = GeoJSON(data=build_project_geojson(frame[frame['HAS_COORDS']]),
-                        point_style=POINT_STYLE, name="Projects")
+        visible = frame[frame['HAS_COORDS'] & (frame['MAX_STATUS'] != UNDISCOVERED)]
+        layer = GeoJSON(data=build_project_geojson(visible), point_style=POINT_STYLE, name="Projects")
         layer.on_click(_on_project_click)
         m.add(layer)
         m.add(LegendControl({k: v for k, v in STATUS_COLORS.items()},
@@ -854,7 +1007,7 @@ def server(input, output, session):
 
         map_parts.update(map=m, layer=layer, popup=Popup(child=HTML(), max_width=380),
                          frame=frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False),
-                         year=None)
+                         year=None, single=_single_mode())
         return m
 
     @reactive.effect
@@ -863,7 +1016,7 @@ def server(input, output, session):
         layer = map_parts.get("layer")
         if frame is None or layer is None:
             return
-        layer.data = build_project_geojson(frame[frame['HAS_COORDS']])
+        layer.data = build_project_geojson(frame[frame['HAS_COORDS'] & (frame['MAX_STATUS'] != UNDISCOVERED)])
         map_parts["frame"] = frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False)
         map_parts["year"] = input.year()
 
@@ -881,12 +1034,17 @@ def server(input, output, session):
             )
             return fig
 
-        projects = projects[projects['COMMODITY'] == commodity]
+        single = _single_mode()
+        projects = projects[(projects['COMMODITY'] == commodity) & (projects['MAX_STATUS'] != UNDISCOVERED)]
         n_total = len(projects)
         tranches, _ = tranche_table(projects)
         totals = deposit_totals(tranches).rename(columns={'TONNAGE': '_X', 'GRADE': '_Y'})
         projects = projects.merge(totals[['P_ID_NUMBER', '_X', '_Y', 'N_TRANCHES']], on='P_ID_NUMBER')
-        projects = projects[projects['_X'] > 0]          # log x-axis
+        log_grade = input.log_grade()
+        keep = projects['_X'] > 0
+        if log_grade:
+            keep &= projects['_Y'] > 0
+        projects = projects[keep]
         n_dropped = n_total - len(projects)
 
         if projects.empty:
@@ -906,7 +1064,7 @@ def server(input, output, session):
                 continue
 
             hover_texts = [
-                create_hover_text(row, row['STATUS_INFO'], year)
+                create_hover_text(row, row['STATUS_INFO'], year, single=single)
                 for _, row in status_projects.iterrows()
             ]
             sizes = 10
@@ -934,14 +1092,15 @@ def server(input, output, session):
 
         fig.update_layout(
             autosize=True,
-            title=f"{commodity}, {year}" + (
-                f" ({n_dropped} projects without numeric resource/grade not shown)" if n_dropped else ""),
+            title=(f"{commodity}, {year}" + (f", iteration {input.iteration()}" if single else "")
+                   + (f" ({n_dropped} projects without numeric resource/grade not shown)" if n_dropped else "")),
             xaxis=dict(
                 title="Initial Resource (metric tons)",
                 type="log",
             ),
             yaxis=dict(
                 title="Initial Grade (mass ratio)",
+                type="log" if log_grade else "linear",
             ),
             template="simple_white",
             hovermode='closest',
