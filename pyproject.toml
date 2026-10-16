@@ -8,28 +8,31 @@ maintainers = [
     {name = "Stephen Northey", email = "stephen.northey@uts.edu.au"}
 ]
 description = "Primary Exploration, Mining and Metal Supply Scenario (PEMMSS) model"
-requires-python = ">=3.12"
 readme = "README.md"
 license = "BSD 3-Clause"
 license-files = ["LICENSE.md"]
 keywords = ["pemmss"]
+requires-python = ">=3.12"
+
 dependencies = [
-    "chardet==5.2.0",
-    "charset-normalizer==3.4.2",
-    "geopandas==1.1.1",
-    "imageio==2.37.0",
-    "ipyleaflet==0.18.2",
-    "ipywidgets==7.6.5",
-    "matplotlib==3.10.8",
-    "numpy==2.4.0",
-    "pandas==2.3.3",
-    "pandas-stubs~=2.3.3",
-    "plotly==4.14.3",
-    "polars==1.31.0",
-    "shapely==2.1.2",
-    "shiny==0.10.2",
-    "shinywidgets==0.2.4",
+    "anywidget>=0.11.0",
+    "charset-normalizer>=3.5.2",
+    "geopandas>=1.2.0",
+    "imageio>=2.38.1",
+    "ipyleaflet>=0.20.0,<0.21",
+    "ipywidgets>=8.1.9,<9",
+    "matplotlib>=3.11.2,<4",
+    "numpy>=2.5.4,<3",
+    "pandas>=3.0.6,<4",
+    "plotly>=7.1.0,<8",
+    "polars>=2.0.0,<3",
+    "shapely>=2.2.0,<3",
+    "shiny>=1.8.0,<2",
+    "shinywidgets>=0.8.2,<0.9",
 ]
+
+[dependency-groups]
+dev = ["pandas-stubs>=3.0.5"]
 
 [project.urls]
 Homepage = "https://zenodo.org/records/16792366"
