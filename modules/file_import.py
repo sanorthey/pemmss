@@ -44,33 +44,26 @@ def strtobool(value: str) -> bool:  # distutils was deprecated in Python 3.12, r
         return True
     return False
 
+
 # Function to enforce utf-8-sig encoding for input files. Reduces bugs when users use Excel on Windows.
-def normalise_csv_encoding(path, copy_path=None, log_path=None, candidates=("cp1252", "mac_roman")):
-    """
-    Detect a CSV file's encoding and write it out as UTF-8 with BOM ('utf-8-sig').
-
-    If copy_path (a folder) is given, the re-encoded file is written there and the
-    original is left untouched; otherwise the file is re-encoded in place, but only
-    if it isn't already UTF-8. Only the encoding changes: cell contents, quoting and
-    line endings are preserved. Returns the path to read from, which is always
-    UTF-8, so open it with encoding='utf-8-sig', newline=''.
-    """
-    path = Path(path)
-    raw = path.read_bytes()
-
+def decode_csv_bytes(raw, name='file', candidates=("cp1252", "mac_roman")):
+    """Return (text, encoding) for the raw bytes of a CSV. Raises ValueError if undecodable."""
     if raw.startswith(codecs.BOM_UTF8):
-        text, encoding = raw.decode('utf-8-sig'), 'utf-8-sig'
-    elif raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
-        text, encoding = raw.decode('utf-16'), 'utf-16'
-    else:
-        try:
-            text, encoding = raw.decode('utf-8'), 'utf-8'
-        except UnicodeDecodeError:
-            best = from_bytes(raw, cp_isolation=list(candidates)).best()
-            if best is None:
-                raise ValueError(f"{path.name}: unrecognised text encoding. Re-save it in Excel as 'CSV UTF-8'.")
-            text, encoding = str(best), best.encoding
+        return raw.decode('utf-8-sig'), 'utf-8-sig'
+    if raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        return raw.decode('utf-16'), 'utf-16'
+    try:
+        return raw.decode('utf-8'), 'utf-8'
+    except UnicodeDecodeError:
+        best = from_bytes(raw, cp_isolation=list(candidates)).best()
+        if best is None:
+            raise ValueError(f"{name}: unrecognised text encoding. Re-save it in Excel as 'CSV UTF-8'.")
+        return str(best), best.encoding
 
+
+def normalise_csv_encoding(path, copy_path=None, log_path=None, candidates=("cp1252", "mac_roman")):
+    path = Path(path)
+    text, encoding = decode_csv_bytes(path.read_bytes(), path.name, candidates)
     out_path = Path(copy_path) / path.name if copy_path is not None else path
     if out_path != path or encoding not in ('utf-8', 'utf-8-sig'):
         out_path.write_text(text, encoding='utf-8-sig', newline='')
