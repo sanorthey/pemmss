@@ -154,9 +154,11 @@ def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_f
 
     # Collect melted DataFrames for all matching files
     dfs = []
+    time_cols_seen = []
     for filepath in directory.glob(file_pattern):
         df = pl.read_csv(filepath)
         time_cols = [col for col in df.columns if col != id_vars]
+        time_cols_seen.append(time_cols)
         melted = df.unpivot(index=id_vars, on=time_cols, variable_name="Time", value_name=label)
         dfs.append(melted)
 
@@ -188,8 +190,9 @@ def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_f
         .when(pl.col(label) == 1).then(pl.lit(int_labels.get(1)))
         .when(pl.col(label) == 2).then(pl.lit(int_labels.get(2)))
         .when(pl.col(label) == 3).then(pl.lit(int_labels.get(3)))
-        .otherwise(pl.col(label).cast(pl.String)
-        .alias(label)))
+        .otherwise(pl.col(label).cast(pl.String))
+        .alias(label)
+    )
 
     # Pivot to wide format: each Time is a column
     pivot_df = freq_df.pivot(values="Count", index=[id_vars, label], on="Time")
