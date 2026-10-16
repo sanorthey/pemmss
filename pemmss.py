@@ -231,6 +231,7 @@ def scenario(i, constants):
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
         projects = file_import.import_projects(factors, projects_csv, log_path=log)
         projects = file_import.import_project_coproducts(factors, project_coproducts_csv, projects, parameters['generate_all_coproducts'], log_path=log)
+        next_id = deposit.next_project_id(projects)  # IDs for generated deposits continue after the largest input ID
         log_message.append('\nScenario ' + str(parameters['scenario_name']) + ' Iteration ' + str(j) + '\nImported input_projects.csv\nImported input_project_coproducts.csv')
 
         # Time Loop - Iterates model through each time period
@@ -255,7 +256,8 @@ def scenario(i, constants):
             # P6
             if parameters['greenfield_background'] > 0:
                 for gb in range(parameters['greenfield_background']):
-                    projects.append(deposit.resource_discovery(factors, year_current, True, len(projects)))
+                    projects.append(deposit.resource_discovery(factors, year_current, True, next_id))
+                    next_id += 1
 
             # Priority Ranking Algorithm
             # P7
@@ -294,7 +296,8 @@ def scenario(i, constants):
                     # P10
                     if parameters['greenfield_exploration_on'] == 1:
                         while demand[c][year_current] > demand[c]['demand_threshold']:
-                            projects.append(deposit.resource_discovery(factors, year_current, False, len(projects)+1))
+                            projects.append(deposit.resource_discovery(factors, year_current, False, next_id))
+                            next_id += 1
                             # Subtract supply from demand for all commodities produced by the project. Note that this means oversupply of a commodity can happen when there are multiple demand commodities being balanced.
                             supplied = projects[-1].supply(demand[c][year_current]/demand[c]['intermediate_recovery'], year_current, c, marginal_recovery=parameters['marginal_recovery'])
                             if supplied == 1:
