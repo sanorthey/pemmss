@@ -12,8 +12,9 @@ This app.py file should exist in the same directory as the pemmss.py file.
 To run the app, in the terminal run the command 'shiny run app.py', or 'python app.py'.
 
 Author: Jayden Hyman
-Date: 2025-08-03
-Version: 0.3.0
+Maintainer: Stephen Northey
+Date: 2026-10-16
+Version: 0.4.0
 Compatability: PEMMSS Version 1.4.1
 License: BSD 3-Clause License
 Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets, plotly, anywidget
@@ -21,20 +22,19 @@ Dependencies: shiny, pandas, matplotlib, ipyleaflet, ipywidgets, shinywidgets, p
 
 # ==================== Imports and Setup ====================
 
+import io
 import sys
 import os
 import subprocess
 import asyncio
 import shutil
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
-import charset_normalizer
 from shiny import App, render, ui, reactive
 from pathlib import Path
 from threading import Thread
 from modules.post_processing import generate_figure
-from modules.file_import import import_graphs, import_graphs_formatting, import_static_files
+from modules.file_import import import_graphs, import_graphs_formatting, import_parameters, decode_csv_bytes, normalise_csv_encoding
 from ipyleaflet import Map, CircleMarker, TileLayer, LayersControl, LayerGroup
 from ipywidgets import HTML
 from shinywidgets import output_widget, render_widget
@@ -201,22 +201,11 @@ def create_hover_text(row, status_info, year):
         return f"<b>{row.get('NAME', 'Unknown Project')}</b><br>Error loading project details"
 
 def safe_read_csv(path):
-    """Ensures csv files are read by pandas even when non-standard CSV encodings used"""
-    with open(path, 'rb') as f:
-        raw = f.read(32768)
-        detected = charset_normalizer.detect(raw)
-        encodings = [detected["encoding"], "utf-8-sig", "latin1", "cp1252"]
-
-    for enc in encodings:
-        try:
-            df = pd.read_csv(path, dtype=str, encoding=enc)
-            print(f"Read with encoding: {enc}")
-            return df
-        except UnicodeDecodeError:
-            print(f"Failed with encoding: {enc}")
-            continue
-    print("All encoding attempts failed.")
-    return pd.DataFrame()
+    """Read a CSV of any supported encoding as all-string columns.
+    Only empty cells become NaN, so values like 'NA' (Namibia, North America) survive."""
+    path = Path(path)
+    text, _ = decode_csv_bytes(path.read_bytes(), path.name)
+    return pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False, na_values=[''])
 
 # ==================== User Interface ====================
 
@@ -459,9 +448,12 @@ def server(input, output, session):
         else:
             csv_path = output_files_path / input_source.get() / "_input_files" / input.csv_input()
         
-        if csv_path.exists():
+        if not csv_path.exists():
+            return pd.DataFrame()
+        try:
             return safe_read_csv(csv_path)
-        else:
+        except ValueError as e:
+            ui.notification_show(f"Could not read {csv_path.name}: {e}", type="error", duration=None)
             return pd.DataFrame()
 
     @reactive.effect
@@ -503,7 +495,7 @@ def server(input, output, session):
         df = df.astype('object')
         column_name = df.columns[patch["column_index"]]
         df.at[patch["row_index"], column_name] = patch["value"]
-        df.to_csv(csv_path, index=False)
+        df.to_csv(csv_path, index=False, encoding='utf-8-sig')
         return patch["value"]
 
     @reactive.Effect
@@ -571,9 +563,9 @@ def server(input, output, session):
         if input_source.get() != "default":
             ui.notification_show("Please switch to 'Current input files' before running simulation.", type="warning", duration=5)
             return
-        
-        static_files = import_static_files(input_files_path, input_files_cache_path)
-        parameters = static_files['parameters']
+
+        input_parameters_path = input_files_path / 'input_parameters.csv'
+        parameters = import_parameters(input_parameters_path)
         total_simulations = sum(param['iterations'] for param in parameters.values())
         with ui.Progress(min=0, max=total_simulations) as p:
             p.set(0, message="Running simulations...", detail=f"0 / {total_simulations}")
@@ -629,14 +621,14 @@ def server(input, output, session):
             ui.notification_show("Reprocessing output files...", duration=None)
             def run_reprocess():
                 input_files_directory = Path(input_files_path)
-                custom_graphs = import_graphs(input_files_directory / 'input_graphs.csv')
-                custom_graphs_formatting = import_graphs_formatting(input_files_directory / 'input_graphs_formatting.csv')
                 output_stats_directory = output_files_path / folder_input / "_statistics"
                 output_graphs_directory = output_files_path / folder_input / "_graphs"
                 output_input_files_directory = output_files_path / folder_input / "_input_files"
                 output_input_files_directory.mkdir(exist_ok=True)
-                shutil.copy(input_files_path / "input_graphs.csv", output_input_files_directory)
-                shutil.copy(input_files_path / "input_graphs_formatting.csv", output_input_files_directory)
+                graphs_csv = normalise_csv_encoding(input_files_path / "input_graphs.csv", output_input_files_directory)
+                graphs_fmt_csv = normalise_csv_encoding(input_files_path / "input_graphs_formatting.csv", output_input_files_directory)
+                custom_graphs = import_graphs(graphs_csv)
+                custom_graphs_formatting = import_graphs_formatting(graphs_fmt_csv)
                 statistics_files = {}
                 for file_name in os.listdir(output_stats_directory):
                     if file_name.endswith(".csv"):
