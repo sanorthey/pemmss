@@ -412,7 +412,7 @@ app_ui = ui.page_fluid(
                     ui.nav_panel("Geographic distribution",
                                  output_widget("project_map", height="80vh"),
                                  ),
-                    ui.nav_panel("Resource and grade",
+                    ui.nav_panel("Initial Resource and grade",
                                  ui.output_ui("commodity_selector_ui"),
                                  ui.input_checkbox("log_grade", "Log grade axis", value=True),
                                  output_widget("scatter_plot", height="80vh"),
@@ -946,9 +946,9 @@ def server(input, output, session):
         if _single_mode():
             it = input.iteration() if "iteration" in input else ""
             note = (f"Values from iteration {it}, including any generated for blank inputs "
-                    "(these differ between iterations).")
+                    "(these may differ between iterations).")
         else:
-            note = ("Input values only. Projects with a blank resource or grade are generated "
+            note = ("Input values only. Projects with a blank resource or grade may be generated "
                     "differently in each iteration and are not shown; use 'Single iteration' to see them.")
         return ui.div(
             ui.input_select("commodity", "Commodity:", choices=commodities,
