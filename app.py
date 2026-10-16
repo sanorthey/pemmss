@@ -234,51 +234,79 @@ def server(input, output, session):
     log_content = reactive.Value("")
     input_source = reactive.Value("default")
 
-    current_selections = reactive.Value({
-        "png_file": None
-    })
+    renamed = {}   # old folder name -> new name, so selections follow a rename
+
+    def keep_selection(input_id, choices):
+        """The user's current choice if it's still valid (following renames), else the first choice."""
+        with reactive.isolate():
+            prev = input[input_id]() if input_id in input else None
+        prev = renamed.get(prev, prev)
+        return prev if prev in choices else (choices[0] if choices else None)
+
 
     # ==================== Folder and File Selection Logic ====================
 
-    @reactive.Effect
-    @reactive.event(input.png_file)
-    def update_current_selections():
-        current_selections.set({
-            "png_file": input.png_file()
-        })
+    def _folder_names():
+        return tuple(sorted(p.name for p in output_files_path.iterdir() if p.is_dir()))
 
-    @reactive.Effect
-    @reactive.event(input.folder)
-    def update_selections():
-        new_folder = input.folder()
-        if new_folder:
-            update_file_list("png_file", get_png_files())
-
-    def update_file_list(file_type, new_files):
-        current_file = current_selections()[file_type]
-        if current_file in new_files:
-            ui.update_select(file_type, choices=new_files, selected=current_file)
-        elif new_files:
-            ui.update_select(file_type, choices=new_files, selected=new_files[0])
-        else:
-            ui.update_select(file_type, choices=[], selected=None)
-        current_selections.set({**current_selections(), file_type: input[file_type]()})
-
-    @reactive.Calc
+    @reactive.poll(_folder_names, 2)
     def get_folders():
-        if output_files_path.exists():
-            return sorted([f.name for f in output_files_path.iterdir() if f.is_dir()], reverse=True)
-        else:
-            print(f"Output files directory not found: {output_files_path}")
-            return []
+        return sorted(_folder_names(), reverse=True)
 
-    @reactive.Calc
+    @render.ui
+    def folder_ui():
+        folders = get_folders()
+        if not folders:
+            return ui.div(f"No output folders found in {output_files_path}")
+        return ui.input_select("folder", "Output folder:", choices=folders,
+                               selected=keep_selection("folder", folders))
+
+    @render.ui
+    def scenario_selector_ui():
+        choices = ["Current input files"] + get_folders()
+        return ui.input_select("scenario_selector", "Source:", choices=choices,
+                               selected=keep_selection("scenario_selector", choices))
+
+    @render.ui
+    def map_folder_ui():
+        folders = get_folders()
+        if not folders:
+            return ui.div(f"No output folders found in {output_files_path}")
+        return ui.input_select("map_folder", "Output folder:", choices=folders,
+                               selected=keep_selection("map_folder", folders))
+
+
+    def _graph_dir():
+        folder = input.folder() if "folder" in input else None
+        return output_files_path / folder / "_graphs" if folder else None
+
+    def _figure_signature():
+        g = _graph_dir()
+        if g is None or not g.exists():
+            return (str(g), ())
+        return (str(g), tuple(sorted((p.name, p.stat().st_mtime_ns) for p in g.iterdir()
+                                     if p.suffix.lower() in (".png", ".gif"))))
+
+    @reactive.poll(_figure_signature, 2)
     def get_png_files():
-        folder = input.folder()
-        if folder:
-            graphs_folder = output_files_path / folder / "_graphs"
-            return [f for f in os.listdir(graphs_folder) if f.endswith(('.png', '.gif'))] if graphs_folder.exists() else []
-        return []
+        return [name for name, _ in _figure_signature()[1]]
+
+    @render.ui
+    def png_files_ui():
+        files = get_png_files()
+        if not files:
+            return ui.div("No figures found in the selected folder.")
+        return ui.input_select("png_file", "Output figures:", choices=files,
+                               selected=keep_selection("png_file", files))
+
+    @render.image
+    def image():
+        files = get_png_files()             # dependency: re-render when figures are regenerated
+        selected = input.png_file()
+        if selected not in files:
+            return None
+        path = output_files_path / input.folder() / "_graphs" / selected
+        return {"src": str(path), "alt": selected, "style": "width: 100%; height: auto;"}
 
     @reactive.Effect
     @reactive.event(input.rename_folder_btn)
@@ -294,51 +322,35 @@ def server(input, output, session):
         else:
             ui.notification_show("No folder selected.", type="warning", duration=3)
 
-    @reactive.Effect
+    INVALID_NAME_CHARS = set('/\\:*?"<>|')
+
+    @reactive.effect
     @reactive.event(input.confirm_rename)
     def confirm_rename():
-        current_folder = input.folder()
-        new_name = input.new_folder_name()
-        if new_name and new_name != current_folder:
-            old_path = output_files_path / current_folder
-            new_path = output_files_path / new_name
-            if old_path.exists() and not new_path.exists():
-                old_path.rename(new_path)
-                ui.update_select("folder", choices=get_folders(), selected=new_name)
-                ui.notification_show(f"Folder renamed to: {new_name}", duration=3)
-            elif new_path.exists():
-                ui.notification_show("A folder with this name already exists.", type="error", duration=3)
-            else:
-                ui.notification_show("Error renaming folder.", type="error", duration=3)
+        old = input.folder()
+        new = (input.new_folder_name() or "").strip()
         ui.modal_remove()
+        if not new or new == old:
+            return
+        if new.startswith(".") or INVALID_NAME_CHARS & set(new):
+            ui.notification_show('Folder names cannot start with "." or contain / \\ : * ? " < > |',
+                                 type="error", duration=5)
+            return
+        new_path = output_files_path / new
+        if new_path.exists():
+            ui.notification_show("A folder with this name already exists.", type="error", duration=5)
+            return
+        try:
+            (output_files_path / old).rename(new_path)
+        except OSError as e:          # e.g. a file inside is open in another program (Windows)
+            ui.notification_show(f"Could not rename: {e}", type="error", duration=8)
+            return
+        renamed[old] = new
+        ui.notification_show(f"Folder renamed to: {new}", duration=3)
     
     # ==================== UI Rendering Functions ====================
 
-    @render.ui
-    def folder_ui():
-        folders = get_folders()
-        if folders:
-            return ui.input_select("folder", "Output folder:", choices=folders)
-        else:
-            return ui.div(f"No output folders found in {output_files_path}")
 
-    @render.ui
-    def png_files_ui():
-        files = sorted(get_png_files())
-        if files:
-            selected = current_selections()["png_file"] if current_selections()["png_file"] in files else files[0]
-            return ui.input_select("png_file", "Output figures:", choices=files, selected=selected)
-        return ui.div("No PNG files found in the selected folder.")
-
-
-    @render.ui
-    def scenario_selector_ui():
-        folders = get_folders()
-        if folders:
-            choices = ["Current input files"] + folders
-            return ui.input_select("scenario_selector", "Source:", choices=choices, selected="Current input files")
-        else:
-            return ui.input_select("scenario_selector", "Source:", choices=["Current input files"], selected="Current input files")
 
     @reactive.Effect
     @reactive.event(input.scenario_selector)
@@ -347,62 +359,68 @@ def server(input, output, session):
             input_source.set("default")
         else:
             input_source.set(input.scenario_selector())
-        ui.update_select("csv_input", choices=get_current_csv_files())
 
     # ==================== CSV Input Handling ====================
 
-    @reactive.Calc
+    def _csv_dir():
+        src = input_source.get()
+        return input_files_path if src == "default" else output_files_path / src / "_input_files"
+
+    def selected_csv_path():
+        if "csv_input" not in input or not input.csv_input():
+            return None
+        return _csv_dir() / input.csv_input()
+
+    def _csv_listing():
+        d = _csv_dir()
+        return (str(d), tuple(sorted(p.name for p in d.glob("*.csv")))) if d.exists() else (str(d), ())
+
+    @reactive.poll(_csv_listing, 2)
     def get_current_csv_files():
-        if input_source.get() == "default":
-            try:
-                return sorted([f for f in os.listdir(input_files_path) if f.endswith('.csv')])
-            except FileNotFoundError:
-                return []
-        else:
-            scenario_input_path = output_files_path / input_source.get() / "_input_files"
-            if scenario_input_path.exists():
-                try:
-                    return sorted([f for f in os.listdir(scenario_input_path) if f.endswith('.csv')])
-                except FileNotFoundError:
-                    return []
-            return []
+        return list(_csv_listing()[1])
 
     @render.ui
     def csv_inputs():
         csv_files = get_current_csv_files()
-        if csv_files:
-            select_input = ui.input_select("csv_input", "Input files:", choices=csv_files)
-            if input_source.get() != "default":
-                return ui.tags.div(
-                    ui.tags.small(f"Viewing from: {input_source.get()}", class_="text-warning"),
-                    select_input
-                )
-            return ui.tags.div(select_input)
-        else:
+        if not csv_files:
             return ui.div("No CSV files found")
+        select_input = ui.input_select("csv_input", "Input files:", choices=csv_files,
+                                       selected=keep_selection("csv_input", csv_files))
+        if input_source.get() != "default":
+            return ui.tags.div(ui.tags.small(f"Viewing from: {input_source.get()}", class_="text-warning"),
+                               select_input)
+        return select_input
 
-    @reactive.Calc
+    _csv_seen, _own_writes = {}, {}   # path -> (mtime_ns, size)
+
+    def _csv_signature():
+        path = selected_csv_path()
+        if path is None or not path.exists():
+            return (str(path), None)
+        st = path.stat()
+        key, sig = str(path), (st.st_mtime_ns, st.st_size)
+        if _own_writes.get(key) == sig:          # our own cell edit: don't trigger a reload
+            return (key, _csv_seen.get(key))
+        _csv_seen[key] = sig
+        return (key, sig)
+
+    @reactive.poll(_csv_signature, 2)
     def load_csv():
-        if input_source.get() == "default":
-            csv_path = input_files_path / input.csv_input()
-        else:
-            csv_path = output_files_path / input_source.get() / "_input_files" / input.csv_input()
-        
-        if not csv_path.exists():
+        path = selected_csv_path()
+        if path is None or not path.exists():
             return pd.DataFrame()
         try:
-            return safe_read_csv(csv_path)
+            return safe_read_csv(path)
         except ValueError as e:
-            ui.notification_show(f"Could not read {csv_path.name}: {e}", type="error", duration=None)
+            ui.notification_show(f"Could not read {path.name}: {e}", type="error", duration=None)
             return pd.DataFrame()
 
     @reactive.effect
     @reactive.event(input.open_csv)
     def open_selected_csv():
-        if input_source.get() == "default":
-            path = input_files_path / input.csv_input()
-        else:
-            path = output_files_path / input_source.get() / "_input_files" / input.csv_input()
+        path = selected_csv_path()
+        if path is None:
+            return
         if not path.exists():
             ui.notification_show(f"File not found: {path.name}", type="warning", duration=5)
             return
@@ -432,12 +450,13 @@ def server(input, output, session):
             ui.notification_show("Cannot edit files from scenario folders. Load them first.", type="warning", duration=3)
             return patch["value"]
         
-        csv_path = input_files_path / input.csv_input()
-        df = safe_read_csv(csv_path)
-        df = df.astype('object')
+        csv_path = selected_csv_path()
+        df = safe_read_csv(csv_path).astype('object')
         column_name = df.columns[patch["column_index"]]
         df.at[patch["row_index"], column_name] = patch["value"]
         df.to_csv(csv_path, index=False, encoding='utf-8-sig')
+        st = csv_path.stat()
+        _own_writes[str(csv_path)] = (st.st_mtime_ns, st.st_size)
         return patch["value"]
 
     @reactive.Effect
@@ -479,11 +498,10 @@ def server(input, output, session):
             for csv_file in csv_files:
                 src = scenario_input_path / csv_file
                 dst = input_files_path / csv_file
-                shutil.copy2(src, dst)
+                shutil.copyfile(src, dst)
             
             ui.update_select("scenario_selector", selected="Current input files")
             input_source.set("default")
-            ui.update_select("csv_input", choices=get_current_csv_files())
             
             ui.notification_show(f"Successfully loaded {len(csv_files)} files from '{scenario_folder}'", type="success", duration=5)
             
@@ -540,7 +558,6 @@ def server(input, output, session):
                 p.set(total_simulations, message="Completed", detail=f"{total_simulations} / {total_simulations}")
                 update_log_content(input.folder())
             await run_and_update()
-        ui.update_select("folder", choices=get_folders())
 
     def update_log_content(folder):
         if folder:
@@ -582,44 +599,25 @@ def server(input, output, session):
                         statistics_files[scenario_name] = {"path": file_path}
                 for graph in custom_graphs:
                     generate_figure(statistics_files, graph, custom_graphs_formatting, output_graphs_directory)
-                ui.update_select("folder", choices=get_folders())
             thread = Thread(target=run_reprocess)
             thread.start()
         else:
             ui.notification_show("No folder selected for reprocessing.", duration=5, type="warning")
 
-    # ==================== Output Rendering ====================
-
-    @render.image
-    def image():
-        selected_png = input.png_file()
-        folder = input.folder()
-        if selected_png and folder:
-            full_path = output_files_path / folder / "_graphs" / selected_png
-            return {"src": str(full_path), "alt": "Selected Plot", "style": "width: 100%; height: auto;"}
-        return None
-
     # ==================== Map and Scatter Plot Rendering ====================
-
-    @render.ui
-    def map_folder_ui():
-        folders = get_folders()
-        if folders:
-            return ui.input_select("map_folder", "Output folder:", choices=folders)
-        return ui.div(f"No output folders found in {output_files_path}")
 
     @render.ui
     def subfolder_ui():
         folder = input.map_folder()
-        if folder:
-            subfolders = [f for f in os.listdir(output_files_path / folder) 
-                        if (output_files_path / folder / f).is_dir() 
-                        and not f.startswith("_")]
-            if subfolders:
-                return ui.input_select("subfolder", "Subfolder:", choices=subfolders)
-            else:
-                return ui.div("No valid subfolders found.")
-        return ui.div()
+        folder_path = output_files_path / folder if folder else None
+        if folder_path is None or not folder_path.is_dir():
+            return ui.div()
+        subfolders = sorted(f.name for f in folder_path.iterdir()
+                            if f.is_dir() and not f.name.startswith("_"))
+        if not subfolders:
+            return ui.div("No valid subfolders found.")
+        return ui.input_select("subfolder", "Subfolder:", choices=subfolders,
+                               selected=keep_selection("subfolder", subfolders))
 
     @render.ui
     def year_slider():
