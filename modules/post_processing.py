@@ -325,7 +325,7 @@ def plot_subplot(statistics, path, g, g_formatting):
     plot_folder_path = path
     if gif:
         plot_folder_path = path / ('_' + file_prefix)
-        plot_folder_path.mkdir()
+        plot_folder_path.mkdir(exist_ok=True)
 
     # Generate plots
     for plot, subplots in plot_subplot_label_xy_data.items():

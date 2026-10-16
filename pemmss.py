@@ -404,6 +404,7 @@ def scenario(i, constants):
         log_message.append('\nIteration export duration ' + str((jt3 - jt2)))
         log_message.append('\nExported to ' + str(output_folder_scenario))
         file_export.export_log(''.join(log_message), output_path=log, print_on=1)
+        print(f"PEMMSS_PROGRESS {parameters['scenario_name']} {j + 1}/{parameters['iterations']}", flush=True)
 
     return output_folder_scenario
 

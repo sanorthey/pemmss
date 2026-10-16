@@ -28,17 +28,21 @@ import os
 import subprocess
 import asyncio
 import shutil
+import time
 import pandas as pd
 import plotly.graph_objects as go
 from shiny import App, render, ui, reactive
 from pathlib import Path
 from threading import Thread
+import matplotlib
+matplotlib.use("Agg")  # non-GUI backend: figures can be drawn off the main thread
 from modules.post_processing import generate_figure
 from modules.file_import import import_graphs, import_graphs_formatting, import_parameters, decode_csv_bytes, normalise_csv_encoding
 from ipyleaflet import Map, GeoJSON, Popup, LayersControl, LegendControl, basemaps, basemap_to_tiles
 from ipywidgets import HTML
 from shinywidgets import output_widget, render_widget
 from html import escape
+from collections import deque
 
 APP_DIR = Path(__file__).resolve().parent
 input_files_path = APP_DIR / "input_files"
@@ -178,7 +182,9 @@ app_ui = ui.page_fluid(
                     ui.hr(),
                     ui.output_ui("csv_inputs"),
                     ui.input_action_button("open_csv", "Open file"),
-                    ui.input_action_button("btn", "Run simulation", class_="btn-primary"),
+                    ui.input_task_button("btn", "Run simulation", label_busy="Running…"),
+                    ui.output_ui("run_progress_ui"),
+                    ui.output_ui("run_controls_ui"),
                     width=280
                 ),
                 ui.output_data_frame("editable_df")
@@ -190,10 +196,11 @@ app_ui = ui.page_fluid(
                     ui.output_ui("folder_ui"),
                     ui.input_action_button("rename_folder_btn", "Rename folder"),
                     ui.output_ui("png_files_ui"),
-                    ui.input_action_button("reprocess_btn", "Reprocess outputs"),
+                    ui.input_task_button("reprocess_btn", "Reprocess outputs", label_busy="Reprocessing…"),
                     width=280
                 ),
                 ui.output_image("image", height="100%", width="100%"),
+                ui.accordion(ui.accordion_panel("Run log", ui.output_code("log_text")), open=False),
             )
         ),
         ui.nav_panel("Projects",
@@ -231,7 +238,6 @@ app_ui = ui.page_fluid(
 # ==================== Server Logic ====================
 
 def server(input, output, session):
-    log_content = reactive.Value("")
     input_source = reactive.Value("default")
 
     renamed = {}   # old folder name -> new name, so selections follow a rename
@@ -517,92 +523,155 @@ def server(input, output, session):
 
     # ==================== Simulation and Processing ====================
 
-    @reactive.Effect
-    @reactive.event(input.btn)
-    async def run_pemmss():
-        if input_source.get() != "default":
-            ui.notification_show("Please switch to 'Current input files' before running simulation.", type="warning", duration=5)
-            return
+    # ==================== Simulation ====================
 
-        input_parameters_path = input_files_path / 'input_parameters.csv'
+    run_progress = {"done": 0, "total": 0, "stage": "", "started": 0.0}  # plain dict, written by the task
+
+    @ui.bind_task_button(button_id="btn")
+    @reactive.extended_task
+    async def run_model(total_iterations):
+        run_progress.update(done=0, total=total_iterations, stage="Starting…", started=time.monotonic())
+        tail = deque(maxlen=200)
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, str(APP_DIR / "pemmss.py"),
+            cwd=APP_DIR, env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)  # merged: no deadlock
         try:
-            parameters = import_parameters(input_parameters_path)
+            async for raw in proc.stdout:
+                line = raw.decode(errors="replace").rstrip()
+                tail.append(line)
+                if line.startswith("PEMMSS_PROGRESS "):
+                    run_progress["done"] += 1
+                    run_progress["stage"] = "Modelling " + line.split(" ", 1)[1]
+                elif "Post-processing" in line:
+                    run_progress["stage"] = "Post-processing outputs…"
+            code = await proc.wait()
+        except asyncio.CancelledError:
+            proc.terminate()
+            await proc.wait()
+            raise
+        return code, "\n".join(tail)
+
+    @reactive.effect
+    @reactive.event(input.btn)
+    def _start_run():
+        if input_source.get() != "default":
+            ui.notification_show("Switch to 'Current input files' before running.", type="warning", duration=5)
+            return
+        try:
+            parameters = import_parameters(input_files_path / "input_parameters.csv")
         except (OSError, ValueError, KeyError) as e:
             ui.notification_show(f"Could not read input_parameters.csv: {e}", type="error", duration=None)
             return
-        total_simulations = sum(param['iterations'] for param in parameters.values())
-        with ui.Progress(min=0, max=total_simulations) as p:
-            p.set(0, message="Running simulations...", detail=f"0 / {total_simulations}")
-            async def run_and_update():
-                os.chdir(APP_DIR)
-                process = await asyncio.create_subprocess_exec(
-                    sys.executable, "pemmss.py",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
-                )
-                simulation_count = 0
-                while True:
-                    line = await process.stdout.readline()
-                    if not line:
-                        break
-                    line = line.decode().strip()
-                    if line.startswith("Scenario"):
-                        simulation_count += 1
-                        p.set(simulation_count, message="Processing output...", detail=f"{simulation_count} scenarios processed")
-                await process.wait()
-                if process.returncode != 0:
-                    stderr = await process.stderr.read()
-                    ui.modal_show(ui.modal(f"Error: {stderr.decode()}", easy_close=True, footer=None))
-                else:
-                    ui.notification_show("Process completed", duration=5)
-                p.set(total_simulations, message="Completed", detail=f"{total_simulations} / {total_simulations}")
-                update_log_content(input.folder())
-            await run_and_update()
+        run_model(sum(p["iterations"] for p in parameters.values()))
 
-    def update_log_content(folder):
-        if folder:
-            log_file_path = output_files_path / folder / "log.txt"
-            if log_file_path.exists():
-                with open(log_file_path, "r", encoding='utf-8', errors='replace') as log_file:
-                    log_content.set(log_file.read())
+    @render.ui
+    def run_progress_ui():
+        if run_model.status() != "running":
+            return None
+        reactive.invalidate_later(1)  # refresh once a second while running
+        p = run_progress
+        pct = int(100 * p["done"] / p["total"]) if p["total"] else 0
+        secs = int(time.monotonic() - p["started"])
+        return ui.div(
+            ui.div(ui.div(class_="progress-bar", role="progressbar", style=f"width: {pct}%"),
+                   class_="progress mt-2 mb-1"),
+            ui.tags.small(f"{p['stage']} · {p['done']}/{p['total']} iterations · {secs // 60}:{secs % 60:02d}"),
+        )
+
+    @render.ui
+    def run_controls_ui():
+        if run_model.status() != "running":
+            return None
+        return ui.input_action_button("cancel_run", "Cancel run", class_="btn-sm btn-outline-danger mt-2")
+
+    @reactive.effect
+    @reactive.event(input.cancel_run)
+    def _cancel_run():
+        run_model.cancel()
+
+    @reactive.effect
+    def _run_finished():
+        status = run_model.status()
+        if status == "success":
+            code, output = run_model.result()
+            if code == 0:
+                ui.notification_show("Simulation completed.", type="message", duration=8)
             else:
-                log_content.set(f"No log file found in folder: {folder}")
+                ui.modal_show(ui.modal(
+                    ui.tags.pre(output, style="max-height: 60vh; overflow: auto; white-space: pre-wrap;"),
+                    title=f"Simulation failed (exit code {code})", easy_close=True, size="xl"))
+        elif status == "error":
+            ui.notification_show(f"Simulation could not run: {run_model.error.get()}", type="error", duration=None)
+        elif status == "cancelled":
+            ui.notification_show("Simulation cancelled. Its partial output folder can be deleted.",
+                                 type="warning", duration=10)
 
-    @reactive.Effect
-    @reactive.event(input.folder)
-    def update_log():
-        folder = input.folder()
-        update_log_content(folder)
+    # ==================== Run log ====================
+
+    LOG_TAIL_LINES = 400
+
+    def _log_path():
+        folder = input.folder() if "folder" in input else None
+        return output_files_path / folder / "log.txt" if folder else None
+
+    def _log_signature():
+        p = _log_path()
+        return (str(p), p.stat().st_mtime_ns if p is not None and p.exists() else None)
+
+    @reactive.poll(_log_signature, 2)
+    def log_tail():
+        p = _log_path()
+        if p is None or not p.exists():
+            return "No log file for this folder."
+        lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
+        head = f"… showing last {LOG_TAIL_LINES} of {len(lines)} lines\n" if len(lines) > LOG_TAIL_LINES else ""
+        return head + "\n".join(lines[-LOG_TAIL_LINES:])
+
+    @render.code
+    def log_text():
+        return log_tail()
 
 
 
-    @reactive.Effect
+    # ==================== Reprocessing ====================
+
+    def _reprocess(folder):
+        """Runs in a worker thread: no ui.* or reactive calls in here."""
+        run_dir = output_files_path / folder
+        input_copy = run_dir / "_input_files"
+        input_copy.mkdir(exist_ok=True)
+        graphs_csv = normalise_csv_encoding(input_files_path / "input_graphs.csv", input_copy)
+        graphs_fmt_csv = normalise_csv_encoding(input_files_path / "input_graphs_formatting.csv", input_copy)
+        custom_graphs = import_graphs(graphs_csv)
+        custom_graphs_formatting = import_graphs_formatting(graphs_fmt_csv)
+        stats_dir = run_dir / "_statistics"
+        statistics_files = {p.stem: {"path": p} for p in stats_dir.glob("*.csv")}
+        for graph in custom_graphs:
+            generate_figure(statistics_files, graph, custom_graphs_formatting, run_dir / "_graphs")
+        return len(custom_graphs)
+
+    @ui.bind_task_button(button_id="reprocess_btn")
+    @reactive.extended_task
+    async def reprocess_task(folder):
+        return await asyncio.to_thread(_reprocess, folder)
+
+    @reactive.effect
     @reactive.event(input.reprocess_btn)
-    def reprocess_output_files():
-        folder_input = input.folder()
-        if folder_input:
-            ui.notification_show("Reprocessing output files...", duration=None)
-            def run_reprocess():
-                output_stats_directory = output_files_path / folder_input / "_statistics"
-                output_graphs_directory = output_files_path / folder_input / "_graphs"
-                output_input_files_directory = output_files_path / folder_input / "_input_files"
-                output_input_files_directory.mkdir(exist_ok=True)
-                graphs_csv = normalise_csv_encoding(input_files_path / "input_graphs.csv", output_input_files_directory)
-                graphs_fmt_csv = normalise_csv_encoding(input_files_path / "input_graphs_formatting.csv", output_input_files_directory)
-                custom_graphs = import_graphs(graphs_csv)
-                custom_graphs_formatting = import_graphs_formatting(graphs_fmt_csv)
-                statistics_files = {}
-                for file_name in os.listdir(output_stats_directory):
-                    if file_name.endswith(".csv"):
-                        scenario_name = file_name.split(".")[0]
-                        file_path = output_stats_directory / file_name
-                        statistics_files[scenario_name] = {"path": file_path}
-                for graph in custom_graphs:
-                    generate_figure(statistics_files, graph, custom_graphs_formatting, output_graphs_directory)
-            thread = Thread(target=run_reprocess)
-            thread.start()
-        else:
-            ui.notification_show("No folder selected for reprocessing.", duration=5, type="warning")
+    def _start_reprocess():
+        folder = input.folder() if "folder" in input else None
+        if not folder:
+            ui.notification_show("No folder selected for reprocessing.", type="warning", duration=5)
+            return
+        reprocess_task(folder)
+
+    @reactive.effect
+    def _reprocess_finished():
+        status = reprocess_task.status()
+        if status == "success":
+            ui.notification_show(f"Reprocessed {reprocess_task.result()} graph definitions.", duration=5)
+        elif status == "error":
+            ui.notification_show(f"Reprocessing failed: {reprocess_task.error.get()}", type="error", duration=None)
 
     # ==================== Map and Scatter Plot Rendering ====================
 
