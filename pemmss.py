@@ -93,7 +93,7 @@ import modules.post_processing as post_processing
 import modules.spatial as spatial
 
 
-def initialise():
+def initialise(run_time=None):
     """
     Generates the model run output directories, creates the log file and imports and copies non-stochastic input files.
     Returns a dictionary containing input data for passing to scenario().
@@ -129,13 +129,13 @@ def initialise():
     constants = {}
 
     # Initialise and Import Data
-    constants['run_time'] = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    constants['run_time'] = run_time or datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     # Set-up file management constants
     constants['cwd'] = Path.cwd()
     constants['input_folder'] = constants['cwd'] / 'input_files'
     constants['input_folder_cache'] = constants['input_folder'] / '_cached_input_files'
-    constants['output_folder'] = constants['cwd'] / 'output_files' / constants['run_time']
+    constants['output_folder'] = run_output_folder(constants['run_time'])
     constants['output_folder_input_copy'] = constants['output_folder'] / '_input_files'
     constants['output_folder_statistics'] = constants['output_folder'] / '_statistics'
     constants['output_folder_graphs'] = constants['output_folder'] / '_graphs'
@@ -505,7 +505,7 @@ def post_process(scenario_folders, output_stats_folder, output_graphs_folder, im
         file_export.export_log('No geopackage provided; skipping geopackage export.', output_path=log_path, print_on=1)
 
 
-def main(sequential=False):
+def main(sequential=False, run_time=None):
     """
     Execute scenario modelling.
     sequential = False, scenarios will be modelled across parallel processes
@@ -520,7 +520,7 @@ def main(sequential=False):
     t0 = (time())
 
     # P1 - Import input files
-    CONSTANTS = initialise()
+    CONSTANTS = initialise(run_time)
 
     t1 = (time())
     file_export.export_log('Static file import duration ' + str(t1-t0) + ' seconds.\n',
@@ -572,11 +572,44 @@ def post_process_only():
         pr.print_stats()
     # TODO: test
 
+def run_output_folder(run_time):
+    return Path.cwd() / 'output_files' / run_time
+
+def mark_run_folder(folder, suffix):
+    """Append `suffix` (e.g. '_failed') to a run's output folder. Returns the new path, or None."""
+    if folder is None or not Path(folder).is_dir():
+        return None
+    target = Path(f"{folder}{suffix}")
+    n = 2
+    while target.exists():
+        target = Path(f"{folder}{suffix}{n}")
+        n += 1
+    try:
+        Path(folder).rename(target)
+        return target
+    except OSError as e:          # e.g. a file still held open by a worker process (Windows)
+        print(f"Could not rename {folder}: {e}")
+        return None
 
 if __name__ == '__main__':
     # Capture command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('--sequential', action='store_true', help='Executes scenario modelling sequentially. Useful for profiling execution processes and debugging multi-processing error messages.')
     args = parser.parse_args()
+    run_time = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    run_folder = run_output_folder(run_time)
     # Execute PEMMSS
-    main(sequential=args.sequential)
+    try:
+        main(sequential=args.sequential, run_time=run_time)
+
+    # Rename the output folder if PEMMSS fails or is cancelled
+    except (Exception, KeyboardInterrupt) as e:
+        cancelled = isinstance(e, KeyboardInterrupt)
+        if run_folder.is_dir():
+            file_export.export_log(f"\nRun {'cancelled' if cancelled else 'failed'}: {e!r}\n",
+                                   output_path=run_folder / 'log.txt', print_on=0)
+        new = mark_run_folder(run_folder, "_cancelled" if cancelled else "_failed")
+        if new:
+            print(f"Partial output kept as: {new}")
+        raise
+
