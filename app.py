@@ -46,15 +46,6 @@ output_files_path = APP_DIR / "output_files"
 input_files_path.mkdir(parents=True, exist_ok=True)
 output_files_path.mkdir(parents=True, exist_ok=True)
 
-STATUS_LABELS = {
-    -3: 'Development Probability Test Failed',
-    -2: 'Not Valuable Enough to Mine',
-    -1: 'Depleted',
-    0: 'Undeveloped',
-    1: 'Care and Maintenance',
-    2: 'Producing',
-    3: 'Produced and Depleted'
-}
 
 STATUS_COLORS = {
     'Development Probability Test Failed': 'gray',
@@ -63,77 +54,69 @@ STATUS_COLORS = {
     'Undeveloped': 'blue',
     'Care and Maintenance': 'orange',
     'Producing': 'green',
-    'Produced and Depleted': 'purple'
+    'Produced and Depleted': 'purple',
+    'Undiscovered': 'lightgray'
 }
 
 # ==================== Shared Functions ====================
 
-def prepare_all_project_data(projects_df, status_df):
-    """Prepare project data for all years at once for caching."""
-    required_columns = ['LATITUDE', 'LONGITUDE', 'NAME', 'P_ID_NUMBER', 'REGION',
-                       'DEPOSIT_TYPE', 'COMMODITY', 'REMAINING_RESOURCE', 'GRADE', 'STATUS', 
-                       'RECOVERY', 'DEVELOPMENT_PROBABILITY', 'START_YEAR']
-    
-    missing_columns = [col for col in required_columns if col not in projects_df.columns]
-    if missing_columns:
-        return None, None, [], False
-    
-    year_columns = [col for col in status_df.columns if col.isdigit()]
-    if not year_columns:
-        return None, None, [], False
-    
-    for col in year_columns:
-        status_df[col] = pd.to_numeric(status_df[col], errors='coerce').fillna(0)
-    
-    valid_projects = projects_df.copy()
-    valid_projects['LATITUDE'] = pd.to_numeric(valid_projects['LATITUDE'], errors='coerce')
-    valid_projects['LONGITUDE'] = pd.to_numeric(valid_projects['LONGITUDE'], errors='coerce')
-    valid_projects = valid_projects.dropna(subset=['LATITUDE', 'LONGITUDE', 'REMAINING_RESOURCE', 'GRADE'])
-    valid_projects = valid_projects[
-        (valid_projects['LATITUDE'].between(-90, 90)) & 
-        (valid_projects['LONGITUDE'].between(-180, 180))
-    ]
-    
-    if valid_projects.empty:
-        return None, None, [], False
-    
-    has_semicolons = (
-        valid_projects['REMAINING_RESOURCE'].str.contains(';', na=False).any() or
-        valid_projects['GRADE'].str.contains(';', na=False).any()
-    )
-    
-    year_data = {}
-    grouped_status = status_df.groupby('P_ID_NUMBER')
-    
-    for year in year_columns:
-        year_int = int(year)
-        total_sims = grouped_status[year].sum().to_dict()
-        status_percentages = []
-        for project_id in valid_projects['P_ID_NUMBER']:
-            if project_id in total_sims and total_sims[project_id] > 0:
-                project_data = status_df[status_df['P_ID_NUMBER'] == project_id]
-                status_counts = project_data.groupby('STATUS')[year].sum()
-                percentages = (status_counts / total_sims[project_id] * 100).to_dict()
-                max_pct = 0
-                max_status = ""
-                for status, pct in percentages.items():
-                    if pct > max_pct:
-                        max_pct = pct
-                        max_status = status
-                
-                status_percentages.append({
-                    'status_info': percentages,
-                    'max_status': max_status,
-                    'marker_color': STATUS_COLORS.get(max_status, 'gray')
-                })
-            else:
-                status_percentages.append({
-                    'status_info': {},
-                    'max_status': "",
-                    'marker_color': 'gray'
-                })
-        year_data[year_int] = pd.DataFrame(status_percentages)
-    return valid_projects, year_data, [int(y) for y in year_columns], has_semicolons
+def compute_status_shares(status_df):
+    """Percentage of iterations in each status, indexed by (YEAR, P_ID_NUMBER, STATUS)."""
+    years = [c for c in status_df.columns if str(c).isdigit()]
+    if not years:
+        return None, []
+    long = status_df.melt(id_vars=['P_ID_NUMBER', 'STATUS'], value_vars=years,
+                          var_name='YEAR', value_name='N')
+    long['N'] = pd.to_numeric(long['N'], errors='coerce').fillna(0)
+    counts = long.groupby(['YEAR', 'P_ID_NUMBER', 'STATUS'])['N'].sum()
+    total = counts.groupby(level=['YEAR', 'P_ID_NUMBER']).transform('sum')
+    shares = (counts / total * 100)[total > 0]
+    return shares, sorted(int(y) for y in years)
+
+
+def load_project_data(projects_df, status_df):
+    """Validate and prepare project data. Returns (projects, shares, years, has_semicolons).
+    Raises ValueError with a readable message if the files can't be used."""
+    required = ['LATITUDE', 'LONGITUDE', 'NAME', 'P_ID_NUMBER', 'COMMODITY', 'REMAINING_RESOURCE', 'GRADE']
+    missing = [c for c in required if c not in projects_df.columns]
+    if missing:
+        raise ValueError(f"input_projects.csv is missing column(s): {', '.join(missing)}")
+    missing = [c for c in ('P_ID_NUMBER', 'STATUS') if c not in status_df.columns]
+    if missing:
+        raise ValueError(f"_status.csv is missing column(s): {', '.join(missing)}")
+
+    shares, years = compute_status_shares(status_df)
+    if not years:
+        raise ValueError("_status.csv has no year columns")
+
+    projects = projects_df.copy()
+    projects['LATITUDE'] = pd.to_numeric(projects['LATITUDE'], errors='coerce')
+    projects['LONGITUDE'] = pd.to_numeric(projects['LONGITUDE'], errors='coerce')
+    projects = projects.dropna(subset=['LATITUDE', 'LONGITUDE', 'REMAINING_RESOURCE', 'GRADE'])
+    projects = projects[projects['LATITUDE'].between(-90, 90) & projects['LONGITUDE'].between(-180, 180)]
+    if projects.empty:
+        raise ValueError("no projects with valid coordinates, resource and grade")
+
+    has_semicolons = bool(projects['REMAINING_RESOURCE'].str.contains(';', na=False).any()
+                          or projects['GRADE'].str.contains(';', na=False).any())
+    return projects, shares, years, has_semicolons
+
+
+def projects_for_year_frame(projects, shares, year):
+    """Attach status info for one year, matched by P_ID_NUMBER (never by row position)."""
+    try:
+        wide = shares.xs(str(year), level='YEAR').unstack('STATUS', fill_value=0.0)
+    except KeyError:                      # year with no data at all
+        wide = pd.DataFrame()
+    max_status = wide.idxmax(axis=1).to_dict() if not wide.empty else {}
+    info = {pid: {s: p for s, p in row.items() if p > 0}
+            for pid, row in wide.to_dict('index').items()}
+
+    df = projects.copy()
+    df['MAX_STATUS'] = df['P_ID_NUMBER'].map(max_status).fillna('')
+    df['STATUS_INFO'] = df['P_ID_NUMBER'].map(lambda pid: info.get(pid, {}))
+    df['MARKER_COLOR'] = df['MAX_STATUS'].map(STATUS_COLORS).fillna('gray')
+    return df
 
 
 def create_hover_text(row, status_info, year):
@@ -247,7 +230,6 @@ def server(input, output, session):
     log_content = reactive.Value("")
     current_year = reactive.Value(None)
     input_source = reactive.Value("default")
-    cached_data = reactive.Value(None)
     map_state = reactive.Value({})
     selected_commodity = reactive.Value(None)
 
@@ -687,75 +669,28 @@ def server(input, output, session):
         if input.commodity() is not None:
             selected_commodity.set(input.commodity())
 
-    @reactive.Effect
-    @reactive.event(input.map_folder, input.subfolder)
-    def reset_cache_on_folder_change():
-        cached_data.set(None)
-        current_year.set(None)
-        map_state.set({})
-        selected_commodity.set(None)
-
-    @reactive.Calc
+    @reactive.calc
     def cached_project_data():
-        folder = input.map_folder()
-        subfolder = input.subfolder()
-        
+        folder, subfolder = input.map_folder(), input.subfolder()
         if not folder or not subfolder:
-            cached_data.set(None)
             return None, None, [], False
-            
-        cache_key = f"{folder}_{subfolder}"
-        cache = cached_data.get()
-        
-        if cache and cache.get('key') == cache_key:
-            return cache['projects'], cache['year_data'], cache['years'], cache.get('has_semicolons', False)
-        
+        projects_path = output_files_path / folder / "_input_files" / "input_projects.csv"
+        status_path = output_files_path / folder / subfolder / "_status.csv"
+        if not projects_path.exists() or not status_path.exists():
+            return None, None, [], False      # e.g. subfolder from the previously selected folder
         try:
-            projects_file_path = output_files_path / folder / "_input_files" / "input_projects.csv"
-            status_file = output_files_path / folder / subfolder / "_status.csv"
-            
-            if not projects_file_path.exists() or not status_file.exists():
-                cached_data.set(None)
-                return None, None, [], False
-            
-            projects_df = safe_read_csv(projects_file_path)
-            status_df = safe_read_csv(status_file)
-            
-            valid_projects, year_data, years, has_semicolons = prepare_all_project_data(projects_df, status_df)
-            
-            if valid_projects is not None:
-                cached_data.set({
-                    'key': cache_key,
-                    'projects': valid_projects,
-                    'year_data': year_data,
-                    'years': years,
-                    'has_semicolons': has_semicolons
-                })
-                return valid_projects, year_data, years, has_semicolons
-            else:
-                cached_data.set(None)
-                return None, None, [], False
-                
-        except Exception as e:
-            print(f"Error caching data: {str(e)}")
-            cached_data.set(None)
+            return load_project_data(safe_read_csv(projects_path), safe_read_csv(status_path))
+        except ValueError as e:
+            ui.notification_show(f"Cannot load projects for {folder}/{subfolder}: {e}", type="error", duration=8)
             return None, None, [], False
 
-    @reactive.Calc
+    @reactive.calc
     def projects_for_year():
-        projects, year_data, years, has_semicolons = cached_project_data()
+        projects, shares, years, has_semicolons = cached_project_data()
         year = input.year()
-        
-        if projects is None or year_data is None or year is None or year not in years:
+        if projects is None or year is None or year not in years:
             return None, None, None, False
-        
-        year_df = year_data[year]
-        result = projects.copy()
-        result['STATUS_INFO'] = year_df['status_info']
-        result['MAX_STATUS'] = year_df['max_status']
-        result['MARKER_COLOR'] = year_df['marker_color']
-        
-        return result, year_data, years, has_semicolons
+        return projects_for_year_frame(projects, shares, year), shares, years, has_semicolons
 
     @render_widget
     def map():
