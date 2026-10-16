@@ -55,14 +55,14 @@ output_files_path.mkdir(parents=True, exist_ok=True)
 POINT_STYLE = {"radius": 7, "fillOpacity": 0.8, "weight": 0}
 
 STATUS_COLORS = {
+    'Undiscovered': 'lightgray',
     'Development Probability Test Failed': 'gray',
     'Not Valuable Enough to Mine': 'black',
-    'Depleted': 'red',
     'Undeveloped': 'blue',
     'Care and Maintenance': 'orange',
     'Producing': 'green',
     'Produced and Depleted': 'purple',
-    'Undiscovered': 'lightgray'
+    'Depleted': 'red',
 }
 
 STATUS_CODES = {-3: 'Development Probability Test Failed', -2: 'Not Valuable Enough to Mine',
@@ -70,7 +70,8 @@ STATUS_CODES = {-3: 'Development Probability Test Failed', -2: 'Not Valuable Eno
                 2: 'Producing', 3: 'Produced and Depleted'}
 UNDISCOVERED = 'Undiscovered'
 
-
+EMPTY_FC = {"type": "FeatureCollection", "features": []}
+SCATTER_STATUSES = [s for s in STATUS_COLORS if s != 'Undiscovered']
 
 # ==================== Shared Functions ====================
 
@@ -960,6 +961,11 @@ def server(input, output, session):
 
     map_parts = {}  # plain dict (not reactive): the current map's widgets and data for click handling
 
+    def _set_popup_text(pid):
+        row = map_parts["frame"].loc[pid]
+        map_parts["popup"].child.value = create_hover_text(
+            row, row["STATUS_INFO"], map_parts.get("year"), single=map_parts.get("single", False))
+
     def _on_project_click(feature=None, **kwargs):
         frame, popup, m = map_parts.get("frame"), map_parts.get("popup"), map_parts.get("map")
         if frame is None or popup is None or feature is None:
@@ -967,10 +973,9 @@ def server(input, output, session):
         pid = feature["properties"]["P_ID_NUMBER"]
         if pid not in frame.index:
             return
-        row = frame.loc[pid]
+        map_parts["popup_pid"] = pid
+        _set_popup_text(pid)
         lon, lat = feature["geometry"]["coordinates"]
-        popup.child.value = create_hover_text(row, row["STATUS_INFO"], map_parts.get("year"),
-                                              single=map_parts.get("single", False))
         if popup in m.layers:
             popup.open_popup([lat, lon])
         else:
@@ -979,143 +984,115 @@ def server(input, output, session):
 
     @render_widget
     def project_map():
-        projects, _, _, _ = cached_project_data()  # depends on folder/subfolder only
+        """Built once per session; _update_project_map changes its contents in place."""
         m = Map(zoom=2, scroll_wheel_zoom=True, layout={"height": "75vh"})
         m.add(basemap_to_tiles(basemaps.Esri.WorldImagery))
         m.add(LayersControl(position="topright"))
-        map_parts.clear()
-        if projects is None:
-            return m
-        on_map = projects[projects['HAS_COORDS']]
-        if on_map.empty:
-            return m
-
-        with reactive.isolate():  # initial colours only; year changes are handled below
-            frame = projects_for_year()[0]
-        if frame is None:
-            frame = projects.assign(MARKER_COLOR="gray", MAX_STATUS="",
-                                    STATUS_INFO=[{}] * len(projects))
-
-        visible = frame[frame['HAS_COORDS'] & (frame['MAX_STATUS'] != UNDISCOVERED)]
-        layer = GeoJSON(data=build_project_geojson(visible), point_style=POINT_STYLE, name="Projects")
+        layer = GeoJSON(data=EMPTY_FC, point_style=POINT_STYLE, name="Projects")
         layer.on_click(_on_project_click)
         m.add(layer)
-        m.add(LegendControl({k: v for k, v in STATUS_COLORS.items()},
-                            title="Most likely status", position="bottomright"))
-        m.fit_bounds([[on_map["LATITUDE"].min(), on_map["LONGITUDE"].min()],
-                      [on_map["LATITUDE"].max(), on_map["LONGITUDE"].max()]])
-
-        map_parts.update(map=m, layer=layer, popup=Popup(child=HTML(), max_width=380),
-                         frame=frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False),
-                         year=None, single=_single_mode())
+        legend = LegendControl(dict(STATUS_COLORS), title="Most likely status", position="bottomright")
+        m.add(legend)
+        map_parts.clear()
+        map_parts.update(map=m, layer=layer, legend=legend, popup=Popup(child=HTML(), max_width=380))
         return m
 
     @reactive.effect
-    def _update_project_colours():
+    def _update_project_map():
+        m = project_map.widget  # waits until the map exists; re-runs if it is rebuilt
+        layer, popup = map_parts["layer"], map_parts["popup"]
         frame = projects_for_year()[0]
-        layer = map_parts.get("layer")
-        if frame is None or layer is None:
+        single = _single_mode()
+        map_parts["legend"].title = "Status" if single else "Most frequent status"
+        if frame is None:
+            layer.data = EMPTY_FC
+            map_parts["frame"] = None
+            if popup in m.layers:
+                m.remove(popup)
             return
+
         layer.data = build_project_geojson(frame[frame['HAS_COORDS'] & (frame['MAX_STATUS'] != UNDISCOVERED)])
-        map_parts["frame"] = frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False)
-        map_parts["year"] = input.year()
+        map_parts.update(frame=frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False),
+                         year=input.year(), single=single)
+
+        scen = _scenario_dir()  # zoom to the projects once per scenario, not every year/iteration
+        on_map = frame[frame['HAS_COORDS']]
+        if map_parts.get("fitted_for") != scen and not on_map.empty:
+            m.fit_bounds([[on_map["LATITUDE"].min(), on_map["LONGITUDE"].min()],
+                          [on_map["LATITUDE"].max(), on_map["LONGITUDE"].max()]])
+            map_parts["fitted_for"] = scen
+
+        if popup in m.layers:  # keep an open popup current while the year plays
+            pid, f = map_parts.get("popup_pid"), map_parts["frame"]
+            if pid in f.index and f.at[pid, "MAX_STATUS"] != UNDISCOVERED:
+                _set_popup_text(pid)
+            else:
+                m.remove(popup)
+
+    @reactive.calc
+    def deposit_xy():
+        projects = cached_project_data()[0]
+        if projects is None:
+            return None
+        tranches, _ = tranche_table(projects)
+        totals = deposit_totals(tranches).rename(columns={'TONNAGE': '_X', 'GRADE': '_Y'})
+        return totals[['P_ID_NUMBER', '_X', '_Y', 'N_TRANCHES']]
 
     @render_widget
     def scatter_plot():
-        projects, _, _, has_semicolons = projects_for_year()
+        """Built once per session: one fixed trace per status, filled in by _update_scatter."""
+        return go.FigureWidget(
+            data=[go.Scatter(x=[], y=[], mode='markers', name=s, legendgroup=s, showlegend=False,
+                             marker=dict(size=10, color=STATUS_COLORS[s], line=dict(width=1, color='white')),
+                             hoverinfo='text',
+                             hoverlabel=dict(bgcolor="white", font_size=12, font_family="Arial"))
+                  for s in SCATTER_STATUSES],
+            layout=dict(autosize=True, template="simple_white", hovermode='closest',
+                        title=dict(text="No data available"),
+                        xaxis=dict(title="Initial Resource (metric tons)", type="log"),
+                        yaxis=dict(title="Initial Grade (mass ratio)", type="log"),
+                        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01, itemsizing='constant',
+                                    bordercolor='rgba(128,128,128,0.2)', borderwidth=1)))
+
+    @reactive.effect
+    def _update_scatter():
+        fig = scatter_plot.widget  # waits until the figure exists
+        projects = projects_for_year()[0]
+        xy = deposit_xy()
         year = input.year() if "year" in input else None
         commodity = input.commodity() if "commodity" in input else None
-
-        if projects is None or projects.empty or year is None or commodity is None:
-            fig = go.Figure()
-            fig.update_layout(
-                title="No data available",
-                template="simple_white",
-            )
-            return fig
-
-        single = _single_mode()
-        projects = projects[(projects['COMMODITY'] == commodity) & (projects['MAX_STATUS'] != UNDISCOVERED)]
-        n_total = len(projects)
-        tranches, _ = tranche_table(projects)
-        totals = deposit_totals(tranches).rename(columns={'TONNAGE': '_X', 'GRADE': '_Y'})
-        projects = projects.merge(totals[['P_ID_NUMBER', '_X', '_Y', 'N_TRANCHES']], on='P_ID_NUMBER')
         log_grade = input.log_grade()
-        keep = projects['_X'] > 0
-        if log_grade:
-            keep &= projects['_Y'] > 0
-        projects = projects[keep]
-        n_dropped = n_total - len(projects)
+        single = _single_mode()
 
-        if projects.empty:
-            fig = go.Figure()
-            fig.update_layout(
-                title=f"No data available for {commodity}",
-                template="simple_white",
-            )
-            return fig
+        groups, title = {}, "No data available"
+        if projects is not None and xy is not None and year is not None and commodity is not None:
+            projects = projects[(projects['COMMODITY'] == commodity) & (projects['MAX_STATUS'] != UNDISCOVERED)]
+            n_total = len(projects)
+            projects = projects.merge(xy, on='P_ID_NUMBER')
+            keep = projects['_X'] > 0
+            if log_grade:
+                keep &= projects['_Y'] > 0
+            projects = projects[keep]
+            n_dropped = n_total - len(projects)
+            if projects.empty:
+                title = f"No data available for {commodity}"
+            else:
+                groups = dict(tuple(projects.groupby('MAX_STATUS')))
+                it = input.iteration() if single and "iteration" in input else None
+                title = (f"{commodity}, {year}" + (f", iteration {it}" if it else "")
+                         + (f" ({n_dropped} projects without numeric resource/grade not shown)" if n_dropped else ""))
 
-        fig = go.Figure()
-
-        for status in STATUS_COLORS:
-            status_projects = projects[projects['MAX_STATUS'] == status]
-
-            if status_projects.empty:
-                continue
-
-            hover_texts = [
-                create_hover_text(row, row['STATUS_INFO'], year, single=single)
-                for _, row in status_projects.iterrows()
-            ]
-            sizes = 10
-
-            fig.add_trace(go.Scatter(
-                x=status_projects['_X'],
-                y=status_projects['_Y'],
-                mode='markers',
-                name=status,
-                marker=dict(
-                    size=sizes,
-                    color=STATUS_COLORS.get(status, 'gray'),
-                    line=dict(width=1, color='white')
-                ),
-                hovertext=hover_texts,
-                hoverinfo='text',
-                hoverlabel=dict(
-                    bgcolor="white",
-                    font_size=12,
-                    font_family="Arial"
-                ),
-                legendgroup=status,
-                showlegend=True
-            ))
-
-        fig.update_layout(
-            autosize=True,
-            title=(f"{commodity}, {year}" + (f", iteration {input.iteration()}" if single else "")
-                   + (f" ({n_dropped} projects without numeric resource/grade not shown)" if n_dropped else "")),
-            xaxis=dict(
-                title="Initial Resource (metric tons)",
-                type="log",
-            ),
-            yaxis=dict(
-                title="Initial Grade (mass ratio)",
-                type="log" if log_grade else "linear",
-            ),
-            template="simple_white",
-            hovermode='closest',
-            legend=dict(
-                yanchor="top",
-                y=0.99,
-                xanchor="left",
-                x=0.01,
-                itemsizing='constant',
-                bordercolor='rgba(128,128,128,0.2)',
-                borderwidth=1
-            )
-        )
-
-        return fig
+        with fig.batch_update():  # one redraw for all changes
+            for trace in fig.data:
+                g = groups.get(trace.name)
+                if g is None:
+                    trace.update(x=[], y=[], hovertext=[], showlegend=False)
+                else:
+                    trace.update(x=g['_X'].tolist(), y=g['_Y'].tolist(), showlegend=True,
+                                 hovertext=[create_hover_text(r, r['STATUS_INFO'], year, single=single)
+                                            for _, r in g.iterrows()])
+            fig.layout.title.text = title
+            fig.layout.yaxis.type = "log" if log_grade else "linear"
 
 
 # ==================== Server Startup ====================
