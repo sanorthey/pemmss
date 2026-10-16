@@ -1300,27 +1300,25 @@ def import_geopackage(path, copy_path=None, log_path=None, cache_path=None):
     return geopackage_gdf
 
 
+def _file_hash(*paths):
+    h = hashlib.sha256()
+    for p in paths:
+        h.update(Path(p).read_bytes())
+    return h.hexdigest()
+
+
 def import_cache_geodataframe_dict_list(cache_path, factors, geodataframe, factors_path, geopackage_path, simplify=True, log_path=None):
+    key = _file_hash(factors_path, geopackage_path) + f'|simplify={simplify}'
     if cache_path.exists():
-        # Check files haven't been modified since cache generated
-        cache_path_time = cache_path.stat().st_mtime
-        factors_path_time = factors_path.stat().st_mtime
-        geopackage_path_time = geopackage_path.stat().st_mtime
-        if factors_path_time <= cache_path_time and geopackage_path_time <= cache_path_time:
-            with open(cache_path, 'rb') as f:
-                gdf_dict_list = pickle.load(f)
+        with open(cache_path, 'rb') as fh:
+            cached = pickle.load(fh)
+        if isinstance(cached, dict) and cached.get('key') == key and len(cached['data']) == len(factors['region']):
             export_log('Imported pre-processed spatial data cache\n', output_path=log_path, print_on=1)
-        else:
-            export_log('Preprocessed spatial data cache out of date.\nProcessing spatial data (this may take some time for large datasets)\n', output_path=log_path, print_on=1)
-            gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
-            with open(cache_path, 'wb') as f:
-                pickle.dump(gdf_dict_list, f)
-            export_log('Reprocessed spatial data and created new cache\n', output_path=log_path, print_on=1)
+            return cached['data']
+        export_log('Preprocessed spatial data cache out of date.\nProcessing spatial data (this may take some time for large datasets)\n', output_path=log_path, print_on=1)
     else:
         export_log('No preprocessed spatial data cache exists.\nProcessing spatial data (this may take some time for large datasets)\n', output_path=log_path, print_on=1)
-        gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
-        with open(cache_path, 'wb') as f:
-            pickle.dump(gdf_dict_list, f)
-        export_log('Processed spatial data and created new cache.\n', output_path=log_path, print_on=1)
-
+    gdf_dict_list = spatial.create_geodataframe_dict_list(factors, geodataframe, simplify=simplify, log_path=log_path)
+    with open(cache_path, 'wb') as fh:
+        pickle.dump({'key': key, 'data': gdf_dict_list}, fh)
     return gdf_dict_list
