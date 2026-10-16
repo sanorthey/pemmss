@@ -18,14 +18,18 @@ Module with routines for importing PEMMSS model parameters and data files.
 """
 
 # Import standard packages
+import codecs
 import csv
+import hashlib
 import pickle
-from shutil import copyfile
 from collections import defaultdict
+from pathlib import Path
 from random import choices
+from shutil import copyfile
 
 # Import non-standard packages
 import pandas as pd
+from charset_normalizer import from_bytes
 
 # Import custom modules
 import modules.deposit as deposit
@@ -40,8 +44,41 @@ def strtobool(value: str) -> bool:  # distutils was deprecated in Python 3.12, r
         return True
     return False
 
-# Import Data Functions
+# Function to enforce utf-8-sig encoding for input files. Reduces bugs when users use Excel on Windows.
+def normalise_csv_encoding(path, copy_path=None, log_path=None, candidates=("cp1252", "mac_roman")):
+    """
+    Detect a CSV file's encoding and write it out as UTF-8 with BOM ('utf-8-sig').
 
+    If copy_path (a folder) is given, the re-encoded file is written there and the
+    original is left untouched; otherwise the file is re-encoded in place, but only
+    if it isn't already UTF-8. Only the encoding changes: cell contents, quoting and
+    line endings are preserved. Returns the path to read from, which is always
+    UTF-8, so open it with encoding='utf-8-sig', newline=''.
+    """
+    path = Path(path)
+    raw = path.read_bytes()
+
+    if raw.startswith(codecs.BOM_UTF8):
+        text, encoding = raw.decode('utf-8-sig'), 'utf-8-sig'
+    elif raw.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        text, encoding = raw.decode('utf-16'), 'utf-16'
+    else:
+        try:
+            text, encoding = raw.decode('utf-8'), 'utf-8'
+        except UnicodeDecodeError:
+            best = from_bytes(raw, cp_isolation=list(candidates)).best()
+            if best is None:
+                raise ValueError(f"{path.name}: unrecognised text encoding. Re-save it in Excel as 'CSV UTF-8'.")
+            text, encoding = str(best), best.encoding
+
+    out_path = Path(copy_path) / path.name if copy_path is not None else path
+    if out_path != path or encoding not in ('utf-8', 'utf-8-sig'):
+        out_path.write_text(text, encoding='utf-8-sig', newline='')
+    if encoding not in ('utf-8', 'utf-8-sig'):
+        export_log(f"{path.name}: read as {encoding}, re-encoded as UTF-8", output_path=log_path, print_on=1)
+    return out_path
+
+# Import Data Functions
 
 def import_static_files(path, cache_path, copy_path_folder=None, log_file=None):
     """
@@ -77,16 +114,19 @@ def import_static_files(path, cache_path, copy_path_folder=None, log_file=None):
     cache_path_geopackage = cache_path / 'input_geopackage.pkl'
     cache_path_gdf_dict_list = cache_path / 'gdf_dict_list.pkl'
 
+    def prep(p):
+        return normalise_csv_encoding(p, copy_path=copy_path_folder, log_path=log_file)
+
     # Import static files
-    static_files['imported_demand'] = import_demand(path_demand, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_factors'] = import_exploration_production_factors(path_factors, copy_path=copy_path_folder, log_path=log_file)
-    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(path_factors_timeseries, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_demand'] = import_demand(prep(path_demand), log_path=log_file)
+    static_files['imported_factors'] = import_exploration_production_factors(prep(path_factors), log_path=log_file)
+    static_files['timeseries_project_updates'], static_files['timeseries_exploration_production_factors_updates'] = import_exploration_production_factors_timeseries(prep(path_factors_timeseries), log_path=log_file)
     static_files['imported_geopackage'] = import_geopackage(path_geopackage, cache_path=cache_path_geopackage, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs'] = import_graphs(path_graphs, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_graphs_formatting'] = import_graphs_formatting(path_graphs_formatting, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_historic'] = import_historic(path_historic, copy_path=copy_path_folder, log_path=log_file)
-    static_files['parameters'] = import_parameters(path_parameters, copy_path=copy_path_folder, log_path=log_file)
-    static_files['imported_postprocessing'] = import_postprocessing(path_postprocessing, copy_path=copy_path_folder, log_path=log_file)
+    static_files['imported_graphs'] = import_graphs(prep(path_graphs), log_path=log_file)
+    static_files['imported_graphs_formatting'] = import_graphs_formatting(prep(path_graphs_formatting), log_path=log_file)
+    static_files['imported_historic'] = import_historic(prep(path_historic), log_path=log_file)
+    static_files['parameters'] = import_parameters(prep(path_parameters), log_path=log_file)
+    static_files['imported_postprocessing'] = import_postprocessing(prep(path_postprocessing),log_path=log_file)
 
     # Import preprocessed geodataframe_dict_list cache if exists otherwise generate
     static_files['imported_factors'].update({'gdf': import_cache_geodataframe_dict_list(cache_path_gdf_dict_list, static_files['imported_factors'], static_files['imported_geopackage'], path_factors, path_geopackage, log_path=log_file)})
@@ -129,7 +169,7 @@ def import_parameters(path, copy_path=None, log_path=None):
     """
     imported_parameters = {}
 
-    with open(path, mode='r') as parameters_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
         # Import scenarios
         for row in csv_reader:
@@ -230,7 +270,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
     # Open and generate projects from input_projects.csv
     imported_projects = []
 
-    with open(path, mode='r') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
 
         # Iterate through each row
         csv_reader = csv.DictReader(input_file)
@@ -532,7 +572,7 @@ def import_project_coproducts(f, path, projects, generate_all, copy_path=None, l
 
     # Read CSV and build dictionary for projects to be updated
     manual_rows_by_pid = {}
-    with open(path, mode='r', encoding='utf-8-sig') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
         csv_reader = csv.DictReader(input_file)
         for row in csv_reader:
             p_id_number = (row.get('P_ID_NUMBER') or "").strip()
@@ -707,7 +747,7 @@ def import_exploration_production_factors(path, copy_path=None, log_path=None):
                         'geopackage_region_gdf_dict': [],
                         'lookup_table': {}}
 
-    with open(path, mode='r') as parameters_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
         # Import scenarios
         for row in csv_reader:
@@ -809,7 +849,7 @@ def import_exploration_production_factors_timeseries(path, copy_path=None, log_p
     project_updates = {}
     exploration_production_factors_updates = {}
 
-    with open(path, mode='r') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
         csv_reader = csv.DictReader(input_file)
         # Iterate through each row to populate time series of variable overrides.
         for row in csv_reader:
@@ -873,7 +913,7 @@ def import_demand(path, copy_path=None, log_path=None):
     """
     imported_demand = {}
 
-    with open(path, mode='r') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
         csv_reader = csv.DictReader(input_file)
 
         # Iterate through each row for a new series of commodity demand
@@ -937,7 +977,7 @@ def import_graphs(path, copy_path=None, log_path=None):
     """
     imported_graphs = []
 
-    with open(path, mode='r') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
         csv_reader = csv.DictReader(input_file)
 
         # Iterate through each row / graph
@@ -1036,7 +1076,7 @@ def import_graphs_formatting(path, copy_path=None, log_path=None):
     """
     imported_graphs_formatting = {}
 
-    with open(path, mode='r') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
         csv_reader = csv.DictReader(input_file)
         # Import labels
         for row in csv_reader:
@@ -1077,7 +1117,7 @@ def import_postprocessing(path, copy_path=None, log_path=None):
     """
     imported_postprocessing = {}
 
-    with open(path, mode='r') as parameters_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as parameters_file:
         csv_reader = csv.DictReader(parameters_file)
         # Import scenarios
         for row in csv_reader:
@@ -1140,7 +1180,7 @@ def import_statistics(path, log_path=None, custom_keys=False, convert_values=Fal
     """
     imported_statistics = {}
     
-    with open(path, mode='r') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
         
         if not custom_keys:
             keys = ['SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
@@ -1197,7 +1237,7 @@ def import_statistics_keyed(path, base_key='STATISTIC', base_key_values=None, lo
     imported_statistics = defaultdict(dict)
     time_keys = []
     
-    with open(path, mode='r') as input_file:
+    with open(path, mode='r', encoding='utf-8-sig', newline='') as input_file:
         
         keys = ['SCENARIO_INDEX', 'ITERATION', 'AGGREGATION', 'REGION', 'DEPOSIT_TYPE', 'COMMODITY', 'STATISTIC']
         csv_reader = csv.DictReader(input_file, fieldnames=keys, restkey='TIME', restval='VALUES')

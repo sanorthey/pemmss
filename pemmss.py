@@ -163,6 +163,10 @@ def initialise():
     # Import user input files and assign variables
     constants.update(file_import.import_static_files(constants['input_folder'], constants['input_folder_cache'], copy_path_folder=constants['output_folder_input_copy'], log_file=constants['log']))
 
+    # Enforce 'utf-8-sig' encodings on project csv files
+    constants['path_input_projects-utf-8-sig'] = file_import.normalise_csv_encoding(constants['input_folder'] / 'input_projects.csv', constants['output_folder_input_copy'], constants['log'])
+    constants['path_input_project_coproducts-utf-8-sig'] = file_import.normalise_csv_encoding(constants['input_folder'] / 'input_project_coproducts.csv', constants['output_folder_input_copy'], constants['log'])
+
     return constants
 
 
@@ -199,9 +203,9 @@ def scenario(i, constants):
     timeseries_project_updates = constants['timeseries_project_updates']
     timeseries_exploration_production_factors_updates = constants['timeseries_exploration_production_factors_updates']
     imported_demand = constants['imported_demand']
-    input_folder = constants['input_folder']
+    projects_csv = constants['path_input_projects-utf-8-sig']
+    project_coproducts_csv = constants['path_input_project_coproducts-utf-8-sig']
     output_folder = constants['output_folder']
-    output_folder_input_copy = constants['output_folder_input_copy']
     imported_historic = constants['imported_historic']
     log = constants['log']
 
@@ -225,8 +229,8 @@ def scenario(i, constants):
         demand = deepcopy(imported_demand[parameters['scenario_name']])
         commodities = list(demand.keys())
         # Projects imported here instead of initialise() so that each iteration has unique random data infilling.
-        projects = file_import.import_projects(factors, input_folder / 'input_projects.csv', copy_path=output_folder_input_copy, log_path=log)
-        projects = file_import.import_project_coproducts(factors, input_folder / 'input_project_coproducts.csv', projects, parameters['generate_all_coproducts'], copy_path=output_folder_input_copy, log_path=log)
+        projects = file_import.import_projects(factors, projects_csv, log_path=log)
+        projects = file_import.import_project_coproducts(factors, project_coproducts_csv, projects, parameters['generate_all_coproducts'], log_path=log)
         log_message.append('\nScenario ' + str(parameters['scenario_name']) + ' Iteration ' + str(j) + '\nImported input_projects.csv\nImported input_project_coproducts.csv')
 
         # Time Loop - Iterates model through each time period
