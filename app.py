@@ -35,7 +35,7 @@ from pathlib import Path
 from threading import Thread
 from modules.post_processing import generate_figure
 from modules.file_import import import_graphs, import_graphs_formatting, import_parameters, decode_csv_bytes, normalise_csv_encoding
-from ipyleaflet import Map, CircleMarker, LayersControl, LayerGroup, basemaps, basemap_to_tiles
+from ipyleaflet import Map, GeoJSON, Popup, LayersControl, LegendControl, basemaps, basemap_to_tiles
 from ipywidgets import HTML
 from shinywidgets import output_widget, render_widget
 from html import escape
@@ -46,6 +46,7 @@ output_files_path = APP_DIR / "output_files"
 input_files_path.mkdir(parents=True, exist_ok=True)
 output_files_path.mkdir(parents=True, exist_ok=True)
 
+POINT_STYLE = {"radius": 7, "fillOpacity": 0.8, "weight": 0}
 
 STATUS_COLORS = {
     'Development Probability Test Failed': 'gray',
@@ -145,6 +146,19 @@ def create_hover_text(row, status_info, year):
         f"<b>Status percentages for {year}:</b><br>{status_text}"
     )
 
+def build_project_geojson(df):
+    """One GeoJSON point per project; colour carried in each feature's style."""
+    features = [
+        {
+            "type": "Feature",
+            "geometry": {"type": "Point", "coordinates": [float(r.LONGITUDE), float(r.LATITUDE)]},
+            "properties": {"P_ID_NUMBER": str(r.P_ID_NUMBER),
+                           "style": {"color": r.MARKER_COLOR, "fillColor": r.MARKER_COLOR}},
+        }
+        for r in df[['P_ID_NUMBER', 'LATITUDE', 'LONGITUDE', 'MARKER_COLOR']].itertuples(index=False)
+    ]
+    return {"type": "FeatureCollection", "features": features}
+
 def safe_read_csv(path):
     """Read a CSV of any supported encoding as all-string columns.
     Only empty cells become NaN, so values like 'NA' (Namibia, North America) survive."""
@@ -154,11 +168,7 @@ def safe_read_csv(path):
 
 # ==================== User Interface ====================
 
-app_ui = ui.page_fluid(ui.tags.style(
-    """ 
-    .leaflet-container {height: 900px !important;}
-    .plotly-container {height: 900px !important;}
-    """),
+app_ui = ui.page_fluid(
     ui.navset_tab(
         ui.nav_panel("Inputs",
             ui.layout_sidebar(
@@ -197,18 +207,12 @@ app_ui = ui.page_fluid(ui.tags.style(
                 ),
                 ui.navset_tab(
                     ui.nav_panel("Geographic distribution",
-                        ui.div(
-                            output_widget("map"),
-                            class_="map-container"
-                        )
-                    ),
+                                 output_widget("project_map", height="80vh"),
+                                 ),
                     ui.nav_panel("Resource and grade",
-                        ui.output_ui("commodity_selector_ui"),
-                        ui.div(
-                            output_widget("scatter_plot"),
-                            class_="plotly-container"
-                        )
-                    )
+                                 ui.output_ui("commodity_selector_ui"),
+                                 output_widget("scatter_plot", height="80vh"),
+                                 ),
                 ),
             )
         ),
@@ -228,10 +232,7 @@ app_ui = ui.page_fluid(ui.tags.style(
 
 def server(input, output, session):
     log_content = reactive.Value("")
-    current_year = reactive.Value(None)
     input_source = reactive.Value("default")
-    map_state = reactive.Value({})
-    selected_commodity = reactive.Value(None)
 
     current_selections = reactive.Value({
         "png_file": None
@@ -604,13 +605,8 @@ def server(input, output, session):
     def map_folder_ui():
         folders = get_folders()
         if folders:
-            return ui.div(
-                ui.input_select("map_folder", "Output folder:", choices=folders),
-                ui.output_ui("subfolder_ui"),
-                ui.output_ui("year_slider")
-            )
-        else:
-            return ui.div(f"No output folders found in {output_files_path}")
+            return ui.input_select("map_folder", "Output folder:", choices=folders)
+        return ui.div(f"No output folders found in {output_files_path}")
 
     @render.ui
     def subfolder_ui():
@@ -627,47 +623,28 @@ def server(input, output, session):
 
     @render.ui
     def year_slider():
-        folder = input.map_folder()
-        subfolder = input.subfolder()
-        if folder and subfolder:
-            _, _, years, _ = cached_project_data()
-            if years:
-                selected_year = current_year.get()
-                if selected_year is None or selected_year not in years:
-                    selected_year = min(years)
-                    current_year.set(selected_year)
-                min_year, max_year = min(years), max(years)
-                if selected_year is None or selected_year not in years:
-                    selected_year = min_year
-                return ui.input_slider("year", "Select Year:", min=min_year, max=max_year, value=selected_year, sep='')
-        return ui.div()
+        _, _, years, _ = cached_project_data()
+        if not years:
+            return ui.div()
+        with reactive.isolate():
+            prev = input.year() if "year" in input else None
+        value = prev if prev in years else years[0]
+        return ui.input_slider("year", "Year:", min=years[0], max=years[-1],
+                               value=value, step=1, sep="")
 
     @render.ui
     def commodity_selector_ui():
         projects, _, _, _ = cached_project_data()
-        if projects is not None:
-            current_selection = selected_commodity.get()
-            commodities = sorted(projects['COMMODITY'].unique().tolist())
-            if commodities and current_selection not in commodities:
-                current_selection = commodities[0]
-                selected_commodity.set(commodities[0])
-            if commodities:
-                if current_selection not in commodities:
-                    current_selection = commodities[0]
-                return ui.input_select("commodity", "Select Commodity:", choices=commodities, selected=current_selection)
-        return ui.div()
+        if projects is None:
+            return ui.div()
+        commodities = sorted(projects['COMMODITY'].dropna().unique().tolist())
+        if not commodities:
+            return ui.div()
+        with reactive.isolate():
+            prev = input.commodity() if "commodity" in input else None
+        return ui.input_select("commodity", "Commodity:", choices=commodities,
+                               selected=prev if prev in commodities else commodities[0])
 
-    @reactive.Effect
-    @reactive.event(input.year)
-    def update_current_year():
-        if input.year() is not None:
-            current_year.set(input.year())
-
-    @reactive.Effect
-    @reactive.event(input.commodity)
-    def update_selected_commodity():
-        if input.commodity() is not None:
-            selected_commodity.set(input.commodity())
 
     @reactive.calc
     def cached_project_data():
@@ -692,106 +669,72 @@ def server(input, output, session):
             return None, None, None, False
         return projects_for_year_frame(projects, shares, year), shares, years, has_semicolons
 
+    map_parts = {}  # plain dict (not reactive): the current map's widgets and data for click handling
+
+    def _on_project_click(feature=None, **kwargs):
+        frame, popup, m = map_parts.get("frame"), map_parts.get("popup"), map_parts.get("map")
+        if frame is None or popup is None or feature is None:
+            return
+        pid = feature["properties"]["P_ID_NUMBER"]
+        if pid not in frame.index:
+            return
+        row = frame.loc[pid]
+        lon, lat = feature["geometry"]["coordinates"]
+        popup.child.value = create_hover_text(row, row["STATUS_INFO"], map_parts.get("year"))
+        if popup in m.layers:
+            popup.open_popup([lat, lon])
+        else:
+            popup.location = [lat, lon]
+            m.add(popup)
+
     @render_widget
-    def map():
-        try:
-            projects, _, _, _ = projects_for_year()
-            year = input.year()
-            
-            if projects is None or projects.empty or year is None:
-                return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
+    def project_map():
+        projects, _, _, _ = cached_project_data()  # depends on folder/subfolder only
+        m = Map(zoom=2, scroll_wheel_zoom=True, layout={"height": "75vh"})
+        m.add(basemap_to_tiles(basemaps.Esri.WorldImagery))
+        m.add(LayersControl(position="topright"))
+        map_parts.clear()
+        if projects is None:
+            return m
 
-            folder_key = f"{input.map_folder()}_{input.subfolder()}"
-            current_map_state = map_state.get()
-            
-            if current_map_state.get('folder_key') != folder_key:
-                center_lat = projects["LATITUDE"].mean()
-                center_lon = projects["LONGITUDE"].mean()
-                if pd.isna(center_lat) or pd.isna(center_lon):
-                    center_lat, center_lon = 0, 0
+        with reactive.isolate():  # initial colours only; year changes are handled below
+            frame = projects_for_year()[0]
+        if frame is None:
+            frame = projects.assign(MARKER_COLOR="gray", STATUS_INFO=[{}] * len(projects))
 
-                base_map = Map(
-                    center=(center_lat, center_lon), 
-                    zoom=2, 
-                    scroll_wheel_zoom=True, 
-                    layout={'height': '900px'}
-                )
+        layer = GeoJSON(data=build_project_geojson(frame), point_style=POINT_STYLE, name="Projects")
+        layer.on_click(_on_project_click)
+        m.add(layer)
+        m.add(LegendControl({k: v for k, v in STATUS_COLORS.items()},
+                            title="Most likely status", position="bottomright"))
+        m.fit_bounds([[projects["LATITUDE"].min(), projects["LONGITUDE"].min()],
+                      [projects["LATITUDE"].max(), projects["LONGITUDE"].max()]])
 
-                tile_layers = [basemap_to_tiles(basemaps.Esri.WorldImagery)]
-                for tile in tile_layers:
-                    base_map.add(tile)
+        map_parts.update(map=m, layer=layer, popup=Popup(child=HTML(), max_width=380),
+                         frame=frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False),
+                         year=None)
+        return m
 
-                base_map.add(LayersControl(position='topright'))
-                
-                markers = {}
-                marker_layer = LayerGroup(name='Projects')
-                
-                for _, row in projects.iterrows():
-                    try:
-                        popup_html = create_hover_text(row, row['STATUS_INFO'], year)
-                        popup = HTML(popup_html)
-
-                        marker = CircleMarker(
-                            location=(row["LATITUDE"], row["LONGITUDE"]),
-                            radius=7,
-                            color=row['MARKER_COLOR'],
-                            fill_color=row['MARKER_COLOR'],
-                            fill_opacity=0.8,
-                            weight=0
-                        )
-                        marker.popup = popup
-                        marker_layer.add(marker)
-                        markers[row['P_ID_NUMBER']] = marker
-                    except Exception as e:
-                        print(f"Error creating marker for project {row.get('P_ID_NUMBER', 'unknown')}: {e}")
-                        continue
-                
-                base_map.add(marker_layer)
-                
-                new_state = {
-                    'folder_key': folder_key,
-                    'base_map': base_map,
-                    'marker_layer': marker_layer,
-                    'markers': markers
-                }
-                map_state.set(new_state)
-                
-                return base_map
-            
-            else:
-                base_map = current_map_state['base_map']
-                markers = current_map_state['markers']
-                
-                for _, row in projects.iterrows():
-                    if row['P_ID_NUMBER'] in markers:
-                        try:
-                            marker = markers[row['P_ID_NUMBER']]
-                            marker.color = row['MARKER_COLOR']
-                            marker.fill_color = row['MARKER_COLOR']
-                            popup_html = create_hover_text(row, row['STATUS_INFO'], year)
-                            marker.popup = HTML(popup_html)
-                        except Exception as e:
-                            print(f"Error updating marker for project {row['P_ID_NUMBER']}: {e}")
-                            continue
-                
-                return base_map
-                
-        except Exception as e:
-            print(f"Error rendering map: {e}")
-            return Map(center=(0, 0), zoom=2, layout={'height': '900px'})
+    @reactive.effect
+    def _update_project_colours():
+        frame = projects_for_year()[0]
+        layer = map_parts.get("layer")
+        if frame is None or layer is None:
+            return
+        layer.data = build_project_geojson(frame)  # one message to the browser per year change
+        map_parts["frame"] = frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False)
+        map_parts["year"] = input.year()
 
     @render_widget
     def scatter_plot():
         projects, _, _, has_semicolons = projects_for_year()
         year = input.year()
-        commodity = selected_commodity.get()
+        commodity = input.commodity() if "commodity" in input else None
         
         if has_semicolons:
             fig = go.Figure()
             fig.update_layout(
                 title="Warning: Resource grade plot does not support ore tranche functionality",
-                height=900,
-                width=1200,
                 template="simple_white",
                 annotations=[
                     dict(
@@ -809,8 +752,6 @@ def server(input, output, session):
             fig = go.Figure()
             fig.update_layout(
                 title="No data available",
-                height=900,
-                width=1200,
                 template="simple_white",
             )
             return fig
@@ -826,15 +767,13 @@ def server(input, output, session):
             fig = go.Figure()
             fig.update_layout(
                 title=f"No data available for {commodity}",
-                height=900,
-                width=1200,
                 template="simple_white",
             )
             return fig
 
         fig = go.Figure()
 
-        for status in STATUS_LABELS.values():
+        for status in STATUS_COLORS:
             status_projects = projects[projects['MAX_STATUS'] == status]
 
             if status_projects.empty:
@@ -868,6 +807,7 @@ def server(input, output, session):
             ))
 
         fig.update_layout(
+            autosize=True,
             title=f"{commodity}, {year}" + (
                 f" ({n_dropped} projects without numeric resource/grade not shown)" if n_dropped else ""),
             xaxis=dict(
@@ -877,8 +817,6 @@ def server(input, output, session):
             yaxis=dict(
                 title="Grade (mass ratio)",
             ),
-            height=900,
-            width=1200,
             template="simple_white",
             hovermode='closest',
             legend=dict(
