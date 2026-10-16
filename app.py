@@ -259,6 +259,23 @@ def server(input, output, session):
     def get_folders():
         return sorted(_folder_names(), reverse=True)
 
+    def _viewable_runs():
+        runs = []
+        for run in sorted((p for p in output_files_path.iterdir() if p.is_dir()),
+                          key=lambda p: p.name, reverse=True):
+            if not (run / "_input_files" / "input_projects.csv").exists():
+                continue
+            scenarios = tuple(sorted(s.name for s in run.iterdir()
+                                     if s.is_dir() and not s.name.startswith("_")
+                                     and (s / "_status.csv").exists()))
+            if scenarios:
+                runs.append((run.name, scenarios))
+        return tuple(runs)
+
+    @reactive.poll(_viewable_runs, 2)
+    def viewable_runs():
+        return dict(_viewable_runs())     # {run folder: (scenario, ...)}, newest first
+
     @render.ui
     def folder_ui():
         folders = get_folders()
@@ -275,11 +292,20 @@ def server(input, output, session):
 
     @render.ui
     def map_folder_ui():
-        folders = get_folders()
-        if not folders:
-            return ui.div(f"No output folders found in {output_files_path}")
-        return ui.input_select("map_folder", "Output folder:", choices=folders,
-                               selected=keep_selection("map_folder", folders))
+        runs = list(viewable_runs())
+        if not runs:
+            return ui.div("No completed runs with project data yet.")
+        return ui.input_select("map_folder", "Output folder:", choices=runs,
+                               selected=keep_selection("map_folder", runs))
+
+    @render.ui
+    def subfolder_ui():
+        folder = input.map_folder() if "map_folder" in input else None
+        scenarios = list(viewable_runs().get(folder, ()))
+        if not scenarios:
+            return ui.div()
+        return ui.input_select("subfolder", "Subfolder:", choices=scenarios,
+                               selected=keep_selection("subfolder", scenarios))
 
 
     def _graph_dir():
@@ -676,19 +702,6 @@ def server(input, output, session):
     # ==================== Map and Scatter Plot Rendering ====================
 
     @render.ui
-    def subfolder_ui():
-        folder = input.map_folder()
-        folder_path = output_files_path / folder if folder else None
-        if folder_path is None or not folder_path.is_dir():
-            return ui.div()
-        subfolders = sorted(f.name for f in folder_path.iterdir()
-                            if f.is_dir() and not f.name.startswith("_"))
-        if not subfolders:
-            return ui.div("No valid subfolders found.")
-        return ui.input_select("subfolder", "Subfolder:", choices=subfolders,
-                               selected=keep_selection("subfolder", subfolders))
-
-    @render.ui
     def year_slider():
         _, _, years, _ = cached_project_data()
         if not years:
@@ -715,7 +728,8 @@ def server(input, output, session):
 
     @reactive.calc
     def cached_project_data():
-        folder, subfolder = input.map_folder(), input.subfolder()
+        folder = input.map_folder() if "map_folder" in input else None
+        subfolder = input.subfolder() if "subfolder" in input else None
         if not folder or not subfolder:
             return None, None, [], False
         projects_path = output_files_path / folder / "_input_files" / "input_projects.csv"
@@ -731,7 +745,7 @@ def server(input, output, session):
     @reactive.calc
     def projects_for_year():
         projects, shares, years, has_semicolons = cached_project_data()
-        year = input.year()
+        year = input.year() if "year" in input else None
         if projects is None or year is None or year not in years:
             return None, None, None, False
         return projects_for_year_frame(projects, shares, year), shares, years, has_semicolons
@@ -795,7 +809,7 @@ def server(input, output, session):
     @render_widget
     def scatter_plot():
         projects, _, _, has_semicolons = projects_for_year()
-        year = input.year()
+        year = input.year() if "year" in input else None
         commodity = input.commodity() if "commodity" in input else None
         
         if has_semicolons:
