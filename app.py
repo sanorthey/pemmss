@@ -97,10 +97,11 @@ def load_project_data(projects_df, status_df):
     projects = projects_df.copy()
     projects['LATITUDE'] = pd.to_numeric(projects['LATITUDE'], errors='coerce')
     projects['LONGITUDE'] = pd.to_numeric(projects['LONGITUDE'], errors='coerce')
-    projects = projects.dropna(subset=['LATITUDE', 'LONGITUDE', 'REMAINING_RESOURCE', 'GRADE'])
-    projects = projects[projects['LATITUDE'].between(-90, 90) & projects['LONGITUDE'].between(-180, 180)]
+    # Keep every project (the grade-tonnage plot needs them all); only the map needs coordinates
+    projects['HAS_COORDS'] = (projects['LATITUDE'].between(-90, 90)
+                              & projects['LONGITUDE'].between(-180, 180))
     if projects.empty:
-        raise ValueError("no projects with valid coordinates, resource and grade")
+        raise ValueError("input_projects.csv contains no projects")
 
     has_semicolons = bool(projects['REMAINING_RESOURCE'].str.contains(';', na=False).any()
                           or projects['GRADE'].str.contains(';', na=False).any())
@@ -149,6 +150,38 @@ def create_hover_text(row, status_info, year):
         f"<b>Start year:</b> {v('START_YEAR')}<br>"
         f"<b>Status percentages for {year}:</b><br>{status_text}"
     )
+
+def parse_tranches(value):
+    """'1e6;2.5e6' -> [1000000.0, 2500000.0]; empty or non-numeric -> None."""
+    if value is None or (isinstance(value, float) and pd.isna(value)) or str(value).strip() == "":
+        return None
+    try:
+        return [float(x) for x in str(value).split(';')]
+    except ValueError:
+        return None
+
+
+def tranche_table(projects):
+    """One row per project tranche: P_ID_NUMBER, TRANCHE (0-based, mining order), TONNAGE, GRADE.
+    Returns (table, n_skipped); skipped projects have missing/non-numeric values or
+    different numbers of tonnage and grade tranches."""
+    rows, skipped = [], 0
+    for pid, res, grd in projects[['P_ID_NUMBER', 'REMAINING_RESOURCE', 'GRADE']].itertuples(index=False):
+        t, g = parse_tranches(res), parse_tranches(grd)
+        if not t or not g or len(t) != len(g):
+            skipped += 1
+            continue
+        rows.extend((pid, i, ti, gi) for i, (ti, gi) in enumerate(zip(t, g)))
+    return pd.DataFrame(rows, columns=['P_ID_NUMBER', 'TRANCHE', 'TONNAGE', 'GRADE']), skipped
+
+
+def deposit_totals(tranches):
+    """Per project: total tonnage and tonnage-weighted mean grade across tranches."""
+    t = tranches.assign(CONTAINED=tranches['TONNAGE'] * tranches['GRADE'])
+    agg = t.groupby('P_ID_NUMBER').agg(TONNAGE=('TONNAGE', 'sum'), CONTAINED=('CONTAINED', 'sum'),
+                                       N_TRANCHES=('TRANCHE', 'size'))
+    agg['GRADE'] = agg['CONTAINED'] / agg['TONNAGE']
+    return agg.reset_index()
 
 def build_project_geojson(df):
     """One GeoJSON point per project; colour carried in each feature's style."""
@@ -733,7 +766,8 @@ def server(input, output, session):
             prev = input.year() if "year" in input else None
         value = prev if prev in years else years[0]
         return ui.input_slider("year", "Year:", min=years[0], max=years[-1],
-                               value=value, step=1, sep="")
+                               value=value, step=1, sep="",
+                               animate={"interval": 1000, "loop": False})
 
     @render.ui
     def commodity_selector_ui():
@@ -800,19 +834,23 @@ def server(input, output, session):
         map_parts.clear()
         if projects is None:
             return m
+        on_map = projects[projects['HAS_COORDS']]
+        if on_map.empty:
+            return m
 
         with reactive.isolate():  # initial colours only; year changes are handled below
             frame = projects_for_year()[0]
         if frame is None:
             frame = projects.assign(MARKER_COLOR="gray", STATUS_INFO=[{}] * len(projects))
 
-        layer = GeoJSON(data=build_project_geojson(frame), point_style=POINT_STYLE, name="Projects")
+        layer = GeoJSON(data=build_project_geojson(frame[frame['HAS_COORDS']]),
+                        point_style=POINT_STYLE, name="Projects")
         layer.on_click(_on_project_click)
         m.add(layer)
         m.add(LegendControl({k: v for k, v in STATUS_COLORS.items()},
                             title="Most likely status", position="bottomright"))
-        m.fit_bounds([[projects["LATITUDE"].min(), projects["LONGITUDE"].min()],
-                      [projects["LATITUDE"].max(), projects["LONGITUDE"].max()]])
+        m.fit_bounds([[on_map["LATITUDE"].min(), on_map["LONGITUDE"].min()],
+                      [on_map["LATITUDE"].max(), on_map["LONGITUDE"].max()]])
 
         map_parts.update(map=m, layer=layer, popup=Popup(child=HTML(), max_width=380),
                          frame=frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False),
@@ -825,7 +863,7 @@ def server(input, output, session):
         layer = map_parts.get("layer")
         if frame is None or layer is None:
             return
-        layer.data = build_project_geojson(frame)  # one message to the browser per year change
+        layer.data = build_project_geojson(frame[frame['HAS_COORDS']])
         map_parts["frame"] = frame.drop_duplicates("P_ID_NUMBER").set_index("P_ID_NUMBER", drop=False)
         map_parts["year"] = input.year()
 
@@ -834,24 +872,7 @@ def server(input, output, session):
         projects, _, _, has_semicolons = projects_for_year()
         year = input.year() if "year" in input else None
         commodity = input.commodity() if "commodity" in input else None
-        
-        if has_semicolons:
-            fig = go.Figure()
-            fig.update_layout(
-                title="Warning: Resource grade plot does not support ore tranche functionality",
-                template="simple_white",
-                annotations=[
-                    dict(
-                        text="Data contains semicolons (;) indicating ore tranches.<br>This plot cannot display tranche data properly.",
-                        xref="paper", yref="paper",
-                        x=0.5, y=0.5, xanchor='center', yanchor='middle',
-                        showarrow=False,
-                        font=dict(size=16, color="orange")
-                    )
-                ]
-            )
-            return fig
-        
+
         if projects is None or projects.empty or year is None or commodity is None:
             fig = go.Figure()
             fig.update_layout(
@@ -860,11 +881,12 @@ def server(input, output, session):
             )
             return fig
 
-        projects = projects[projects['COMMODITY'] == commodity].copy()
-        projects['_X'] = pd.to_numeric(projects['REMAINING_RESOURCE'], errors='coerce')
-        projects['_Y'] = pd.to_numeric(projects['GRADE'], errors='coerce')
+        projects = projects[projects['COMMODITY'] == commodity]
         n_total = len(projects)
-        projects = projects[projects['_X'].gt(0) & projects['_Y'].notna()]   # log x-axis needs > 0
+        tranches, _ = tranche_table(projects)
+        totals = deposit_totals(tranches).rename(columns={'TONNAGE': '_X', 'GRADE': '_Y'})
+        projects = projects.merge(totals[['P_ID_NUMBER', '_X', '_Y', 'N_TRANCHES']], on='P_ID_NUMBER')
+        projects = projects[projects['_X'] > 0]          # log x-axis
         n_dropped = n_total - len(projects)
 
         if projects.empty:
@@ -915,11 +937,11 @@ def server(input, output, session):
             title=f"{commodity}, {year}" + (
                 f" ({n_dropped} projects without numeric resource/grade not shown)" if n_dropped else ""),
             xaxis=dict(
-                title="Remaining resource (metric tons)",
+                title="Initial Resource (metric tons)",
                 type="log",
             ),
             yaxis=dict(
-                title="Grade (mass ratio)",
+                title="Initial Grade (mass ratio)",
             ),
             template="simple_white",
             hovermode='closest',
