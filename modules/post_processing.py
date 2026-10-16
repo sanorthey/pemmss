@@ -157,7 +157,7 @@ def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_f
     for filepath in directory.glob(file_pattern):
         df = pl.read_csv(filepath)
         time_cols = [col for col in df.columns if col != id_vars]
-        melted = df.melt(id_vars=id_vars, value_vars=time_cols, variable_name="Time", value_name=label)
+        melted = df.unpivot(index=id_vars, on=time_cols, variable_name="Time", value_name=label)
         dfs.append(melted)
 
     if not dfs:
@@ -170,7 +170,7 @@ def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_f
     freq_df = (
         full_df
         .group_by([id_vars, "Time", label])
-        .agg(pl.count().alias("Count"))
+        .agg(pl.len().alias("Count"))
     )
 
     # Ensure label column is Int64 for mapping
@@ -188,18 +188,21 @@ def count_iteration_frequencies(directory, file_pattern="*-Status.csv", output_f
         .when(pl.col(label) == 1).then(pl.lit(int_labels.get(1)))
         .when(pl.col(label) == 2).then(pl.lit(int_labels.get(2)))
         .when(pl.col(label) == 3).then(pl.lit(int_labels.get(3)))
-        .otherwise(pl.col(label).cast(pl.Utf8))
+        .otherwise(pl.col(label).cast(pl.String)
         .alias(label)
     )
 
     # Pivot to wide format: each Time is a column
-    pivot_df = freq_df.pivot(
-        values="Count",
-        index=[id_vars, label],
-        columns="Time"
-    )
+    pivot_df = freq_df.pivot(values="Count", index=[id_vars, label], on="Time")
 
-    # Write to CSV
+    # Deterministic layout: time columns in the input files' order, rows sorted
+    time_order = []
+    for cols in time_cols_seen:
+        time_order.extend(c for c in cols if c not in time_order)
+    pivot_df = (pivot_df
+                .select([id_vars, label, *[c for c in time_order if c in pivot_df.columns]])
+                .sort([id_vars, label]))
+
     pivot_df.write_csv(output_filepath)
 
     return output_filepath
