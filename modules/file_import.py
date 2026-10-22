@@ -411,7 +411,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
             else:
                 value = {'ALL': {'ALL': float(0), commodity: float(0)}}
                 net_values = [float(x) for x in row['VALUE_NET'].split(';')]
-                commodity_recovery_values = [float(x) for x in row['VALUE_NET'].split(';')]
+                commodity_recovery_values = [float(x) for x in row['VALUE_RECOVERY_NET'].split(';')]
                 for tranche, values in enumerate(zip(net_values, commodity_recovery_values)):
                     value.update({tranche: {'ALL': values[0], commodity: values[1]}})
                     value['ALL']['ALL'] += values[0]
