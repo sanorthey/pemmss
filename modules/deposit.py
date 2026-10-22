@@ -463,7 +463,7 @@ class Mine:
                 | 1 if mine did supply
 
         """
-        if marginal_recovery is False:
+        if not marginal_recovery:
             if self.value['ALL']['ALL'] < 0:
                 # Deposit is not valuable enough to mine.
                 self.status = -2
