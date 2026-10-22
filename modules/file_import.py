@@ -404,7 +404,7 @@ def import_projects(f, path, copy_path=None, log_path=None):
                                                           'b': row['COST_B'],
                                                           'c': row['COST_C'],
                                                           'd': row['COST_D']}})
-            if row['VALUE_NET'] == "" or row['VALUE_RECOVERY_NET']:
+            if row['VALUE_NET'] == "" or row['VALUE_RECOVERY_NET'] == "":
                 no_value += 1
                 value = {'ALL': {}, commodity: {}}
                 v_update = True
